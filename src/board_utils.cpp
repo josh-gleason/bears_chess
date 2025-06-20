@@ -275,7 +275,7 @@ static int board_fmt_idx() {
     return idx;
 }
 
-static std::string get_piece_glyph(Piece piece, Color color, BoardFormat fmt) {
+static std::string get_piece_glyph(Color color, Piece piece, BoardFormat fmt) {
     if (piece == Piece::NONE) {
         return (check_flag(fmt, BoardFormat::NO_COLOR) ? "." : " ");
     } else if (check_flag(fmt, BoardFormat::NO_UNICODE)) {
@@ -322,8 +322,8 @@ static std::string get_ansi_reset(BoardFormat fmt) {
     return ANSI_RESET;
 }
 
-static std::string get_square_str(Square square, Piece piece, Color color, BoardFormat fmt) {
-    return get_ansi_code(square, color, fmt) + get_piece_glyph(piece, color, fmt) + " " + get_ansi_reset(fmt);
+static std::string get_square_str(Color color, Piece piece, Square square, BoardFormat fmt) {
+    return get_ansi_code(square, color, fmt) + get_piece_glyph(color, piece, fmt) + " " + get_ansi_reset(fmt);
 }
 
 static std::vector<Square> get_square_order(BoardFormat fmt) {
@@ -399,7 +399,7 @@ static std::string board_rank_string(const Board& board, Rank rank, BoardFormat 
         Square square = square_of(file, rank);
         Piece piece = board.get_piece_at(square);
         Color color = board.get_color_at(square);
-        rank_string += get_square_str(square, piece, color, fmt);
+        rank_string += get_square_str(color, piece, square, fmt);
     }
     return rank_string;
 }
@@ -429,16 +429,16 @@ static std::string castling_rights_string(const Board& board, BoardFormat fmt) {
     } else {
         std::string str = "Castling rights: ";
         if (check_flag(board.castling_rights, CastlingRights::WHITE_KING)) {
-            str += get_square_str(Square::E1, Piece::KING, Color::WHITE, fmt);
+            str += get_square_str(Color::WHITE, Piece::KING, Square::E1, fmt);
         }
         if (check_flag(board.castling_rights, CastlingRights::WHITE_QUEEN)) {
-            str += get_square_str(Square::D1, Piece::QUEEN, Color::WHITE, fmt);
+            str += get_square_str(Color::WHITE, Piece::QUEEN, Square::D1, fmt);
         }
         if (check_flag(board.castling_rights, CastlingRights::BLACK_KING)) {
-            str += get_square_str(Square::E8, Piece::KING, Color::BLACK, fmt);
+            str += get_square_str(Color::BLACK, Piece::KING, Square::E8, fmt);
         }
         if (check_flag(board.castling_rights, CastlingRights::BLACK_QUEEN)) {
-            str += get_square_str(Square::D8, Piece::QUEEN, Color::BLACK, fmt);
+            str += get_square_str(Color::BLACK, Piece::QUEEN, Square::D8, fmt);
         }
         if (board.castling_rights == CastlingRights::NONE) {
             str += "None";
