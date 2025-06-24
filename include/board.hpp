@@ -27,9 +27,9 @@ class Board {
 
         inline void clear_square(Square s) {
             Bitboard mask = ~bb_square(s);
-            for (Color color = Color::FIRST; color <= Color::LAST; ++color) {
+            for (Color color : iter<Color>) {
                 occupied_by_color[idx(color)] &= mask;
-                for (Piece piece = Piece::FIRST; piece <= Piece::LAST; ++piece) {
+                for (Piece piece : iter<Piece>) {
                     pieces[idx(color)][idx(piece)] &= mask;
                 }
             }
@@ -49,7 +49,7 @@ class Board {
         }
 
         inline Color get_color_at(Square s) const {
-            for (Color color = Color::FIRST; color <= Color::LAST; ++color) {
+            for (Color color : iter<Color>) {
                 if (is_occupied_by_color(color, s)) {
                     return color;
                 }
@@ -60,7 +60,7 @@ class Board {
         inline std::pair<Color, Piece> get_color_piece_at(Square s) const {
             Color color = get_color_at(s);
             if (color != Color::NONE) {
-                for (Piece piece = Piece::FIRST; piece <= Piece::LAST; ++piece) {
+                for (Piece piece : iter<Piece>) {
                     if (test_bit(color, piece, s)) {
                         return std::make_pair(color, piece);
                     }
@@ -82,8 +82,8 @@ class Board {
         uint8_t halfmove_clock;
 
         // piece locations
-        Bitboard pieces[COLOR_COUNT][PIECE_COUNT];
-        Bitboard occupied_by_color[COLOR_COUNT];
+        Bitboard pieces[num_of<Color>][num_of<Piece>];
+        Bitboard occupied_by_color[num_of<Color>];
         Bitboard occupied;
 
         // other information computed when requested

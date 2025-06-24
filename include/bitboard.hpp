@@ -2,8 +2,16 @@
 
 #include "types.hpp"
 
+constexpr std::array<Bitboard, num_of<Square>> BB_SQUARE = []() {
+    std::array<Bitboard, num_of<Square>> table{};
+    for (int i = 0; i < num_of<Square>; ++i) {
+        table[i] = 1ULL << i;
+    }
+    return table;
+}();
+
 constexpr Bitboard bb_square(Square square) {
-    return 1ULL << idx(square);
+    return BB_SQUARE[idx(square)];
 }
 
 constexpr Bitboard bb_square(File file, Rank rank) {
@@ -15,7 +23,7 @@ constexpr Bitboard bb_file(File file) {
 }
 
 constexpr Bitboard bb_rank(Rank rank) {
-    return 0xff << (FILE_COUNT * idx(rank));
+    return 0xff << (num_of<File> * idx(rank));
 }
 
 constexpr Bitboard operator&(Bitboard bb, Square square) {
@@ -89,3 +97,4 @@ constexpr Bitboard operator|(File file, Bitboard bb) {
 constexpr Bitboard operator^(File file, Bitboard bb) {
     return (bb ^ file);
 }
+

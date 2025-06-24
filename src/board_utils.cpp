@@ -6,17 +6,17 @@
 #include "board_utils.hpp"
 #include "bitboard.hpp"
 
-constexpr const char* PIECE_STR[PIECE_COUNT * COLOR_COUNT] = {
+constexpr const char* PIECE_STR[num_of<Piece> * num_of<Color>] = {
     "P", "N", "B", "R", "Q", "K",
     "p", "n", "b", "r", "q", "k"
 };
-constexpr const char* FILE_STR[FILE_COUNT] = {
+constexpr const char* FILE_STR[num_of<File>] = {
     "a", "b", "c", "d", "e", "f", "g", "h"
 };
-constexpr const char* RANK_STR[RANK_COUNT] = {
+constexpr const char* RANK_STR[num_of<Rank>] = {
     "1", "2", "3", "4", "5", "6", "7", "8"
 };
-constexpr const char* SQUARE_STR[SQUARE_COUNT] = {
+constexpr const char* SQUARE_STR[num_of<Square>] = {
     "a1", "b1", "c1", "d1", "e1", "f1", "g1", "h1",
     "a2", "b2", "c2", "d2", "e2", "f2", "g2", "h2",
     "a3", "b3", "c3", "d3", "e3", "f3", "g3", "h3",
@@ -26,17 +26,17 @@ constexpr const char* SQUARE_STR[SQUARE_COUNT] = {
     "a7", "b7", "c7", "d7", "e7", "f7", "g7", "h7",
     "a8", "b8", "c8", "d8", "e8", "f8", "g8", "h8"
 };
-constexpr const char8_t* PIECE_UTF8[PIECE_COUNT * COLOR_COUNT] = {
+constexpr const char8_t* PIECE_UTF8[num_of<Piece> * num_of<Color>] = {
     u8"♙", u8"♘", u8"♗", u8"♖", u8"♕", u8"♔",
     u8"♟", u8"♞", u8"♝", u8"♜", u8"♛", u8"♚"
 };
 
 static std::string piece_to_str(Color color, Piece piece) {
-    return PIECE_STR[idx(color) * PIECE_COUNT + idx(piece)];
+    return PIECE_STR[idx(color) * num_of<Piece> + idx(piece)];
 }
 
 static std::string piece_to_utf8(Color color, Piece piece) {
-    const std::u8string_view glyph = PIECE_UTF8[idx(color) * PIECE_COUNT + idx(piece)];
+    const std::u8string_view glyph = PIECE_UTF8[idx(color) * num_of<Piece> + idx(piece)];
     return std::string(glyph.begin(), glyph.end());
 }
 
@@ -53,8 +53,8 @@ static std::string square_to_str(const Square square) {
 }
 
 static std::tuple<Color, Piece> char_to_piece(const char ch) {
-    for (Piece piece = Piece::FIRST; piece <= Piece::LAST; ++piece) {
-        for (Color color = Color::FIRST; color <= Color::LAST; ++color) {
+    for (Piece piece : iter<Piece>) {
+        for (Color color : iter<Color>) {
             if (ch == piece_to_str(color, piece)[0]) {
                 return {color, piece};
             }
@@ -74,27 +74,27 @@ Board load_fen(const std::string &fen)
         throw std::invalid_argument("Invalid FEN: missing piece placement");
     }
 
-    File file = File::FIRST;
+    File file = first<File>;
     Rank rank = Rank::_8;
     for (char c : token) {
         if (c == '/') {
-            if (file != File::UB) {
+            if (file <= last<File>) {
                 throw std::invalid_argument("Invalid FEN: incomplete rank");
             }
             --rank;
-            file = File::FIRST;
+            file = first<File>;
         } else {
             if (std::isdigit(c)) {
                 int value = c - '0';
                 while (value--) {
-                    if (file > File::LAST) {
+                    if (file > last<File>) {
                         throw std::invalid_argument("Invalid FEN: overfull rank");
                     }
                     board.clear_square(square_of(file, rank));
                     ++file;
                 }
             } else {
-                if (file > File::LAST) {
+                if (file > last<File>) {
                     throw std::invalid_argument("Invalid FEN: overfull rank");
                 }
                 auto [color, piece] = char_to_piece(c);
@@ -106,7 +106,7 @@ Board load_fen(const std::string &fen)
         }
     }
 
-    if (file != File::UB) {
+    if (file <= last<File>) {
         throw std::invalid_argument("Invalid FEN: incomplete rank");
     }
 
@@ -209,9 +209,9 @@ Board load_fen(const std::string &fen)
 std::string get_fen(const Board& board)
 {
     std::string fen;
-    for (Rank rank = Rank::LAST; rank >= Rank::FIRST; --rank) {
+    for (Rank rank : iter_rev<Rank>) {
         int empty_count = 0;
-        for (File file = File::FIRST; file <= File::LAST; ++file) {
+        for (File file : iter<File>) {
             Square square = square_of(file, rank);
             Piece piece = board.get_piece_at(square);
             Color color = board.get_color_at(square);
@@ -230,7 +230,7 @@ std::string get_fen(const Board& board)
         if (empty_count) {
             fen += std::to_string(empty_count);
         }
-        if (rank != Rank::FIRST) {
+        if (rank != first<Rank>) {
             fen += "/";
         }
     }
@@ -329,18 +329,18 @@ static std::string get_square_str(Color color, Piece piece, Square square, Board
 
 static std::vector<Square> get_square_order(BoardFormat fmt) {
     std::vector<Square> squares;
-    squares.reserve(SQUARE_COUNT);
+    squares.reserve(num_of<Square>);
     if (check_flag(fmt, BoardFormat::ORIENT_BLACK)) {
         // order displayed from top left (H1, G1, ...)
-        for (Rank rank = Rank::FIRST; rank <= Rank::LAST; ++rank) {
-            for (File file = File::LAST; file >= File::FIRST; --file) {
+        for (Rank rank : iter<Rank>) {
+            for (File file : iter_rev<File>) {
                 squares.push_back(square_of(file, rank));
             }
         }
     } else {
         // order displayed from top left (A8, B8, ...)
-        for (Rank rank = Rank::LAST; rank >= Rank::FIRST; --rank) {
-            for (File file = File::FIRST; file <= File::LAST; ++file) {
+        for (Rank rank : iter_rev<Rank>) {
+            for (File file : iter<File>) {
                 squares.push_back(square_of(file, rank));
             }
         }
@@ -350,13 +350,13 @@ static std::vector<Square> get_square_order(BoardFormat fmt) {
 
 static std::vector<Rank> get_rank_order(BoardFormat fmt) {
     std::vector<Rank> ranks;
-    ranks.reserve(RANK_COUNT);
+    ranks.reserve(num_of<Rank>);
     if (check_flag(fmt, BoardFormat::ORIENT_BLACK)) {
-        for (Rank rank = Rank::FIRST; rank <= Rank::LAST; ++rank) {
+        for (Rank rank : iter<Rank>) {
             ranks.push_back(rank);
         }
     } else {
-        for (Rank rank = Rank::LAST; rank >= Rank::FIRST; --rank) {
+        for (Rank rank : iter_rev<Rank>) {
             ranks.push_back(rank);
         }
     }
@@ -365,13 +365,13 @@ static std::vector<Rank> get_rank_order(BoardFormat fmt) {
 
 static std::vector<File> get_file_order(BoardFormat fmt) {
     std::vector<File> files;
-    files.reserve(RANK_COUNT);
+    files.reserve(num_of<File>);
     if (check_flag(fmt, BoardFormat::ORIENT_BLACK)) {
-        for (File file = File::LAST; file >= File::FIRST; --file) {
+        for (File file : iter_rev<File>) {
             files.push_back(file);
         }
     } else {
-        for (File file = File::FIRST; file <= File::LAST; ++file) {
+        for (File file : iter<File>) {
             files.push_back(file);
         }
     }

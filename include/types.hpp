@@ -5,7 +5,6 @@
 #include <vector>
 #include <cassert>
 #include <array>
-// #include "macros.hpp"
 #include "enum_traits.hpp"
 
 using Bitboard = uint64_t;
@@ -18,38 +17,30 @@ constexpr std::underlying_type_t<E> idx(E e) noexcept {
 
 enum class Piece : int8_t {
     KNIGHT, BISHOP, ROOK, QUEEN, KING, PAWN,
-    NONE,
-    FIRST = KNIGHT, LAST = PAWN,
-    LB = -1, UB = 6
+    NONE
 };
 
-constexpr size_t PIECE_COUNT = 6;
+template<> struct enum_traits<Piece> :
+    preincrement_ops,
+    inequality_ops,
+    range_ops<Piece::KNIGHT, Piece::PAWN>
+{};
 
-template<> struct enum_traits<Piece> : preincrement_ops, inequality_ops {};
-
-constexpr std::array<Piece, PIECE_COUNT> PIECES = []() {
-    std::array<Piece, PIECE_COUNT> table{};
-    for (Piece piece = Piece::FIRST; piece <= Piece::LAST; ++piece) {
+constexpr std::array<Piece, num_of<Piece>> PIECES = []() {
+    std::array<Piece, num_of<Piece>> table{};
+    for (Piece piece : iter<Piece>) {
         table[idx(piece)] = piece;
     }
     return table;
 }();
 
-constexpr std::array<Piece, PIECE_COUNT> PIECES_REVERSED = []() {
-    std::array<Piece, PIECE_COUNT> table{};
-    for (Piece piece = Piece::LAST; piece >= Piece::FIRST; --piece) {
+constexpr std::array<Piece, num_of<Piece>> PIECES_REVERSED = []() {
+    std::array<Piece, num_of<Piece>> table{};
+    for (Piece piece : iter_rev<Piece>) {
         table[idx(piece)] = piece;
     }
     return table;
 }();
-
-// constexpr auto BB_SQUARE = []() {
-//     std::array<Bitboard, 64> table{};
-//     for (int i = 0; i < 64; ++i) {
-//         table[i] = 1ULL << i;
-//     }
-//     return table;
-// }();
 
 enum class Square : int8_t {
     A1, B1, C1, D1, E1, F1, G1, H1,
@@ -60,30 +51,36 @@ enum class Square : int8_t {
     A6, B6, C6, D6, E6, F6, G6, H6,
     A7, B7, C7, D7, E7, F7, G7, H7,
     A8, B8, C8, D8, E8, F8, G8, H8,
-    NONE, FIRST = A1, LAST = H8, LB = -1, UB = 64
+    NONE
 };
 
-constexpr size_t SQUARE_COUNT = 64;
-
-template<> struct enum_traits<Square> : preincrement_ops, inequality_ops {};
+template<> struct enum_traits<Square> :
+    preincrement_ops,
+    inequality_ops,
+    range_ops<Square::A1, Square::H8>
+{};
 
 enum class Rank : int8_t {
     _1, _2, _3, _4, _5, _6, _7, _8,
-    NONE, FIRST = _1, LAST = _8, LB = -1, UB = 8
+    NONE
 };
 
-constexpr size_t RANK_COUNT = 8;
-
-template<> struct enum_traits<Rank> : preincrement_ops, inequality_ops {};
+template<> struct enum_traits<Rank> :
+    preincrement_ops,
+    inequality_ops,
+    range_ops<Rank::_1, Rank::_8>
+{};
 
 enum class File : int8_t {
     A, B, C, D, E, F, G, H,
-    NONE, FIRST = A, LAST = H, LB = -1, UB = 8
+    NONE
 };
 
-constexpr size_t FILE_COUNT = 8;
-
-template<> struct enum_traits<File> : preincrement_ops, inequality_ops {};
+template<> struct enum_traits<File> :
+    preincrement_ops,
+    inequality_ops,
+    range_ops<File::A, File::H>
+{};
 
 constexpr Rank rank_of(Square square) {
     return static_cast<Rank>(idx(square) >> 3);
@@ -116,12 +113,14 @@ template<> struct enum_traits<CastlingRights> : bitmask_ops, flag_ops {};
 
 enum class Color : int8_t {
     WHITE, BLACK,
-    NONE, FIRST = WHITE, LAST = BLACK, LB = -1, UB = 2
+    NONE
 };
 
-constexpr size_t COLOR_COUNT = 2;
-
-template<> struct enum_traits<Color> : preincrement_ops, inequality_ops {};
+template<> struct enum_traits<Color> :
+    preincrement_ops,
+    inequality_ops,
+    range_ops<Color::WHITE, Color::BLACK>
+{};
 
 enum class MoveType : int8_t {
     QUIET = 0b0000,
@@ -145,8 +144,6 @@ enum class MoveType : int8_t {
     PROMOTION_BIT = 0b1000,
     PROMOTION_PIECE_BITS = 0b0011,
 };
-
-constexpr size_t MOVE_TYPE_COUNT = 16;
 
 template<> struct enum_traits<MoveType> : bitmask_ops, flag_ops {};
 

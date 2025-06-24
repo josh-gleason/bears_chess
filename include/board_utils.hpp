@@ -38,7 +38,10 @@ enum class BoardFormat : long {
     NONE = 0x0,
 };
 
-template<> struct enum_traits<BoardFormat> : bitmask_ops, flag_ops {};
+template<> struct enum_traits<BoardFormat> :
+    bitmask_ops,
+    flag_ops
+{};
 
 namespace detail {
     struct BoardFormatFlags {
