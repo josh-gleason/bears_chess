@@ -5,7 +5,8 @@
 #include <vector>
 #include <cassert>
 #include <array>
-#include "macros.hpp"
+// #include "macros.hpp"
+#include "enum_traits.hpp"
 
 using Bitboard = uint64_t;
 
@@ -24,8 +25,7 @@ enum class Piece : int8_t {
 
 constexpr size_t PIECE_COUNT = 6;
 
-ENABLE_PREINCREMENT(Piece)
-ENABLE_INEQUALITY(Piece)
+template<> struct enum_traits<Piece> : preincrement_ops, inequality_ops {};
 
 constexpr std::array<Piece, PIECE_COUNT> PIECES = []() {
     std::array<Piece, PIECE_COUNT> table{};
@@ -65,8 +65,7 @@ enum class Square : int8_t {
 
 constexpr size_t SQUARE_COUNT = 64;
 
-ENABLE_PREINCREMENT(Square)
-ENABLE_INEQUALITY(Square)
+template<> struct enum_traits<Square> : preincrement_ops, inequality_ops {};
 
 enum class Rank : int8_t {
     _1, _2, _3, _4, _5, _6, _7, _8,
@@ -75,8 +74,7 @@ enum class Rank : int8_t {
 
 constexpr size_t RANK_COUNT = 8;
 
-ENABLE_PREINCREMENT(Rank)
-ENABLE_INEQUALITY(Rank)
+template<> struct enum_traits<Rank> : preincrement_ops, inequality_ops {};
 
 enum class File : int8_t {
     A, B, C, D, E, F, G, H,
@@ -85,8 +83,7 @@ enum class File : int8_t {
 
 constexpr size_t FILE_COUNT = 8;
 
-ENABLE_PREINCREMENT(File)
-ENABLE_INEQUALITY(File)
+template<> struct enum_traits<File> : preincrement_ops, inequality_ops {};
 
 constexpr Rank rank_of(Square square) {
     return static_cast<Rank>(idx(square) >> 3);
@@ -115,8 +112,7 @@ enum class CastlingRights : uint8_t {
     ALL = 0b1111
 };
 
-ENABLE_BITMASK_OPERATORS(CastlingRights)
-ENABLE_FLAGS(CastlingRights)
+template<> struct enum_traits<CastlingRights> : bitmask_ops, flag_ops {};
 
 enum class Color : int8_t {
     WHITE, BLACK,
@@ -125,8 +121,7 @@ enum class Color : int8_t {
 
 constexpr size_t COLOR_COUNT = 2;
 
-ENABLE_PREINCREMENT(Color)
-ENABLE_INEQUALITY(Color)
+template<> struct enum_traits<Color> : preincrement_ops, inequality_ops {};
 
 enum class MoveType : int8_t {
     QUIET = 0b0000,
@@ -153,7 +148,7 @@ enum class MoveType : int8_t {
 
 constexpr size_t MOVE_TYPE_COUNT = 16;
 
-ENABLE_BITMASK_OPERATORS(MoveType);
+template<> struct enum_traits<MoveType> : bitmask_ops, flag_ops {};
 
 constexpr bool is_capture(MoveType move_type) {
     return static_cast<bool>(move_type & MoveType::CAPTURE_BIT);
