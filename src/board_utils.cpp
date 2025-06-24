@@ -26,7 +26,7 @@ constexpr const char* SQUARE_STR[SQUARE_COUNT] = {
     "a7", "b7", "c7", "d7", "e7", "f7", "g7", "h7",
     "a8", "b8", "c8", "d8", "e8", "f8", "g8", "h8"
 };
-constexpr const char* PIECE_UTF8[PIECE_COUNT * COLOR_COUNT] = {
+constexpr const char8_t* PIECE_UTF8[PIECE_COUNT * COLOR_COUNT] = {
     u8"♙", u8"♘", u8"♗", u8"♖", u8"♕", u8"♔",
     u8"♟", u8"♞", u8"♝", u8"♜", u8"♛", u8"♚"
 };
@@ -36,7 +36,8 @@ static std::string piece_to_str(Color color, Piece piece) {
 }
 
 static std::string piece_to_utf8(Color color, Piece piece) {
-    return PIECE_UTF8[idx(color) * PIECE_COUNT + idx(piece)];
+    const std::u8string_view glyph = PIECE_UTF8[idx(color) * PIECE_COUNT + idx(piece)];
+    return std::string(glyph.begin(), glyph.end());
 }
 
 static std::string file_to_str(const File file) {

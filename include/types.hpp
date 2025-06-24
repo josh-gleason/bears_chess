@@ -2,7 +2,9 @@
 
 #include <cstdint>
 #include <string>
+#include <vector>
 #include <cassert>
+#include <array>
 #include "macros.hpp"
 
 using Bitboard = uint64_t;
@@ -14,9 +16,9 @@ constexpr std::underlying_type_t<E> idx(E e) noexcept {
 }
 
 enum class Piece : int8_t {
-    PAWN, KNIGHT, BISHOP, ROOK, QUEEN, KING,
+    KNIGHT, BISHOP, ROOK, QUEEN, KING, PAWN,
     NONE,
-    FIRST = PAWN, LAST = KING,
+    FIRST = KNIGHT, LAST = PAWN,
     LB = -1, UB = 6
 };
 
@@ -24,6 +26,30 @@ constexpr size_t PIECE_COUNT = 6;
 
 ENABLE_PREINCREMENT(Piece)
 ENABLE_INEQUALITY(Piece)
+
+constexpr std::array<Piece, PIECE_COUNT> PIECES = []() {
+    std::array<Piece, PIECE_COUNT> table{};
+    for (Piece piece = Piece::FIRST; piece <= Piece::LAST; ++piece) {
+        table[idx(piece)] = piece;
+    }
+    return table;
+}();
+
+constexpr std::array<Piece, PIECE_COUNT> PIECES_REVERSED = []() {
+    std::array<Piece, PIECE_COUNT> table{};
+    for (Piece piece = Piece::LAST; piece >= Piece::FIRST; --piece) {
+        table[idx(piece)] = piece;
+    }
+    return table;
+}();
+
+// constexpr auto BB_SQUARE = []() {
+//     std::array<Bitboard, 64> table{};
+//     for (int i = 0; i < 64; ++i) {
+//         table[i] = 1ULL << i;
+//     }
+//     return table;
+// }();
 
 enum class Square : int8_t {
     A1, B1, C1, D1, E1, F1, G1, H1,
@@ -103,34 +129,43 @@ ENABLE_PREINCREMENT(Color)
 ENABLE_INEQUALITY(Color)
 
 enum class MoveType : int8_t {
-    NORMAL, CAPTURE,
-    PROMOTE_KNIGHT, CAPTURE_PROMOTE_KNIGHT,
-    PROMOTE_BISHOP, CAPTURE_PROMOTE_BISHOP,
-    PROMOTE_ROOK, CAPTURE_PROMOTE_ROOK,
-    PROMOTE_QUEEN, CAPTURE_PROMOTE_QUEEN,
-    CASTLE, EN_PASSANT,
-    NONE, FIRST = NORMAL, LAST = EN_PASSANT, LB = -1, UB = 12
+    QUIET = 0b0000,
+    DOUBLE_PAWN_PUSH = 0b0001,
+    KING_CASTLE = 0b0010,
+    QUEEN_CASTLE = 0b0011,
+    CAPTURE = 0b0100,
+    EP_CAPTURE = 0b0101,
+    // numbers not sequential, do not iterate
+    KNIGHT_PROMOTION = 0b1000,
+    BISHOP_PROMOTION = 0b1001,
+    ROOK_PROMOTION = 0b1010,
+    QUEEN_PROMOTION = 0b1011,
+    KNIGHT_PROMOTION_CAPTURE = 0b1100,
+    BISHOP_PROMOTION_CAPTURE = 0b1101,
+    ROOK_PROMOTION_CAPTURE = 0b1110,
+    QUEEN_PROMOTION_CAPTURE = 0b1111,
+    NONE = 16,
+
+    CAPTURE_BIT = 0b0100,
+    PROMOTION_BIT = 0b1000,
+    PROMOTION_PIECE_BITS = 0b0011,
 };
 
-constexpr size_t MOVE_TYPE_COUNT = 12;
+constexpr size_t MOVE_TYPE_COUNT = 16;
 
-ENABLE_PREINCREMENT(MoveType)
-ENABLE_INEQUALITY(MoveType)
+ENABLE_BITMASK_OPERATORS(MoveType);
 
 constexpr bool is_capture(MoveType move_type) {
-    uint8_t value = static_cast<uint8_t>(move_type);
-    return value & 1;
+    return static_cast<bool>(move_type & MoveType::CAPTURE_BIT);
 }
 
 constexpr bool is_promotion(MoveType move_type) {
-    uint8_t value = static_cast<uint8_t>(move_type);
-    return value > 1 && value < 10;
+    return static_cast<bool>(move_type & MoveType::PROMOTION_BIT);
 }
 
 constexpr Piece promote_to(MoveType move_type) {
-    uint8_t value = static_cast<uint8_t>(move_type);
     assert(is_promotion(move_type));
-    return static_cast<Piece>(value >> 1);
+    return static_cast<Piece>(move_type & MoveType::PROMOTION_PIECE_BITS);
 }
 
 struct Move {
@@ -146,3 +181,5 @@ struct UndoInfo {
     Square ep_square;
     uint8_t halfmove_clock;
 };
+
+using MoveList = std::vector<Move>;
