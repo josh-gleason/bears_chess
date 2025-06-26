@@ -3,6 +3,8 @@
 #include "types.hpp"
 #include "bitboard.hpp"
 
+namespace bears_chess {
+
 class Board {
     public:
         Board();
@@ -88,3 +90,5 @@ class Board {
 
         // other information computed when requested
 };
+
+} // namespace bears_chess

@@ -6,9 +6,11 @@
 #include "board_utils.hpp"
 #include "bitboard.hpp"
 
+namespace bears_chess {
+
 constexpr const char* PIECE_STR[num_of<Piece> * num_of<Color>] = {
-    "P", "N", "B", "R", "Q", "K",
-    "p", "n", "b", "r", "q", "k"
+    "N", "B", "R", "Q", "K", "P",
+    "n", "b", "r", "q", "k", "p"
 };
 constexpr const char* FILE_STR[num_of<File>] = {
     "a", "b", "c", "d", "e", "f", "g", "h"
@@ -27,9 +29,16 @@ constexpr const char* SQUARE_STR[num_of<Square>] = {
     "a8", "b8", "c8", "d8", "e8", "f8", "g8", "h8"
 };
 constexpr const char8_t* PIECE_UTF8[num_of<Piece> * num_of<Color>] = {
-    u8"♙", u8"♘", u8"♗", u8"♖", u8"♕", u8"♔",
-    u8"♟", u8"♞", u8"♝", u8"♜", u8"♛", u8"♚"
+    u8"♘", u8"♗", u8"♖", u8"♕", u8"♔", u8"♙",
+    u8"♞", u8"♝", u8"♜", u8"♛", u8"♚", u8"♟"
 };
+constexpr const char* COLOR_STR[num_of<Color>] = {
+    "White", "Black"
+};
+
+static std::string color_to_str(Color color) {
+    return COLOR_STR[idx(color)];
+}
 
 static std::string piece_to_str(Color color, Piece piece) {
     return PIECE_STR[idx(color) * num_of<Piece> + idx(piece)];
@@ -418,7 +427,7 @@ static std::string turn_string(const Board& board, BoardFormat fmt) {
         return "";
     } else {
         return (
-            std::string(board.side_to_move == Color::WHITE ? "White" : "Black") +
+            color_to_str(board.side_to_move) +
             std::string(" to play")
         );
     }
@@ -533,3 +542,40 @@ std::ostream& operator<<(std::ostream& out, const Board& board) {
 
     return out;
 }
+
+std::ostream& operator<<(std::ostream& out, Square square) {
+    return out << square_to_str(square);
+}
+
+std::ostream& operator<<(std::ostream& out, Rank rank) {
+    return out << rank_to_str(rank);
+}
+
+std::ostream& operator<<(std::ostream& out, File file) {
+    return out << file_to_str(file);
+}
+
+std::ostream& operator<<(std::ostream& out, Piece piece) {
+    return out << piece_to_str(Color::WHITE, piece);
+}
+
+std::ostream& operator<<(std::ostream& out, Color color) {
+    return out << color_to_str(color);
+}
+
+
+void print_bb(Bitboard bb, std::ostream &out) {
+    Board board;
+    for (Square square : iter<Square>) {
+        board.clear_square(square);
+    }
+    for (Square square : bb_scan(bb)) {
+        board.place(Color::WHITE, Piece::PAWN, square);
+    }
+
+    BoardFormat prev_fmt = static_cast<BoardFormat>(out.iword(board_fmt_idx()));
+    out << set_board_format(BoardFormat::ONLY_BOARD) << board;
+    out << set_board_format(prev_fmt);
+}
+
+} // namespace bears_chess

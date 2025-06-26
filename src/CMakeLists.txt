@@ -2,6 +2,7 @@ set(SOURCES
     board.cpp
     board_utils.cpp
     log.cpp
+    movegen.cpp
 )
 
 add_library(bears_chess ${SOURCES})

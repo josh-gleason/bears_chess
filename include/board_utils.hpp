@@ -1,7 +1,10 @@
 #pragma once
 
 #include <ostream>
+#include <iostream>
 #include "board.hpp"
+
+namespace bears_chess {
 
 constexpr const char* INITIAL_POSITION_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 constexpr const char* PERFT_POSITION_2_FEN = "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq -";
@@ -55,3 +58,13 @@ inline detail::BoardFormatFlags set_board_format(BoardFormat fmt) {
 
 std::ostream& operator<<(std::ostream& out, detail::BoardFormatFlags fmt);
 std::ostream& operator<<(std::ostream& out, const Board& board);
+
+std::ostream& operator<<(std::ostream& out, Square square);
+std::ostream& operator<<(std::ostream& out, Rank rank);
+std::ostream& operator<<(std::ostream& out, File file);
+std::ostream& operator<<(std::ostream& out, Piece piece);
+std::ostream& operator<<(std::ostream& out, Color color);
+
+void print_bb(Bitboard bb, std::ostream& out = std::cout);
+
+} // namespace bears_chess

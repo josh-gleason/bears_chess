@@ -4,7 +4,7 @@
 #include <iostream>
 
 TEST(PerftTest, StartPosDepth1) {
-    Board b;
+    bears_chess::Board b;
     std::cout << b << std::endl;
     EXPECT_TRUE(true);
 }

@@ -1,6 +1,8 @@
 #include "board.hpp"
 #include "bitboard.hpp"
 
+namespace bears_chess {
+
 Board::Board() : 
     pieces{},
     side_to_move(Color::WHITE),
@@ -58,3 +60,5 @@ UndoInfo Board::do_move(const Move &move)
 void Board::undo_move(const UndoInfo &undo_info)
 {
 }
+
+} // namespace bears_chess

@@ -1,6 +1,8 @@
 #pragma once
 #include <type_traits>
 
+namespace bears_chess {
+
 // opt in traits for enum classes
 struct bitmask_ops {};
 struct preincrement_ops {};
@@ -52,7 +54,7 @@ template<FlagEnum T> constexpr T set_flag(T x, T f) noexcept { return static_cas
 template<FlagEnum T> constexpr T clear_flag(T x, T f) noexcept { return static_cast<T>(static_cast<std::underlying_type_t<T>>(x) & (~static_cast<std::underlying_type_t<T>>(f))); }
 template<FlagEnum T> constexpr T toggle_flag(T x, T f) noexcept { return static_cast<T>(static_cast<std::underlying_type_t<T>>(x) ^ static_cast<std::underlying_type_t<T>>(f)); }
 
-template<typename E> concept RangeEnum = requires {
+template<typename E> concept RangeEnum = std::is_enum_v<E> && std::is_base_of_v<range_ops<enum_traits<E>::first, enum_traits<E>::last>, enum_traits<E>> && requires {
     { enum_traits<E>::first } -> std::convertible_to<E>;
     { enum_traits<E>::last  } -> std::convertible_to<E>;
 };
@@ -72,3 +74,5 @@ template<RangeEnum E> constexpr std::array<E, num_of<E>> iter_rev = [](){
         ary[i] = static_cast<E>(static_cast<std::underlying_type_t<E>>(enum_traits<E>::last) - i);
     return ary;
 }();
+
+} // namespace bears_chess

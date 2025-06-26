@@ -7,6 +7,8 @@
 #include <array>
 #include "enum_traits.hpp"
 
+namespace bears_chess {
+
 using Bitboard = uint64_t;
 
 template<typename E>
@@ -109,7 +111,10 @@ enum class CastlingRights : uint8_t {
     ALL = 0b1111
 };
 
-template<> struct enum_traits<CastlingRights> : bitmask_ops, flag_ops {};
+template<> struct enum_traits<CastlingRights> :
+    bitmask_ops,
+    flag_ops
+{};
 
 enum class Color : int8_t {
     WHITE, BLACK,
@@ -121,6 +126,10 @@ template<> struct enum_traits<Color> :
     inequality_ops,
     range_ops<Color::WHITE, Color::BLACK>
 {};
+
+constexpr Color operator~(Color color) noexcept {
+    return static_cast<Color>(static_cast<int8_t>(color) ^ 1);
+}
 
 enum class MoveType : int8_t {
     QUIET = 0b0000,
@@ -145,7 +154,10 @@ enum class MoveType : int8_t {
     PROMOTION_PIECE_BITS = 0b0011,
 };
 
-template<> struct enum_traits<MoveType> : bitmask_ops, flag_ops {};
+template<> struct enum_traits<MoveType> :
+    bitmask_ops,
+    flag_ops
+{};
 
 constexpr bool is_capture(MoveType move_type) {
     return static_cast<bool>(move_type & MoveType::CAPTURE_BIT);
@@ -175,3 +187,5 @@ struct UndoInfo {
 };
 
 using MoveList = std::vector<Move>;
+
+} // namespace bears_chess
