@@ -569,7 +569,7 @@ void print_bb(Bitboard bb, std::ostream &out) {
     for (Square square : iter<Square>) {
         board.clear_square(square);
     }
-    for (Square square : bb_scan(bb)) {
+    for (Square square : bb_square_scan(bb)) {
         board.place(Color::WHITE, Piece::PAWN, square);
     }
 

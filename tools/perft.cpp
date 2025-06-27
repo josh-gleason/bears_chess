@@ -15,10 +15,10 @@ int main()
     std::cout << load_fen(PERFT_POSITION_5_FEN) << std::endl;
     std::cout << load_fen(PERFT_POSITION_6_FEN) << std::endl;
 
-    // for (Square s : iter<Square>) {
-    //     cout << s << std::endl;
-    //     print_bb(BB_KNIGHT_MOVES[idx(s)]);
-    // }
+    for (Square s : iter<Square>) {
+        cout << s << std::endl;
+        print_bb(BB_KNIGHT_MOVES[idx(s)]);
+    }
 
     return 0;
 }

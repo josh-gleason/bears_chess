@@ -1,6 +1,7 @@
 #pragma once
 
 #include "types.hpp"
+#include <bit>
 
 namespace bears_chess {
 
@@ -55,10 +56,10 @@ constexpr std::array<Bitboard, num_of<Rank>> BB_RANK = []() {
     return table;
 }();
 
-constexpr std::array<std::array<Bitboard, num_of<File>>, num_of<Rank>> BB_FILE_RANK = []() {
-    std::array<std::array<Bitboard, num_of<File>>, num_of<Rank>> table{};
-    for (Rank rank : iter<Rank>) {
-        for (File file : iter<File>) {
+constexpr std::array<std::array<Bitboard, num_of<Rank>>, num_of<File>> BB_FILE_RANK = []() {
+    std::array<std::array<Bitboard, num_of<Rank>>, num_of<File>> table{};
+    for (File file : iter<File>) {
+        for (Rank rank : iter<Rank>) {
             table[idx(file)][idx(rank)] = (BB_FILE[idx(file)] & BB_RANK[idx(rank)]);
         }
     }
@@ -91,59 +92,219 @@ constexpr Bitboard operator&(File file, Bitboard bb) noexcept { return (bb & fil
 constexpr Bitboard operator|(File file, Bitboard bb) noexcept { return (bb | file); }
 constexpr Bitboard operator^(File file, Bitboard bb) noexcept { return (bb ^ file); }
 
-constexpr Square bitscan_forward(Bitboard bb) {
-    // return index of the lsb that is set, undefined for bb=0
-    return static_cast<Square>(__builtin_ctzll(idx(bb)));
+template<bool Safe=false> constexpr Bitboard bb_n(Bitboard bb) noexcept {
+    return bb << num_of<File>;
 }
 
-constexpr Square bitscan_reverse(Bitboard bb) {
-    // return index of the msb that is set, undefined for bb=0
-    return static_cast<Square>(63 - __builtin_clzll(idx(bb)));
+template<bool Safe=false> constexpr Bitboard bb_e(Bitboard bb) noexcept {
+    if constexpr (Safe)
+        bb &= ~bb_file(File::H);
+    return bb << 1;
 }
 
-constexpr int popcount(Bitboard bb) {
-    return __builtin_popcountll(idx(bb));
+template<bool Safe=false> constexpr Bitboard bb_s(Bitboard bb) noexcept {
+    return bb >> num_of<File>;
 }
 
-constexpr Bitboard lsb(Bitboard bb) noexcept {
-    return bb & -bb;
+template<bool Safe=false> constexpr Bitboard bb_w(Bitboard bb) noexcept {
+    if constexpr (Safe)
+        bb &= ~bb_file(File::A);
+    return bb >> 1;
 }
 
-class bb_iterator {
+template<bool Safe=false> constexpr Bitboard bb_ne(Bitboard bb) noexcept {
+    if constexpr (Safe)
+        bb &= ~bb_file(File::H);
+    return bb << (num_of<File> + 1);
+}
+
+template<bool Safe=false> constexpr Bitboard bb_nw(Bitboard bb) noexcept {
+    if constexpr (Safe)
+        bb &= ~bb_file(File::A);
+    return bb << (num_of<File> - 1);
+}
+
+template<bool Safe=false> constexpr Bitboard bb_se(Bitboard bb) noexcept {
+    if constexpr (Safe)
+        bb &= ~bb_file(File::H);
+    return bb >> (num_of<File> - 1);
+}
+
+template<bool Safe=false> constexpr Bitboard bb_sw(Bitboard bb) noexcept {
+    if constexpr (Safe)
+        bb &= ~bb_file(File::A);
+    return bb >> (num_of<File> + 1);
+}
+
+template<bool Safe=false> constexpr Bitboard bb_ww(Bitboard bb) noexcept {
+    if constexpr (Safe)
+        bb &= ~(bb_file(File::A) | bb_file(File::B));
+    return bb >> 2;
+}
+
+template<bool Safe=false> constexpr Bitboard bb_nww(Bitboard bb) noexcept {
+    if constexpr (Safe)
+        bb &= ~(bb_file(File::A) | bb_file(File::B));
+    return bb << (num_of<File> - 2);
+}
+
+template<bool Safe=false> constexpr Bitboard bb_nnww(Bitboard bb) noexcept {
+    if constexpr (Safe)
+        bb &= ~(bb_file(File::A) | bb_file(File::B));
+    return bb << (2 * num_of<File> - 2);
+}
+
+template<bool Safe=false> constexpr Bitboard bb_nnw(Bitboard bb) noexcept {
+    if constexpr (Safe)
+        bb &= ~bb_file(File::A);
+    return bb << (2 * num_of<File> - 1);
+}
+
+template<bool Safe=false> constexpr Bitboard bb_nn(Bitboard bb) noexcept {
+    return bb << (2 * num_of<File>);
+}
+
+template<bool Safe=false> constexpr Bitboard bb_nne(Bitboard bb) noexcept {
+    if constexpr (Safe)
+        bb &= ~bb_file(File::H);
+    return bb << (2 * num_of<File> + 1);
+}
+
+template<bool Safe=false> constexpr Bitboard bb_nnee(Bitboard bb) noexcept {
+    if constexpr (Safe)
+        bb &= ~(bb_file(File::G) | bb_file(File::H));
+    return bb << (2 * num_of<File> + 2);
+}
+
+template<bool Safe=false> constexpr Bitboard bb_nee(Bitboard bb) noexcept {
+    if constexpr (Safe)
+        bb &= ~(bb_file(File::G) | bb_file(File::H));
+    return bb << (num_of<File> + 2);
+}
+
+template<bool Safe=false> constexpr Bitboard bb_ee(Bitboard bb) noexcept {
+    if constexpr (Safe)
+        bb &= ~(bb_file(File::G) | bb_file(File::H));
+    return bb << 2;
+}
+
+template<bool Safe=false> constexpr Bitboard bb_see(Bitboard bb) noexcept {
+    if constexpr (Safe)
+        bb &= ~(bb_file(File::G) | bb_file(File::H));
+    return bb >> (num_of<File> - 2);
+}
+
+template<bool Safe=false> constexpr Bitboard bb_ssee(Bitboard bb) noexcept {
+    if constexpr (Safe)
+        bb &= ~(bb_file(File::G) | bb_file(File::H));
+    return bb >> (2 * num_of<File> - 2);
+}
+
+template<bool Safe=false> constexpr Bitboard bb_sse(Bitboard bb) noexcept {
+    if constexpr (Safe)
+        bb &= ~bb_file(File::H);
+    return bb >> (2 * num_of<File> - 1);
+}
+
+template<bool Safe=false> constexpr Bitboard bb_ss(Bitboard bb) noexcept {
+    return bb >> (2 * num_of<File>);
+}
+
+template<bool Safe=false> constexpr Bitboard bb_ssw(Bitboard bb) noexcept {
+    if constexpr (Safe)
+        bb &= ~bb_file(File::A);
+    return bb >> (2 * num_of<File> + 1);
+}
+
+template<bool Safe=false> constexpr Bitboard bb_ssww(Bitboard bb) noexcept {
+    if constexpr (Safe)
+        bb &= ~(bb_file(File::A) | bb_file(File::B));
+    return bb >> (2 * num_of<File> + 2);
+}
+
+template<bool Safe=false> constexpr Bitboard bb_sww(Bitboard bb) noexcept {
+    if constexpr (Safe)
+        bb &= ~(bb_file(File::A) | bb_file(File::B));
+    return bb >> (num_of<File> + 2);
+}
+
+// index of the lsb that is set, undefined for bb=0
+constexpr Square bitscan_forward(Bitboard bb) noexcept { return static_cast<Square>(__builtin_ctzll(idx(bb))); }
+// index of the msb that is set, undefined for bb=0
+constexpr Square bitscan_reverse(Bitboard bb) noexcept { return static_cast<Square>(63 - __builtin_clzll(idx(bb))); }
+// number of bits set
+constexpr int popcount(Bitboard bb) noexcept { return __builtin_popcountll(idx(bb)); }
+// extract the least significant bit
+constexpr Bitboard lsb(Bitboard bb) noexcept { return (bb & -bb); }
+
+class bb_square_iterator {
     public:
-        constexpr bb_iterator(Bitboard _bb) noexcept : bb(_bb) {}
-
-        constexpr bool operator!=(const bb_iterator& other) const noexcept {
-            return bb != other.bb;
-        }
-
-        constexpr Square operator*() const noexcept {
-            return bitscan_forward(bb);
-        }
-
-        constexpr bb_iterator& operator++() noexcept {
+        using iterator_category = std::input_iterator_tag;
+        using value_type = Square;
+        using difference_type = std::ptrdiff_t;
+        constexpr bb_square_iterator(Bitboard _bb) noexcept : bb(_bb) {}
+        constexpr bool operator!=(const bb_square_iterator& other) const noexcept { return bb != other.bb; }
+        constexpr Square operator*() const noexcept { return bitscan_forward(bb); }
+        constexpr bb_square_iterator& operator++() noexcept {
             bb &= bb - to_bb(1ULL);
             return *this;
         }
-
     private:
         Bitboard bb;
 };
 
-class bb_scan {
+// for (Square sq : bb_square_scan(bb)) to iterate over occupied squares of Bitboard bb (starting with lsb)
+class bb_square_scan {
     public:
-        constexpr bb_scan(Bitboard _bb) noexcept : bb(_bb) {}
-
-        constexpr bb_iterator begin() const noexcept {
-            return bb_iterator(bb);
-        }
-
-        constexpr bb_iterator end() const noexcept {
-            return bb_iterator(Bitboard::EMPTY);
-        }
-
+        constexpr bb_square_scan(Bitboard _bb) noexcept : bb(_bb) {}
+        constexpr bb_square_iterator begin() const noexcept { return bb_square_iterator(bb); }
+        constexpr bb_square_iterator end() const noexcept { return bb_square_iterator(Bitboard::EMPTY); }
     private:
         Bitboard bb;
 };
+
+class bb_bit_iterator {
+    public:
+        using iterator_category = std::input_iterator_tag;
+        using value_type = Bitboard;
+        using difference_type = std::ptrdiff_t;
+        constexpr bb_bit_iterator(Bitboard _bb) noexcept : bb(_bb) {}
+        constexpr bool operator!=(const bb_bit_iterator& other) const noexcept { return bb != other.bb; }
+        constexpr Bitboard operator*() const noexcept { return lsb(bb); }
+        constexpr bb_bit_iterator& operator++() noexcept {
+            bb &= bb - to_bb(1ULL);
+            return *this;
+        }
+    private:
+        Bitboard bb;
+};
+
+// for (Bitboard bb_bit : bb_bit_scan(bb)) to iterate over set bits of bb (starting with lsb)
+class bb_bit_scan {
+    public:
+        constexpr bb_bit_scan(Bitboard _bb) noexcept : bb(_bb) {}
+        constexpr bb_bit_iterator begin() const noexcept { return bb_bit_iterator(bb); }
+        constexpr bb_bit_iterator end() const noexcept { return bb_bit_iterator(Bitboard::EMPTY); }
+    private:
+        Bitboard bb;
+};
+
+constexpr std::array<Bitboard, num_of<Square>> BB_KNIGHT_MOVES = []() {
+    std::array<Bitboard, num_of<Square>> masks;
+    for (Square sq : iter<Square>) {
+        Bitboard center = BB_SQUARE[idx(sq)];
+        masks[idx(sq)] = (
+            bb_nne<true>(center) |
+            bb_nee<true>(center) |
+            bb_see<true>(center) |
+            bb_sse<true>(center) |
+            bb_ssw<true>(center) |
+            bb_sww<true>(center) |
+            bb_nww<true>(center) |
+            bb_nnw<true>(center)
+        );
+    }
+    return masks;
+}();
 
 } // namespace bears_chess
