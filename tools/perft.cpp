@@ -16,8 +16,9 @@ int main()
     std::cout << load_fen(PERFT_POSITION_6_FEN) << std::endl;
 
     for (Square s : iter<Square>) {
-        cout << s << std::endl;
-        print_bb(BB_KNIGHT_MOVES[idx(s)]);
+        cout << "Square: " << s << std::endl;
+        // cout << set_bitboard_piece(Piece::NONE) << BB_KNIGHT_MOVES[idx(s)];
+        cout << BB_KNIGHT_MOVES[idx(s)];
     }
 
     return 0;

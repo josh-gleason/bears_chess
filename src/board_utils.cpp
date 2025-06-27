@@ -8,6 +8,12 @@
 
 namespace bears_chess {
 
+constexpr long OSTREAM_WORD_INIT_BIT = 0x80000000;
+
+constexpr BoardFormat DEFAULT_BOARD_FORMAT = BoardFormat();
+constexpr Piece DEFAULT_BITBOARD_PIECE = Piece::NONE;
+constexpr Color DEFAULT_BITBOARD_COLOR = Color::BLACK;
+
 constexpr const char* PIECE_STR[num_of<Piece> * num_of<Color>] = {
     "N", "B", "R", "Q", "K", "P",
     "n", "b", "r", "q", "k", "p"
@@ -28,12 +34,19 @@ constexpr const char* SQUARE_STR[num_of<Square>] = {
     "a7", "b7", "c7", "d7", "e7", "f7", "g7", "h7",
     "a8", "b8", "c8", "d8", "e8", "f8", "g8", "h8"
 };
-constexpr const char8_t* PIECE_UTF8[num_of<Piece> * num_of<Color>] = {
+constexpr const char8_t* PIECE_UTF8[(1 + num_of<Piece>) * num_of<Color>] = {
     u8"♘", u8"♗", u8"♖", u8"♕", u8"♔", u8"♙",
     u8"♞", u8"♝", u8"♜", u8"♛", u8"♚", u8"♟"
 };
 constexpr const char* COLOR_STR[num_of<Color>] = {
     "White", "Black"
+};
+
+constexpr const char8_t* OCCUPIED_UTF8[num_of<Color>] = {
+    u8"⨉", u8"⨉"
+};
+constexpr const char* OCCUPIED_STR[num_of<Color>] = {
+    "x", "X"
 };
 
 static std::string color_to_str(Color color) {
@@ -44,8 +57,17 @@ static std::string piece_to_str(Color color, Piece piece) {
     return PIECE_STR[idx(color) * num_of<Piece> + idx(piece)];
 }
 
+static std::string occupied_to_str(Color color) {
+    return OCCUPIED_STR[idx(color)];
+}
+
 static std::string piece_to_utf8(Color color, Piece piece) {
     const std::u8string_view glyph = PIECE_UTF8[idx(color) * num_of<Piece> + idx(piece)];
+    return std::string(glyph.begin(), glyph.end());
+}
+
+static std::string occupied_to_utf8(Color color) {
+    const std::u8string_view glyph = OCCUPIED_UTF8[idx(color)];
     return std::string(glyph.begin(), glyph.end());
 }
 
@@ -280,7 +302,17 @@ std::string get_fen(const Board& board)
     return fen;
 }
 
-static int board_fmt_idx() {
+static int get_stream_board_fmt_idx() {
+    static int idx = std::ios_base::xalloc();
+    return idx;
+}
+
+static int get_stream_bitboard_color_fmt_idx() {
+    static int idx = std::ios_base::xalloc();
+    return idx;
+}
+
+static int get_stream_bitboard_piece_fmt_idx() {
     static int idx = std::ios_base::xalloc();
     return idx;
 }
@@ -295,6 +327,19 @@ static std::string get_piece_glyph(Color color, Piece piece, BoardFormat fmt) {
     } else {
         // foreground color handled by ANSI escape codes
         return piece_to_utf8(Color::BLACK, piece);
+    }
+}
+
+static std::string get_piece_occupancy_glyph(Color color, bool occupied, BoardFormat fmt) {
+    if (!occupied) {
+        return (check_flag(fmt, BoardFormat::NO_COLOR) ? "." : " ");
+    } else if (check_flag(fmt, BoardFormat::NO_UNICODE)) {
+        return occupied_to_str(color);
+    } else if (check_flag(fmt, BoardFormat::NO_COLOR)) {
+        return occupied_to_utf8(color);
+    } else {
+        // foreground color handled by ANSI escape codes
+        return occupied_to_utf8(Color::BLACK);
     }
 }
 
@@ -334,6 +379,10 @@ static std::string get_ansi_reset(BoardFormat fmt) {
 
 static std::string get_square_str(Color color, Piece piece, Square square, BoardFormat fmt) {
     return get_ansi_code(square, color, fmt) + get_piece_glyph(color, piece, fmt) + " " + get_ansi_reset(fmt);
+}
+
+static std::string get_square_occupancy_str(Color color, bool occupied, Square square, BoardFormat fmt) {
+    return get_ansi_code(square, color, fmt) + get_piece_occupancy_glyph(color, occupied, fmt) + " " + get_ansi_reset(fmt);
 }
 
 static std::vector<Square> get_square_order(BoardFormat fmt) {
@@ -407,9 +456,14 @@ static std::string board_rank_string(const Board& board, Rank rank, BoardFormat 
     }
     for (File file : get_file_order(fmt)) {
         Square square = square_of(file, rank);
-        Piece piece = board.get_piece_at(square);
         Color color = board.get_color_at(square);
-        rank_string += get_square_str(color, piece, square, fmt);
+        if (check_flag(fmt, BoardFormat::OCCUPANCY_ONLY)) {
+            bool occupied = board.is_occupied(square);
+            rank_string += get_square_occupancy_str(color, occupied, square, fmt);
+        } else {
+            Piece piece = board.get_piece_at(square);
+            rank_string += get_square_str(color, piece, square, fmt);
+        }
     }
     return rank_string;
 }
@@ -481,8 +535,62 @@ static std::string ep_square_string(const Board& board, BoardFormat fmt) {
     }
 }
 
+template<typename T>
+inline void set_ostream_word(std::ostream &out, int idx, T word) {
+    long iword = static_cast<long>(word);
+    // msb is reserved for initialization status
+    assert((iword & OSTREAM_WORD_INIT_BIT) != OSTREAM_WORD_INIT_BIT);
+    out.iword(idx) = iword | OSTREAM_WORD_INIT_BIT;
+}
+
+void set_stream_board_fmt(std::ostream &out, BoardFormat format) {
+    set_ostream_word(out, get_stream_board_fmt_idx(), format);
+}
+
+void set_stream_bitboard_piece_fmt(std::ostream &out, Piece piece) {
+    set_ostream_word(out, get_stream_bitboard_piece_fmt_idx(), piece);    
+}
+
+void set_stream_bitboard_color_fmt(std::ostream &out, Color color) {
+    set_ostream_word(out, get_stream_bitboard_color_fmt_idx(), color);    
+}
+
+template<typename T>
+inline T get_ostream_word(std::ostream &out, int idx, std::optional<T> _default = std::nullopt) {
+    long iword = out.iword(idx);
+    if (iword & OSTREAM_WORD_INIT_BIT) {
+        return static_cast<T>(iword & ~OSTREAM_WORD_INIT_BIT);
+    } else {
+        if (_default.has_value()) {
+            return *_default;
+        } else {
+            // assume default constructor
+            return T();
+        }
+    }
+}
+
+BoardFormat get_board_fmt(std::ostream &out) {
+    return get_ostream_word<BoardFormat>(out, get_stream_board_fmt_idx(), DEFAULT_BOARD_FORMAT);
+}
+
+Piece get_bitboard_fmt_piece(std::ostream &out) {
+    return get_ostream_word<Piece>(out, get_stream_bitboard_piece_fmt_idx(), DEFAULT_BITBOARD_PIECE);
+}
+
+Color get_bitboard_fmt_color(std::ostream &out) {
+    return get_ostream_word<Color>(out, get_stream_bitboard_color_fmt_idx(), DEFAULT_BITBOARD_COLOR);
+}
+
 std::ostream& operator<<(std::ostream &out, detail::BoardFormatFlags fmt) {
-    out.iword(board_fmt_idx()) = static_cast<long>(fmt.flags);
+    set_stream_board_fmt(out, fmt.flags);
+    return out;
+}
+
+std::ostream &operator<<(std::ostream &out, detail::BitboardFormatFlags fmt)
+{
+    set_stream_bitboard_color_fmt(out, fmt.color);
+    set_stream_bitboard_piece_fmt(out, fmt.piece);
     return out;
 }
 
@@ -493,7 +601,7 @@ std::ostream& operator<<(std::ostream& out, const Board& board) {
     constexpr int HALF_MOVE_LINE = 5;
     constexpr int EP_SQUARE_LINE = 6;
 
-    BoardFormat fmt = static_cast<BoardFormat>(out.iword(board_fmt_idx()));
+    BoardFormat fmt = get_board_fmt(out);
 
     if (!check_flag(fmt, BoardFormat::HIDE_FEN)) {
         out << get_fen(board) << "\n";
@@ -520,7 +628,6 @@ std::ostream& operator<<(std::ostream& out, const Board& board) {
             }
         }
     } else {
-        out << files_string(fmt);
         for (size_t rank_idx = 0; rank_idx < ranks.size(); ++rank_idx) {
             out << board_rank_string(board, ranks[rank_idx], fmt);
 
@@ -538,9 +645,37 @@ std::ostream& operator<<(std::ostream& out, const Board& board) {
 
             out << "\n";
         }
+        out << files_string(fmt) << "\n";
     }
 
     return out;
+}
+
+std::ostream& operator<<(std::ostream& out, Bitboard bb) {
+    BoardFormat prev_board_fmt = get_board_fmt(out);
+    BoardFormat new_board_fmt = prev_board_fmt;
+
+    Color color = get_bitboard_fmt_color(out);
+    Piece piece = get_bitboard_fmt_piece(out);
+
+    if (color == Color::NONE) {
+        color = Color::BLACK;
+    }
+    if (piece == Piece::NONE) {
+        piece = Piece::PAWN;
+        new_board_fmt |= BoardFormat::OCCUPANCY_ONLY;
+    }
+    new_board_fmt |= BoardFormat::ONLY_BOARD;
+
+    Board board;
+    for (Square square : iter<Square>) {
+        board.clear_square(square);
+    }
+    for (Square square : bb_square_scan(bb)) {
+        board.place(color, piece, square);
+    }
+
+    return out << set_board_format(new_board_fmt) << board << set_board_format(prev_board_fmt);
 }
 
 std::ostream& operator<<(std::ostream& out, Square square) {
@@ -561,21 +696,6 @@ std::ostream& operator<<(std::ostream& out, Piece piece) {
 
 std::ostream& operator<<(std::ostream& out, Color color) {
     return out << color_to_str(color);
-}
-
-
-void print_bb(Bitboard bb, std::ostream &out) {
-    Board board;
-    for (Square square : iter<Square>) {
-        board.clear_square(square);
-    }
-    for (Square square : bb_square_scan(bb)) {
-        board.place(Color::WHITE, Piece::PAWN, square);
-    }
-
-    BoardFormat prev_fmt = static_cast<BoardFormat>(out.iword(board_fmt_idx()));
-    out << set_board_format(BoardFormat::ONLY_BOARD) << board;
-    out << set_board_format(prev_fmt);
 }
 
 } // namespace bears_chess

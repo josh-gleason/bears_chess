@@ -29,6 +29,7 @@ enum class BoardFormat : long {
     NO_UNICODE = 0x100,
     NO_COLOR = 0x200,
     HIDE_BOARD = 0x400,
+    OCCUPANCY_ONLY = 0x800, // replace all pieces with X
 
     RESET = 0x0,            // reset the format
     ONLY_BOARD = 0xfc,      // hide all state info and fen string
@@ -38,7 +39,7 @@ enum class BoardFormat : long {
     SIMPLE_STATE = 0x70,    // show only turn and move number state
     PLAIN_TEXT = 0x300,     // show board in plain text (no color or unicode)
 
-    NONE = 0x0,
+    NONE = 0x0
 };
 
 template<> struct enum_traits<BoardFormat> :
@@ -50,14 +51,25 @@ namespace detail {
     struct BoardFormatFlags {
         BoardFormat flags;
     };
+
+    struct BitboardFormatFlags {
+        Piece piece;
+        Color color;
+    };
 }
 
 inline detail::BoardFormatFlags set_board_format(BoardFormat fmt) {
     return detail::BoardFormatFlags{fmt};
 }
 
+inline detail::BitboardFormatFlags set_bitboard_piece(Piece piece, Color color = Color::BLACK) {
+    return detail::BitboardFormatFlags{piece, color};
+}
+
 std::ostream& operator<<(std::ostream& out, detail::BoardFormatFlags fmt);
+std::ostream& operator<<(std::ostream& out, detail::BitboardFormatFlags fmt);
 std::ostream& operator<<(std::ostream& out, const Board& board);
+std::ostream& operator<<(std::ostream& out, Bitboard bb);
 
 std::ostream& operator<<(std::ostream& out, Square square);
 std::ostream& operator<<(std::ostream& out, Rank rank);
