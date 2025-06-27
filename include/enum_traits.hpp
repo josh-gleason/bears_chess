@@ -5,10 +5,12 @@ namespace bears_chess {
 
 // opt in traits for enum classes
 struct bitmask_ops {};
+struct shift_ops {};
+struct arithmetic_ops {};
 struct preincrement_ops {};
-struct sum_ops {};
 struct inequality_ops {};
 struct flag_ops {};
+struct boolean_ops {};
 template<auto First, auto Last>
 struct range_ops {
     static_assert(std::same_as<decltype(First), decltype(Last)>, "range_op<> parameters must be same enum type");
@@ -32,15 +34,22 @@ template<BitmaskEnum T> constexpr T& operator&=(T& a, T b) noexcept { return a =
 template<BitmaskEnum T> constexpr T& operator^=(T& a, T b) noexcept { return a = a ^ b; }
 template<BitmaskEnum T> constexpr T operator~(T a) noexcept { return static_cast<T>(~static_cast<std::underlying_type_t<T>>(a)); }
 
+template<typename E> concept ShiftEnum = std::is_enum_v<E> && std::is_base_of_v<shift_ops, enum_traits<E>>;
+template<ShiftEnum T> constexpr T operator<<(T a, int b) noexcept { return static_cast<T>(static_cast<std::underlying_type_t<T>>(a) << b); }
+template<ShiftEnum T> constexpr T operator>>(T a, int b) noexcept { return static_cast<T>(static_cast<std::underlying_type_t<T>>(a) >> b); }
+template<ShiftEnum T> constexpr T& operator<<=(T& a, int b) noexcept { return a = a << b; }
+template<ShiftEnum T> constexpr T& operator>>=(T& a, int b) noexcept { return a = a >> b; }
+
+template<typename E> concept ArithmeticEnum = std::is_enum_v<E> && std::is_base_of_v<arithmetic_ops, enum_traits<E>>;
+template<ArithmeticEnum T> constexpr T operator+(T a, T b) noexcept { return static_cast<T>(static_cast<std::underlying_type_t<T>>(a) + static_cast<std::underlying_type_t<T>>(b)); }
+template<ArithmeticEnum T> constexpr T operator-(T a, T b) noexcept { return static_cast<T>(static_cast<std::underlying_type_t<T>>(a) - static_cast<std::underlying_type_t<T>>(b)); }
+template<ArithmeticEnum T> constexpr T operator-(T a) noexcept { return static_cast<T>(-static_cast<std::underlying_type_t<T>>(a)); }
+template<ArithmeticEnum T> constexpr T& operator+=(T& a, T b) noexcept { return a = a + b; }
+template<ArithmeticEnum T> constexpr T& operator-=(T& a, T b) noexcept { return a = a - b; }
+
 template<typename E> concept PreincrementEnum = std::is_enum_v<E> && std::is_base_of_v<preincrement_ops, enum_traits<E>>;
 template<PreincrementEnum T> constexpr T& operator++(T& a) noexcept { return a = static_cast<T>(static_cast<std::underlying_type_t<T>>(a) + 1); }
 template<PreincrementEnum T> constexpr T& operator--(T& a) noexcept { return a = static_cast<T>(static_cast<std::underlying_type_t<T>>(a) - 1); }
-
-template<typename E> concept SumEnum = std::is_enum_v<E> && std::is_base_of_v<sum_ops, enum_traits<E>>;
-template<SumEnum T> constexpr T operator+(T a, T b) noexcept { return static_cast<T>(static_cast<std::underlying_type_t<T>>(a) + static_cast<std::underlying_type_t<T>>(b)); }
-template<SumEnum T> constexpr T& operator+=(T& a, T b) noexcept { return a = a + b; }
-template<SumEnum T> constexpr T operator-(T a, T b) noexcept { return static_cast<T>(static_cast<std::underlying_type_t<T>>(a) - static_cast<std::underlying_type_t<T>>(b)); }
-template<SumEnum T> constexpr T& operator-=(T& a, T b) noexcept { return a = a - b; }
 
 template<typename E> concept InequalityEnum = std::is_enum_v<E> && std::is_base_of_v<inequality_ops, enum_traits<E>>;
 template<InequalityEnum T> constexpr bool operator<(T a, T b) noexcept { return static_cast<std::underlying_type_t<T>>(a) < static_cast<std::underlying_type_t<T>>(b); }
@@ -53,6 +62,10 @@ template<FlagEnum T> constexpr bool check_flag(T x, T f) noexcept { return stati
 template<FlagEnum T> constexpr T set_flag(T x, T f) noexcept { return static_cast<T>(static_cast<std::underlying_type_t<T>>(x) | static_cast<std::underlying_type_t<T>>(f)); }
 template<FlagEnum T> constexpr T clear_flag(T x, T f) noexcept { return static_cast<T>(static_cast<std::underlying_type_t<T>>(x) & (~static_cast<std::underlying_type_t<T>>(f))); }
 template<FlagEnum T> constexpr T toggle_flag(T x, T f) noexcept { return static_cast<T>(static_cast<std::underlying_type_t<T>>(x) ^ static_cast<std::underlying_type_t<T>>(f)); }
+
+template<typename E> concept BooleanEnum = std::is_enum_v<E> && std::is_base_of_v<boolean_ops, enum_traits<E>>;
+template<BooleanEnum T> constexpr bool to_bool(T a) noexcept { return static_cast<std::underlying_type_t<T>>(a) != 0; }
+template<BooleanEnum T> constexpr bool operator!(T a) noexcept { return static_cast<std::underlying_type_t<T>>(a) == 0; }
 
 template<typename E> concept RangeEnum = std::is_enum_v<E> && std::is_base_of_v<range_ops<enum_traits<E>::first, enum_traits<E>::last>, enum_traits<E>> && requires {
     { enum_traits<E>::first } -> std::convertible_to<E>;

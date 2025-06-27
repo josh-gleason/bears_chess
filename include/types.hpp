@@ -9,7 +9,7 @@
 
 namespace bears_chess {
 
-using Bitboard = uint64_t;
+// using Bitboard = uint64_t;
 
 template<typename E>
 constexpr std::underlying_type_t<E> idx(E e) noexcept {

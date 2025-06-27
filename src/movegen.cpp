@@ -17,7 +17,7 @@ constexpr std::array<Bitboard, num_of<Square>> BB_KNIGHT_MOVES = []() {
     for (Square sq : iter<Square>) {
         // TODO fix me
         Bitboard center = BB_SQUARE[idx(sq)];
-        Bitboard mask = 0;
+        Bitboard mask = Bitboard::EMPTY;
         Rank r = rank_of(sq);
         File f = file_of(sq);
         bool n = r < Rank::_8;
