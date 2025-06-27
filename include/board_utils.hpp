@@ -56,6 +56,12 @@ namespace detail {
         Piece piece;
         Color color;
     };
+
+    template<typename T>
+    struct Highlighted {
+        T obj;
+        Bitboard highlights;
+    };
 }
 
 inline detail::BoardFormatFlags set_board_format(BoardFormat fmt) {
@@ -66,17 +72,26 @@ inline detail::BitboardFormatFlags set_bitboard_piece(Piece piece, Color color =
     return detail::BitboardFormatFlags{piece, color};
 }
 
+inline detail::Highlighted<Board> show_highlights(Board obj, Bitboard highlights) {
+    return detail::Highlighted<Board>{obj, highlights};
+}
+
+inline detail::Highlighted<Bitboard> show_highlights(Bitboard obj, Bitboard highlights) {
+    return detail::Highlighted<Bitboard>{obj, highlights};
+}
+
 std::ostream& operator<<(std::ostream& out, detail::BoardFormatFlags fmt);
 std::ostream& operator<<(std::ostream& out, detail::BitboardFormatFlags fmt);
+
 std::ostream& operator<<(std::ostream& out, const Board& board);
 std::ostream& operator<<(std::ostream& out, Bitboard bb);
+std::ostream& operator<<(std::ostream& out, const detail::Highlighted<Board>& highlighted_board);
+std::ostream& operator<<(std::ostream& out, const detail::Highlighted<Bitboard>& highlighted_bitboard);
 
 std::ostream& operator<<(std::ostream& out, Square square);
 std::ostream& operator<<(std::ostream& out, Rank rank);
 std::ostream& operator<<(std::ostream& out, File file);
 std::ostream& operator<<(std::ostream& out, Piece piece);
 std::ostream& operator<<(std::ostream& out, Color color);
-
-void print_bb(Bitboard bb, std::ostream& out = std::cout);
 
 } // namespace bears_chess

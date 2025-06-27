@@ -49,6 +49,14 @@ constexpr const char* OCCUPIED_STR[num_of<Color>] = {
     "x", "X"
 };
 
+constexpr const char* ANSI_LIGHT_SQUARE = "\033[48;2;186;168;140m";
+constexpr const char* ANSI_DARK_SQUARE = "\033[48;2;181;136;99m";
+// constexpr const char* ANSI_HIGHLIGHTED_LIGHT_SQUARE = "\033[48;2;185;180;90m";
+constexpr const char* ANSI_HIGHLIGHTED_LIGHT_SQUARE = "\033[48;2;208;200;119m";
+constexpr const char* ANSI_HIGHLIGHTED_DARK_SQUARE = "\033[48;2;205;184;83m";
+constexpr const char* ANSI_WHITE_PIECE = "\033[38;2;255;255;255m";
+constexpr const char* ANSI_BLACK_PIECE = "\033[38;2;0;0;0m";
+
 static std::string color_to_str(Color color) {
     return COLOR_STR[idx(color)];
 }
@@ -343,29 +351,18 @@ static std::string get_piece_occupancy_glyph(Color color, bool occupied, BoardFo
     }
 }
 
-static std::string get_ansi_code(Square square, Color color, BoardFormat fmt) {
-    constexpr const char* ANSI_LIGHT_SQUARE = "\033[48;2;186;168;140m";
-    constexpr const char* ANSI_DARK_SQUARE = "\033[48;2;181;136;99m";
-    constexpr const char* ANSI_WHITE_PIECE = "\033[38;2;255;255;255m";
-    constexpr const char* ANSI_BLACK_PIECE = "\033[38;2;0;0;0m";
-
+static std::string get_ansi_code(Square square, Color color, BoardFormat fmt, bool highlighted) {
     if (check_flag(fmt, BoardFormat::NO_COLOR)) {
         return "";
     }
 
     std::string code = "";
-    if (is_light(square)) {
-        code += ANSI_LIGHT_SQUARE;
-    } else {
-        code += ANSI_DARK_SQUARE;
-    }
-
-    if (color == Color::WHITE) {
-        code += ANSI_WHITE_PIECE;
-    } else {
-        code += ANSI_BLACK_PIECE;
-    }
-
+    code += (
+        is_light(square) ?
+        (highlighted ? ANSI_HIGHLIGHTED_LIGHT_SQUARE : ANSI_LIGHT_SQUARE) :
+        (highlighted ? ANSI_HIGHLIGHTED_DARK_SQUARE : ANSI_DARK_SQUARE)
+    );
+    code += (color == Color::WHITE ? ANSI_WHITE_PIECE : ANSI_BLACK_PIECE);
     return code;
 }
 
@@ -377,12 +374,12 @@ static std::string get_ansi_reset(BoardFormat fmt) {
     return ANSI_RESET;
 }
 
-static std::string get_square_str(Color color, Piece piece, Square square, BoardFormat fmt) {
-    return get_ansi_code(square, color, fmt) + get_piece_glyph(color, piece, fmt) + " " + get_ansi_reset(fmt);
+static std::string get_square_str(Color color, Piece piece, Square square, BoardFormat fmt, bool highlighted=false) {
+    return get_ansi_code(square, color, fmt, highlighted) + get_piece_glyph(color, piece, fmt) + " " + get_ansi_reset(fmt);
 }
 
-static std::string get_square_occupancy_str(Color color, bool occupied, Square square, BoardFormat fmt) {
-    return get_ansi_code(square, color, fmt) + get_piece_occupancy_glyph(color, occupied, fmt) + " " + get_ansi_reset(fmt);
+static std::string get_square_occupancy_str(Color color, bool occupied, Square square, BoardFormat fmt, bool highlighted=false) {
+    return get_ansi_code(square, color, fmt, highlighted) + get_piece_occupancy_glyph(color, occupied, fmt) + " " + get_ansi_reset(fmt);
 }
 
 static std::vector<Square> get_square_order(BoardFormat fmt) {
@@ -449,7 +446,7 @@ static std::string files_string(BoardFormat fmt) {
     return file_labels;
 }
 
-static std::string board_rank_string(const Board& board, Rank rank, BoardFormat fmt) {
+static std::string board_rank_string(const Board& board, Rank rank, BoardFormat fmt, Bitboard highlights = Bitboard::EMPTY) {
     std::string rank_string;
     if (!check_flag(fmt, BoardFormat::HIDE_LABELS)) {
         rank_string += std::string(rank_to_str(rank)) + " ";
@@ -457,12 +454,13 @@ static std::string board_rank_string(const Board& board, Rank rank, BoardFormat 
     for (File file : get_file_order(fmt)) {
         Square square = square_of(file, rank);
         Color color = board.get_color_at(square);
+        bool highlighted = nonzero(highlights & bb_square(square));
         if (check_flag(fmt, BoardFormat::OCCUPANCY_ONLY)) {
             bool occupied = board.is_occupied(square);
-            rank_string += get_square_occupancy_str(color, occupied, square, fmt);
+            rank_string += get_square_occupancy_str(color, occupied, square, fmt, highlighted);
         } else {
             Piece piece = board.get_piece_at(square);
-            rank_string += get_square_str(color, piece, square, fmt);
+            rank_string += get_square_str(color, piece, square, fmt, highlighted);
         }
     }
     return rank_string;
@@ -594,14 +592,19 @@ std::ostream &operator<<(std::ostream &out, detail::BitboardFormatFlags fmt)
     return out;
 }
 
-std::ostream& operator<<(std::ostream& out, const Board& board) {
+std::ostream &operator<<(std::ostream &out, const detail::Highlighted<Board> &highlighted_board)
+{
     constexpr int FULL_MOVE_LINE = 1;
     constexpr int TURN_LINE = 2;
     constexpr int CASTLING_RIGHTS_LINE = 4;
     constexpr int HALF_MOVE_LINE = 5;
     constexpr int EP_SQUARE_LINE = 6;
+    
+    const Board& board = highlighted_board.obj;
+    Bitboard highlights = highlighted_board.highlights;
 
     BoardFormat fmt = get_board_fmt(out);
+    
 
     if (!check_flag(fmt, BoardFormat::HIDE_FEN)) {
         out << get_fen(board) << "\n";
@@ -629,7 +632,7 @@ std::ostream& operator<<(std::ostream& out, const Board& board) {
         }
     } else {
         for (size_t rank_idx = 0; rank_idx < ranks.size(); ++rank_idx) {
-            out << board_rank_string(board, ranks[rank_idx], fmt);
+            out << board_rank_string(board, ranks[rank_idx], fmt, highlights);
 
             if (rank_idx == FULL_MOVE_LINE) {
                 out << "    " << full_move_string(board, fmt);
@@ -651,12 +654,16 @@ std::ostream& operator<<(std::ostream& out, const Board& board) {
     return out;
 }
 
-std::ostream& operator<<(std::ostream& out, Bitboard bb) {
+std::ostream &operator<<(std::ostream &out, const detail::Highlighted<Bitboard> &highlighted_bb)
+{
     BoardFormat prev_board_fmt = get_board_fmt(out);
     BoardFormat new_board_fmt = prev_board_fmt;
 
     Color color = get_bitboard_fmt_color(out);
     Piece piece = get_bitboard_fmt_piece(out);
+
+    Bitboard bb = highlighted_bb.obj;
+    Bitboard highlights = highlighted_bb.highlights;
 
     if (color == Color::NONE) {
         color = Color::BLACK;
@@ -675,7 +682,15 @@ std::ostream& operator<<(std::ostream& out, Bitboard bb) {
         board.place(color, piece, square);
     }
 
-    return out << set_board_format(new_board_fmt) << board << set_board_format(prev_board_fmt);
+    return out << set_board_format(new_board_fmt) << show_highlights(board, highlights) << set_board_format(prev_board_fmt);
+}
+
+std::ostream& operator<<(std::ostream& out, const Board& board) {
+    return out << show_highlights(board, Bitboard::EMPTY);
+}
+
+std::ostream& operator<<(std::ostream& out, Bitboard bb) {
+    return out << show_highlights(bb, Bitboard::EMPTY);
 }
 
 std::ostream& operator<<(std::ostream& out, Square square) {

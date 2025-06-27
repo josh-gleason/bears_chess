@@ -17,8 +17,7 @@ int main()
 
     for (Square s : iter<Square>) {
         cout << "Square: " << s << std::endl;
-        // cout << set_bitboard_piece(Piece::NONE) << BB_KNIGHT_MOVES[idx(s)];
-        cout << BB_KNIGHT_MOVES[idx(s)];
+        cout << set_board_format(BoardFormat::ORIENT_BLACK) << show_highlights(BB_KNIGHT_MOVES[idx(s)], bb_square(s));
     }
 
     return 0;

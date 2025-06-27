@@ -39,15 +39,15 @@ class Board {
         }
 
         inline bool test_bit(Color c, Piece p, Square s) const {
-            return to_bool(pieces[idx(c)][idx(p)] & bb_square(s));
+            return nonzero(pieces[idx(c)][idx(p)] & bb_square(s));
         }
 
         inline bool is_occupied(Square s) const {
-            return to_bool(occupied & bb_square(s));
+            return nonzero(occupied & bb_square(s));
         }
 
         inline bool is_occupied_by_color(Color c, Square s) const {
-            return to_bool(occupied_by_color[idx(c)] & bb_square(s));
+            return nonzero(occupied_by_color[idx(c)] & bb_square(s));
         }
 
         inline Color get_color_at(Square s) const {
