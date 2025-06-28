@@ -1,7 +1,7 @@
 #pragma once
 
 #include <ostream>
-#include <iostream>
+
 #include "board.hpp"
 
 namespace bears_chess {

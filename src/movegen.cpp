@@ -134,8 +134,42 @@ inline void generate_pawn_moves(const Board& board, const BoardCache& cache, Mov
     }
 }
 
-void generate_sliding_moves(const Board& board, BoardCache& cache, MoveList& moves) {
+template<Piece piece>
+constexpr Bitboard magic_lookup(Square from, Bitboard occupied) {
+    // static_assert(piece == Piece::ROOK || piece == Piece::BISHOP, "magic hash available only for rook and bishop");
+    // constexpr auto& bb_attack_masks = (piece == Piece::ROOK ? BB_ROOK_ATTACK_MASK : BB_BISHOP_ATTACK_MASK);
+    // auto& magic_hashes = (piece == Piece::ROOK ? MAGIC_ROOK_HASHES : MAGIC_BISHOP_HASHES);
+    // Bitboard bb_attack_mask = bb_attack_mask[idx(from)];
+    // Bitboard bb_blockers = bb_attack_mask & occupied;
 
+    // size_t hash = magic_hashes[idx(from)](bb_blockers);
+
+    // auto& attack_lookup = (piece == Piece::ROOK ? MAGIC )
+
+    // return 
+    return Bitboard::EMPTY;
+}
+
+template <Piece target_piece, Piece move_type>
+inline void generate_slider_moves(const Board& board, MoveList& moves) {
+    Color color = board.side_to_move;
+
+    Bitboard occupied = board.occupied;
+    Bitboard opponent_occupied = board.occupied_by_color[idx(~color)];
+
+    Bitboard bb_pieces = board.pieces[idx(color)][idx(target_piece)];
+    for (Square from : bb_square_scan(bb_pieces)) {
+        Bitboard bb_moves = magic_lookup<move_type>(from, occupied);
+        Bitboard bb_quiet = bb_moves & ~occupied;
+        Bitboard bb_capture = bb_moves & opponent_occupied;
+
+        for (Square to : bb_square_scan(bb_quiet)) {
+            moves.emplace_back(Move{from, to, MoveType::QUIET});
+        }
+        for (Square to : bb_square_scan(bb_capture)) {
+            moves.emplace_back(Move{from, to, MoveType::CAPTURE});
+        }
+    }
 }
 
 MoveList generate_pseudo_legal_moves(const Board& board) {
@@ -145,7 +179,10 @@ MoveList generate_pseudo_legal_moves(const Board& board) {
     generate_knight_moves(board, cache, moves);
     generate_king_moves(board, cache, moves);
     generate_pawn_moves(board, cache, moves);
-    generate_sliding_moves(board, cache, moves);
+    generate_slider_moves<Piece::ROOK, Piece::ROOK>(board, moves);
+    generate_slider_moves<Piece::QUEEN, Piece::ROOK>(board, moves);
+    generate_slider_moves<Piece::BISHOP, Piece::BISHOP>(board, moves);
+    generate_slider_moves<Piece::QUEEN, Piece::BISHOP>(board, moves);
 
     return moves;
 }

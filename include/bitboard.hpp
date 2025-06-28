@@ -1,7 +1,8 @@
 #pragma once
 
-#include "types.hpp"
 #include <bit>
+
+#include "types.hpp"
 
 namespace bears_chess {
 
@@ -381,5 +382,97 @@ constexpr std::array<std::array<Bitboard, num_of<Square>>, num_of<Color>> BB_CAP
 }();
 
 constexpr const Bitboard BB_PROMOTION_RANKS = bb_rank(Rank::_1) | bb_rank(Rank::_8);
+
+
+constexpr std::array<Bitboard, hash_max<Direction>> BB_DIRECTION_PREMASK = []() {
+    static_assert([]{
+        constexpr std::array hashes = {
+            hash(Direction::NORTH), hash(Direction::EAST),
+            hash(Direction::SOUTH), hash(Direction::WEST),
+            hash(Direction::NORTHEAST), hash(Direction::NORTHWEST),
+            hash(Direction::SOUTHEAST), hash(Direction::SOUTHWEST)
+        };
+        if (!all_unique(hashes)) return false;
+        for (int h : hashes)
+            if (h < 0 || h >= hash_max<Direction>) return false;
+        return true;
+    }(), "Direction hash is invalid or out of range");
+
+    std::array<Bitboard, 11> table{};
+    for (int i = 0; i < 11; ++i) {
+        table[i] = Bitboard::FULL;    
+    }
+    table[hash<Direction>(Direction::EAST)] = ~bb_file(File::H);
+    table[hash<Direction>(Direction::NORTHEAST)] = ~bb_file(File::H);
+    table[hash<Direction>(Direction::SOUTHEAST)] = ~bb_file(File::H);
+    table[hash<Direction>(Direction::WEST)] = ~bb_file(File::A);
+    table[hash<Direction>(Direction::SOUTHWEST)] = ~bb_file(File::A);
+    table[hash<Direction>(Direction::NORTHWEST)] = ~bb_file(File::A);
+    return table;
+}();
+
+constexpr Bitboard bb_direction_premask(Direction dir) noexcept {
+    return BB_DIRECTION_PREMASK[hash<Direction>(dir)];
+}
+
+template<bool Safe = false>
+constexpr Bitboard bb_shift(Bitboard bb, Direction dir) noexcept {
+    if constexpr (Safe) {
+        bb &= bb_direction_premask(dir);
+    }
+    if (idx(dir) < 0) {
+        return bb >> -idx(dir);
+    } else {
+        return bb << idx(dir);
+    }
+}
+
+template<bool First = false, bool Last = false>
+constexpr Bitboard ray(Square from, Direction dir) noexcept {
+    Bitboard bb_bit = bb_square(from);
+    if constexpr (!First)
+        bb_bit = bb_shift<true>(bb_bit, dir);
+    Bitboard bb_prev_bit = bb_bit;
+    Bitboard mask = Bitboard::EMPTY;
+    while (nonzero(bb_bit)) {
+        mask |= bb_bit;
+        bb_prev_bit = bb_bit;
+        bb_bit = bb_shift<true>(bb_bit, dir);
+    }
+    if constexpr (!Last)
+        mask &= ~bb_prev_bit;
+    return mask;
+}
+
+constexpr std::array<Bitboard, num_of<Square>> BB_ROOK_ATTACK_MASK = []() {
+    std::array<Bitboard, num_of<Square>> table{};
+    for (Square s : iter<Square>) {
+        table[idx(s)] = (
+            ray(s, Direction::NORTH) |
+            ray(s, Direction::EAST) |
+            ray(s, Direction::SOUTH) |
+            ray(s, Direction::WEST)
+        );
+    }
+    return table;
+}();
+
+constexpr std::array<Bitboard, num_of<Square>> BB_BISHOP_ATTACK_MASK = []() {
+    std::array<Bitboard, num_of<Square>> table{};
+    for (Square s : iter<Square>) {
+        table[idx(s)] = (
+            ray(s, Direction::NORTHEAST) |
+            ray(s, Direction::SOUTHEAST) |
+            ray(s, Direction::SOUTHWEST) |
+            ray(s, Direction::NORTHWEST)
+        );
+    }
+    return table;
+}();
+
+struct AttackSet {
+    Bitboard bb_blockers;
+    Bitboard bb_moves;
+};
 
 } // namespace bears_chess

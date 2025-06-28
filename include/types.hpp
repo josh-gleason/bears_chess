@@ -186,6 +186,42 @@ struct UndoInfo {
     uint8_t halfmove_clock;
 };
 
+enum class Direction : int8_t {
+    NORTH = 8,
+    EAST = 1,
+    SOUTH = -8,
+    WEST = -1,
+    NORTHEAST = NORTH + EAST,
+    SOUTHEAST = SOUTH + EAST,
+    SOUTHWEST = SOUTH + WEST,
+    NORTHWEST = NORTH + WEST
+};
+
+constexpr std::array<Direction, 4> CARDINAL_DIRECTIONS = {
+    Direction::NORTH, Direction::EAST, Direction::SOUTH, Direction::WEST
+};
+
+constexpr std::array<Direction, 4> ORDINAL_DIRECTIONS = {
+    Direction::NORTHEAST, Direction::SOUTHEAST, Direction::SOUTHWEST, Direction::NORTHWEST
+};
+
+namespace detail {
+constexpr size_t dir_hash_fun(const Direction& d) noexcept { return static_cast<size_t>((static_cast<int8_t>(d) + 9) % 11); }
+}
+
+template<> struct enum_traits<Direction> :
+    hash_ops<Direction, detail::dir_hash_fun, 11>
+{};
+
 using MoveList = std::vector<Move>;
+
+template<typename T, size_t N>
+constexpr bool all_unique(const std::array<T, N>& arr) {
+    for (size_t i = 0; i < N; ++i)
+        for (size_t j = i + 1; j < N; ++j)
+            if (arr[i] == arr[j])
+                return false;
+    return true;
+}
 
 } // namespace bears_chess

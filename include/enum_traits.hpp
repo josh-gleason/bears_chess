@@ -3,6 +3,8 @@
 
 namespace bears_chess {
 
+template<typename E> using hash_func_t = size_t(*)(const E&) noexcept;
+
 // opt in traits for enum classes
 struct bitmask_ops {};
 struct shift_ops {};
@@ -17,6 +19,13 @@ struct range_ops {
     static_assert(std::is_enum_v<decltype(First)>, "range_op<> parameters must be enum values");
     static constexpr decltype(First) first = First;
     static constexpr decltype(Last) last = Last;
+};
+
+template<typename E, hash_func_t<E> HashFunc, size_t HashMax>
+struct hash_ops {
+    using hash_input_type = E;
+    static constexpr auto hash_func = HashFunc;
+    static constexpr int hash_max = HashMax;
 };
 
 // default to no traits, opt in by specializing and extending enum_traits
@@ -71,7 +80,7 @@ template<typename E> concept RangeEnum = std::is_enum_v<E> && std::is_base_of_v<
     { enum_traits<E>::first } -> std::convertible_to<E>;
     { enum_traits<E>::last  } -> std::convertible_to<E>;
 };
-template<RangeEnum E> constexpr size_t num_of = []() { return (static_cast<std::underlying_type_t<E>>(enum_traits<E>::last) - static_cast<std::underlying_type_t<E>>(enum_traits<E>::first) + 1); }();
+template<RangeEnum E> constexpr size_t num_of = static_cast<std::underlying_type_t<E>>(enum_traits<E>::last) - static_cast<std::underlying_type_t<E>>(enum_traits<E>::first) + 1;
 template<RangeEnum E> constexpr E first = enum_traits<E>::first;
 template<RangeEnum E> constexpr E last = enum_traits<E>::last;
 template<RangeEnum E> constexpr std::array<E, num_of<E>> iter = [](){
@@ -87,5 +96,9 @@ template<RangeEnum E> constexpr std::array<E, num_of<E>> iter_rev = [](){
         ary[i] = static_cast<E>(static_cast<std::underlying_type_t<E>>(enum_traits<E>::last) - i);
     return ary;
 }();
+
+template<typename E> concept HashEnum = std::is_enum_v<E> && std::is_base_of_v<hash_ops<typename enum_traits<E>::hash_input_type, enum_traits<E>::hash_func, enum_traits<E>::hash_max>, enum_traits<E>>;
+template<HashEnum E> constexpr size_t hash(const E& in) { return enum_traits<E>::hash_func(in); }
+template<HashEnum E> constexpr size_t hash_max = enum_traits<E>::hash_max;
 
 } // namespace bears_chess
