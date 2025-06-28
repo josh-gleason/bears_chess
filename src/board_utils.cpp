@@ -648,7 +648,7 @@ std::ostream &operator<<(std::ostream &out, const detail::Highlighted<Board> &hi
 
             out << "\n";
         }
-        out << files_string(fmt) << "\n";
+        out << files_string(fmt);
     }
 
     return out;

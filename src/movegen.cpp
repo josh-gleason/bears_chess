@@ -1,4 +1,5 @@
 #include "movegen.hpp"
+#include "magics.hpp"
 
 namespace bears_chess {
 
@@ -84,11 +85,12 @@ inline void generate_pawn_moves(const Board& board, const BoardCache& cache, Mov
         // single pawn push
         Bitboard bb_single = (BB_SINGLE_PAWN_MOVES[idx(color)][idx(from)] & unoccupied);
         Bitboard bb_quiet = (bb_single & ~BB_PROMOTION_RANKS);
+        Bitboard bb_promotion = (bb_single & BB_PROMOTION_RANKS);
+
         if (nonzero(bb_quiet)) {
             Square to = bitscan_forward(bb_quiet);
             moves.emplace_back(Move{from, to, MoveType::QUIET});
         }
-        Bitboard bb_promotion = (bb_single & BB_PROMOTION_RANKS);
         if (nonzero(bb_promotion)) {
             Square to = bitscan_forward(bb_promotion);
             moves.emplace_back(Move{from, to, MoveType::KNIGHT_PROMOTION});
@@ -110,17 +112,16 @@ inline void generate_pawn_moves(const Board& board, const BoardCache& cache, Mov
         Bitboard bb_capture_pattern = BB_CAPTURE_PAWN_MOVES[idx(color)][idx(from)];
         Bitboard bb_capture = (bb_capture_pattern & opponent_occupied);
         Bitboard bb_capture_only = (bb_capture & ~BB_PROMOTION_RANKS);
+        Bitboard bb_capture_promote = (bb_capture & BB_PROMOTION_RANKS);
         for (Square to : bb_square_scan(bb_capture_only)) {
             moves.emplace_back(Move{from, to, MoveType::CAPTURE});
         }
-        Bitboard bb_capture_promote = (bb_capture & BB_PROMOTION_RANKS);
         for (Square to : bb_square_scan(bb_capture_promote)) {
             moves.emplace_back(Move{from, to, MoveType::KNIGHT_PROMOTION_CAPTURE});
             moves.emplace_back(Move{from, to, MoveType::BISHOP_PROMOTION_CAPTURE});
             moves.emplace_back(Move{from, to, MoveType::ROOK_PROMOTION_CAPTURE});
             moves.emplace_back(Move{from, to, MoveType::QUEEN_PROMOTION_CAPTURE});
         }
-
     }
 
     if (board.ep_square != Square::NONE) {
@@ -133,6 +134,10 @@ inline void generate_pawn_moves(const Board& board, const BoardCache& cache, Mov
     }
 }
 
+void generate_sliding_moves(const Board& board, BoardCache& cache, MoveList& moves) {
+
+}
+
 MoveList generate_pseudo_legal_moves(const Board& board) {
     BoardCache cache = generate_cache();
     MoveList moves;
@@ -140,6 +145,7 @@ MoveList generate_pseudo_legal_moves(const Board& board) {
     generate_knight_moves(board, cache, moves);
     generate_king_moves(board, cache, moves);
     generate_pawn_moves(board, cache, moves);
+    generate_sliding_moves(board, cache, moves);
 
     return moves;
 }
