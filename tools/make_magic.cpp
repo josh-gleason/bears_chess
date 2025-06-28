@@ -2,6 +2,14 @@
 #include "board_utils.hpp"
 
 #include <span>
+#include <ranges>
+#include <iostream>
+#include <fstream>
+#include <iomanip>
+#include <unordered_map>
+#include <random>
+#include <bitset>
+#include <vector>
 
 namespace bears_chess {
 
@@ -97,7 +105,7 @@ constexpr Bitboard ray(Square from, Direction dir) noexcept {
     return mask;
 }
 
-constexpr std::array<Bitboard, num_of<Square>> BB_ROOK_ATTACK_PREMASK = []() {
+constexpr std::array<Bitboard, num_of<Square>> BB_ROOK_ATTACK_MASK = []() {
     std::array<Bitboard, num_of<Square>> table{};
     for (Square s : iter<Square>) {
         table[idx(s)] = (
@@ -110,20 +118,7 @@ constexpr std::array<Bitboard, num_of<Square>> BB_ROOK_ATTACK_PREMASK = []() {
     return table;
 }();
 
-constexpr std::array<Bitboard, num_of<Square>> BB_ROOK_ATTACK_POSTMASK = []() {
-    std::array<Bitboard, num_of<Square>> table{};
-    for (Square s : iter<Square>) {
-        table[idx(s)] = (
-            ray<false, true>(s, Direction::NORTH) |
-            ray<false, true>(s, Direction::EAST) |
-            ray<false, true>(s, Direction::SOUTH) |
-            ray<false, true>(s, Direction::WEST)
-        );
-    }
-    return table;
-}();
-
-constexpr std::array<Bitboard, num_of<Square>> BB_BISHOP_ATTACK_PREMASK = []() {
+constexpr std::array<Bitboard, num_of<Square>> BB_BISHOP_ATTACK_MASK = []() {
     std::array<Bitboard, num_of<Square>> table{};
     for (Square s : iter<Square>) {
         table[idx(s)] = (
@@ -131,19 +126,6 @@ constexpr std::array<Bitboard, num_of<Square>> BB_BISHOP_ATTACK_PREMASK = []() {
             ray(s, Direction::SOUTHEAST) |
             ray(s, Direction::SOUTHWEST) |
             ray(s, Direction::NORTHWEST)
-        );
-    }
-    return table;
-}();
-
-constexpr std::array<Bitboard, num_of<Square>> BB_BISHOP_ATTACK_POSTMASK = []() {
-    std::array<Bitboard, num_of<Square>> table{};
-    for (Square s : iter<Square>) {
-        table[idx(s)] = (
-            ray<false, true>(s, Direction::NORTHEAST) |
-            ray<false, true>(s, Direction::SOUTHEAST) |
-            ray<false, true>(s, Direction::SOUTHWEST) |
-            ray<false, true>(s, Direction::NORTHWEST)
         );
     }
     return table;
@@ -158,148 +140,144 @@ constexpr Bitboard assign_bits(Bitboard bb, uint64_t bits) noexcept {
     return bb_pattern;
 }
 
-class BBBlockersIterator {
-    public:
-        using iterator_category = std::input_iterator_tag;
-        using value_type = Bitboard;
-        using difference_type = std::ptrdiff_t;
-        using pointer = const Bitboard*;
-        using reference = const Bitboard&;
-
-        constexpr BBBlockersIterator(Bitboard _bb_attack, bool is_end = false) noexcept :
-            bb_attack(_bb_attack),
-            count(is_end ? (1 << popcount(_bb_attack)) : 0)
-        {}
-
-        constexpr bool operator!=(const BBBlockersIterator& other) const noexcept {
-            return count != other.count;
-        }
-
-        constexpr Bitboard operator*() const noexcept {
-            return assign_bits(bb_attack, count);
-        }
-
-        constexpr BBBlockersIterator& operator++() noexcept {
-            count++;
-            return *this;
-        }
-
-    private:
-        Bitboard bb_attack;
-        uint64_t count;
-};
-
-class BBBlockersRange {
-    public:
-        constexpr BBBlockersRange(Bitboard _bb_attack) noexcept :
-            bb_attack(_bb_attack)
-        {}
-
-        constexpr BBBlockersIterator begin() const noexcept {
-            return BBBlockersIterator(bb_attack);
-        }
-
-        constexpr BBBlockersIterator end() const noexcept {
-            return BBBlockersIterator(bb_attack, true);
-        }
-    private:
-        Bitboard bb_attack;
-};
-
 struct AttackSet {
     Bitboard bb_blockers;
     Bitboard bb_moves;
 };
 
-template<std::array<Bitboard, num_of<Square>> attack_masks, std::array<Direction, 4> directions>
-class BBSlideAttackSetIterator {
-    public:
-        using iterator_category = std::input_iterator_tag;
-        using value_type = AttackSet;
-        using difference_type = std::ptrdiff_t;
-        using pointer = value_type*;
-        using reference = value_type&;
-
-        constexpr BBSlideAttackSetIterator(Square sq, bool is_end = false) noexcept :
-            bb_blockers_it(attack_masks[idx(sq)], is_end),
-            bb_attack(attack_masks[idx(sq)]),
-            bb_location(bb_square(sq))
-        {}
-
-        constexpr bool operator!=(const BBSlideAttackSetIterator& other) const noexcept {
-            return bb_blockers_it != other.bb_blockers_it;
+template<std::array<Direction, 4> directions>
+constexpr AttackSet make_attack_set(Bitboard bb_attack, Bitboard bb_loc, uint64_t bits) noexcept {
+    Bitboard blockers = assign_bits(bb_attack, bits);
+    Bitboard moves = Bitboard::EMPTY;
+    for (Direction dir : directions) {
+        Bitboard bb_bit = bb_shift<true>(bb_loc, dir);
+        while (nonzero(bb_bit)) {
+            moves |= bb_bit;
+            if (nonzero(blockers & bb_bit))
+                break;
+            bb_bit = bb_shift<true>(bb_bit, dir);
         }
+    }
+    return { blockers, moves };
+}
 
-        constexpr AttackSet operator*() const noexcept {
-            Bitboard bb_blockers = *bb_blockers_it;
-            Bitboard bb_moves = Bitboard::EMPTY;
-            for (Direction dir : directions) {
-                Bitboard bb_bit = bb_shift<true>(bb_location, dir);
-                while (nonzero(bb_bit)) {
-                    bb_moves |= bb_bit;
-                    if (nonzero(bb_bit & bb_blockers))
-                        break;
-                    bb_bit = bb_shift<true>(bb_bit, dir);
-                }
+inline auto rook_attack_view(Square sq) {
+    Bitboard bb_attack = BB_ROOK_ATTACK_MASK[idx(sq)];
+    Bitboard bb_loc = bb_square(sq);
+    return (
+        std::views::iota(0ULL, 1ULL << popcount(bb_attack)) |
+        std::views::transform(
+            [bb_attack, bb_loc](size_t bits) {
+                return make_attack_set<CARDINAL_DIRECTIONS>(bb_attack, bb_loc, bits);
             }
-            return AttackSet{bb_blockers, bb_moves};
+        )
+    );
+}
+
+inline auto bishop_attack_view(Square sq) {
+    Bitboard bb_attack = BB_BISHOP_ATTACK_MASK[idx(sq)];
+    Bitboard bb_loc = bb_square(sq);
+    return (
+        std::views::iota(0ULL, 1ULL << popcount(bb_attack)) |
+        std::views::transform(
+            [bb_attack, bb_loc](size_t bits) {
+                return make_attack_set<ORDINAL_DIRECTIONS>(bb_attack, bb_loc, bits);
+            }
+        )
+    );
+}
+
+constexpr size_t log2(size_t n) {
+    return (n > 1) ? 1 + log2(n / 2) : 0;
+}
+
+size_t is_valid_magic(uint64_t magic, const std::vector<AttackSet>& attack_sets, size_t size) {
+    std::unordered_map<size_t, Bitboard> hash_to_moves;
+
+    size_t max_hash = 0;
+    for (const auto& attack_set : attack_sets) {
+        size_t hash = ((static_cast<uint64_t>(attack_set.bb_blockers) * magic) >> (64 - log2(size))) % size;
+
+        if (hash_to_moves.count(hash)) {
+            // if the hash exists, ensure the moves are the same
+            if (hash_to_moves[hash] != attack_set.bb_moves) {
+                return 0;
+            }
+        } else {
+            // otherwise, store the hash and the moves
+            hash_to_moves[hash] = attack_set.bb_moves;
         }
+        max_hash = std::max(hash, max_hash);
+    }
 
-        constexpr BBSlideAttackSetIterator& operator++() noexcept {
-            ++bb_blockers_it;
-            return *this;
+    return max_hash;
+}
+
+uint64_t find_magic(const std::vector<AttackSet>& attack_sets, size_t size) {
+    std::mt19937_64 rng(std::random_device{}());
+    std::uniform_int_distribution<uint64_t> dist;
+
+    while (true) {
+        uint64_t magic = dist(rng) & dist(rng) & dist(rng); // generate a random magic number
+        size_t max_hash = is_valid_magic(magic, attack_sets, size);
+        if (max_hash > 0) {
+            return magic; // found a valid magic number
         }
-
-    private:
-        BBBlockersIterator bb_blockers_it;
-        Bitboard bb_attack;
-        Bitboard bb_location;
-};
-
-template<std::array<Bitboard, num_of<Square>> attack_masks, std::array<Direction, 4> directions>
-class BBSlideAttackSetRange {
-    public:
-        using iterator = BBSlideAttackSetIterator<attack_masks, directions>;
-        using const_iterator = iterator;
-        using value_type = iterator::value_type;
-        using reference = value_type&;
-        using const_reference = const value_type&;
-
-        constexpr BBSlideAttackSetRange(Square _sq) noexcept :
-            sq(_sq)
-        {}
-
-        constexpr iterator begin() const noexcept {
-            return iterator(sq);
-        }
-
-        constexpr iterator end() const noexcept {
-            return iterator(sq, true);
-        }
-    private:
-        Square sq;
-};
-
-using BBRookAttackSetRange = BBSlideAttackSetRange<BB_ROOK_ATTACK_PREMASK, CARDINAL_DIRECTIONS>;
-using BBBishopAttackSetRange = BBSlideAttackSetRange<BB_BISHOP_ATTACK_PREMASK, ORDINAL_DIRECTIONS>;
+    }
+}
 
 }   // namespace bears_chess
 
-#include <iostream>
 
 int main() {
     using namespace bears_chess;
 
-    for (Square sq : iter<Square>) {
-        BBRookAttackSetRange rng(sq);
-        std::vector<AttackSet> attack_set(rng.begin(), rng.end());
+    std::ofstream fout("../../include/magics.hpp");
 
-        std::cout << sq << " " << attack_set.size() << std::endl;
-        
-        // AttackSet attack_set = *iter;
-        // std::cout << sq << std::endl;
-        // std::cout << show_highlights(attack_set.bb_blockers, attack_set.bb_moves);
+    fout << "#pragma once\n"
+         << "\n"
+         << "// File automatically generated by " << __FILE__ << "\n"
+         << "\n"
+         << "#include \"types.hpp\"\n"
+         << "\n"
+         << "namespace bears_chess {\n"
+         << "\n"
+         << "struct MagicInfo {\n"
+         << "    uint64_t magic;\n"
+         << "    int shift;\n"
+         << "};\n"
+         << std::endl;
+    fout << "constexpr std::array<MagicInfo, num_of<Square>> ROOK_MAGICS = {" << std::endl;
+    for (Square sq : iter<Square>) {
+        auto attack_set_view = rook_attack_view(sq);
+        std::vector<AttackSet> attack_sets(attack_set_view.begin(), attack_set_view.end());
+
+        size_t size = attack_sets.size();
+        uint64_t magic = find_magic(attack_sets, size);
+
+        fout << "    MagicInfo{0x" << std::hex << std::setw(16) << std::setfill('0') << magic
+             << "ULL, " << std::dec << 64 - log2(size) << "}" << (sq != Square::H8 ? "," : "")
+             << std::endl;
     }
+    fout << "};" << std::endl;
+
+    fout << "constexpr std::array<MagicInfo, num_of<Square>> BISHOP_MAGICS = {" << std::endl;
+    for (Square sq : iter<Square>) {
+        auto attack_set_view = bishop_attack_view(sq);
+        std::vector<AttackSet> attack_sets(attack_set_view.begin(), attack_set_view.end());
+
+        size_t size = attack_sets.size();
+        uint64_t magic = find_magic(attack_sets, size);
+
+        fout << "    MagicInfo{0x" << std::hex << std::setw(16) << std::setfill('0') << magic
+             << "ULL, " << std::dec << 64 - log2(size) << "}" << (sq != Square::H8 ? "," : "")
+             << std::endl;
+    }
+    fout << "};" << std::endl;
+
+    fout << "\n"
+         << "}    // namespace bears_chess\n"
+         << std::endl;
 
     return 0;
 }
