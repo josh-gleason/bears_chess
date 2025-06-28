@@ -32,37 +32,45 @@ template<> struct enum_traits<Bitboard> :
     boolean_ops
 {};
 
-constexpr std::array<Bitboard, num_of<Square>> BB_SQUARE = []() {
-    std::array<Bitboard, num_of<Square>> table{};
+constexpr std::array<Bitboard, num_of<Square> + 1> BB_SQUARE = []() {
+    std::array<Bitboard, num_of<Square> + 1> table{};
     for (Square square : iter<Square>) {
         table[idx(square)] = Bitboard::SQUARE_A1 << idx(square);
     }
+    table[idx(Square::NONE)] = Bitboard::EMPTY;
     return table;
 }();
 
-constexpr std::array<Bitboard, num_of<File>> BB_FILE = []() {
-    std::array<Bitboard, num_of<File>> table{};
+constexpr std::array<Bitboard, num_of<File> + 1> BB_FILE = []() {
+    std::array<Bitboard, num_of<File> + 1> table{};
     for (File file : iter<File>) {
         table[idx(file)] = Bitboard::FILE_A << idx(file);
     }
+    table[idx(File::NONE)] = Bitboard::EMPTY;
     return table;
 }();
 
-constexpr std::array<Bitboard, num_of<Rank>> BB_RANK = []() {
-    std::array<Bitboard, num_of<Rank>> table{};
+constexpr std::array<Bitboard, num_of<Rank> + 1> BB_RANK = []() {
+    std::array<Bitboard, num_of<Rank> + 1> table{};
     for (Rank rank : iter<Rank>) {
         table[idx(rank)] = Bitboard::RANK_1 << (num_of<File> * idx(rank));
     }
+    table[idx(Rank::NONE)] = Bitboard::EMPTY;
     return table;
 }();
 
-constexpr std::array<std::array<Bitboard, num_of<Rank>>, num_of<File>> BB_FILE_RANK = []() {
-    std::array<std::array<Bitboard, num_of<Rank>>, num_of<File>> table{};
+constexpr std::array<std::array<Bitboard, num_of<Rank> + 1>, num_of<File> + 1> BB_FILE_RANK = []() {
+    std::array<std::array<Bitboard, num_of<Rank> + 1>, num_of<File> + 1> table{};
     for (File file : iter<File>) {
         for (Rank rank : iter<Rank>) {
             table[idx(file)][idx(rank)] = (BB_FILE[idx(file)] & BB_RANK[idx(rank)]);
         }
+        table[idx(file)][idx(Rank::NONE)] = Bitboard::EMPTY;
     }
+    for (Rank rank : iter<Rank>) {
+        table[idx(File::NONE)][idx(Rank::NONE)] = Bitboard::EMPTY;
+    }
+    table[idx(File::NONE)][idx(Rank::NONE)] = Bitboard::EMPTY;
     return table;
 }();
 
@@ -290,7 +298,7 @@ class bb_bit_scan {
 };
 
 constexpr std::array<Bitboard, num_of<Square>> BB_KNIGHT_MOVES = []() {
-    std::array<Bitboard, num_of<Square>> masks;
+    std::array<Bitboard, num_of<Square>> masks{};
     for (Square sq : iter<Square>) {
         Bitboard center = BB_SQUARE[idx(sq)];
         masks[idx(sq)] = (
@@ -306,5 +314,72 @@ constexpr std::array<Bitboard, num_of<Square>> BB_KNIGHT_MOVES = []() {
     }
     return masks;
 }();
+
+constexpr std::array<Bitboard, num_of<Square>> BB_KING_MOVES = []() {
+    std::array<Bitboard, num_of<Square>> masks{};
+    for (Square sq : iter<Square>) {
+        Bitboard center = BB_SQUARE[idx(sq)];
+        masks[idx(sq)] = (
+            bb_n<true>(center) |
+            bb_ne<true>(center) |
+            bb_e<true>(center) |
+            bb_se<true>(center) |
+            bb_s<true>(center) |
+            bb_sw<true>(center) |
+            bb_w<true>(center) |
+            bb_nw<true>(center)
+        );
+    }
+    return masks;
+}();
+
+constexpr std::array<std::array<Bitboard, num_of<Square>>, num_of<Color>> BB_SINGLE_PAWN_MOVES = []() {
+    std::array<std::array<Bitboard, num_of<Square>>, num_of<Color>> masks{};
+    for (Color c : iter<Color>) {
+        for (Square sq : iter<Square>) {
+            Bitboard center = BB_SQUARE[idx(sq)];
+            if (c == Color::WHITE) {
+                masks[idx(c)][idx(sq)] = bb_n<true>(center);
+            } else {
+                masks[idx(c)][idx(sq)] = bb_s<true>(center);
+            }
+        }
+    }
+    return masks;
+}();
+
+constexpr std::array<std::array<Bitboard, num_of<Square>>, num_of<Color>> BB_DOUBLE_PAWN_MOVES = []() {
+    std::array<std::array<Bitboard, num_of<Square>>, num_of<Color>> masks{};
+    for (Color c : iter<Color>) {
+        for (Square sq : iter<Square>) {
+            Bitboard center = BB_SQUARE[idx(sq)];
+            if (c == Color::WHITE && rank_of(sq) == Rank::_2) {
+                masks[idx(c)][idx(sq)] = bb_nn<true>(center);
+            } else if (c == Color::BLACK && rank_of(sq) == Rank::_7) {
+                masks[idx(c)][idx(sq)] = bb_ss<true>(center);
+            } else {
+                masks[idx(c)][idx(sq)] = Bitboard::EMPTY;
+            }
+        }
+    }
+    return masks;
+}();
+
+constexpr std::array<std::array<Bitboard, num_of<Square>>, num_of<Color>> BB_CAPTURE_PAWN_MOVES = []() {
+    std::array<std::array<Bitboard, num_of<Square>>, num_of<Color>> masks{};
+    for (Color c : iter<Color>) {
+        for (Square sq : iter<Square>) {
+            Bitboard center = BB_SQUARE[idx(sq)];
+            if (c == Color::WHITE) {
+                masks[idx(c)][idx(sq)] = bb_ne<true>(center) | bb_nw<true>(center);
+            } else {
+                masks[idx(c)][idx(sq)] = bb_se<true>(center) | bb_sw<true>(center);
+            }
+        }
+    }
+    return masks;
+}();
+
+constexpr const Bitboard BB_PROMOTION_RANKS = bb_rank(Rank::_1) | bb_rank(Rank::_8);
 
 } // namespace bears_chess

@@ -16,10 +16,120 @@ inline void generate_knight_moves(const Board& board, const BoardCache& cache, M
     // find knights for our color
     Color color = board.side_to_move;
 
-    Bitboard occupied = board.occupied_by_color[idx(color)];
+    Bitboard unoccupied = ~board.occupied;
+    Bitboard opponent_occupied = board.occupied_by_color[idx(~color)];
+
     Bitboard bb_knights = board.pieces[idx(color)][idx(Piece::KNIGHT)];
-    for (Square square : bb_square_scan(bb_knights)) {
-         
+    for (Square from : bb_square_scan(bb_knights)) {
+        Bitboard bb_move_pattern = BB_KNIGHT_MOVES[idx(from)];
+        Bitboard bb_quiet = (bb_move_pattern & unoccupied);
+        Bitboard bb_capture = (bb_move_pattern & opponent_occupied);
+        for (Square to : bb_square_scan(bb_quiet)) {
+            moves.emplace_back(Move{from, to, MoveType::QUIET});
+        }
+        for (Square to : bb_square_scan(bb_capture)) {
+            moves.emplace_back(Move{from, to, MoveType::CAPTURE});
+        }
+    }
+}
+
+inline void generate_knight_moves_alt(const Board& board, const BoardCache& cache, MoveList& moves) {
+    // TODO: test to see if this is faster
+    Color color = board.side_to_move;
+
+    Bitboard self_unoccupied = ~board.occupied_by_color[idx(color)];
+    Bitboard occupied = board.occupied;
+
+    Bitboard bb_knights = board.pieces[idx(color)][idx(Piece::KNIGHT)];
+    for (Square from : bb_square_scan(bb_knights)) {
+        Bitboard bb_move_pattern = BB_KNIGHT_MOVES[idx(from)];
+        Bitboard bb_moves = (bb_move_pattern & self_unoccupied);
+        for (Square to : bb_square_scan(bb_moves)) {
+            bool capture = nonzero(bb_square(to) & occupied);
+            MoveType move_type = capture ? MoveType::CAPTURE : MoveType::QUIET;
+            moves.emplace_back(Move{from, to, move_type});
+        }
+    }
+}
+
+inline void generate_king_moves(const Board& board, const BoardCache& cache, MoveList& moves) {
+    Color color = board.side_to_move;
+
+    Bitboard unoccupied = ~board.occupied;
+    Bitboard opponent_occupied = board.occupied_by_color[idx(~color)];
+
+    Square from = bitscan_forward(board.pieces[idx(color)][idx(Piece::KING)]);
+    Bitboard bb_move_pattern = BB_KING_MOVES[idx(from)];
+
+    Bitboard bb_quiet = (bb_move_pattern & unoccupied);
+    Bitboard bb_capture = (bb_move_pattern & opponent_occupied);
+    for (Square to : bb_square_scan(bb_quiet)) {
+        moves.emplace_back(Move{from, to, MoveType::QUIET});
+    }
+    for (Square to : bb_square_scan(bb_capture)) {
+        moves.emplace_back(Move{from, to, MoveType::CAPTURE});
+    }
+}
+
+inline void generate_pawn_moves(const Board& board, const BoardCache& cache, MoveList& moves) {
+    Color color = board.side_to_move;
+
+    Bitboard unoccupied = ~board.occupied;
+    Bitboard opponent_occupied = board.occupied_by_color[idx(~color)];
+
+    Bitboard bb_pawns = board.pieces[idx(color)][idx(Piece::PAWN)];
+    Bitboard bb_ep_square = bb_square(board.ep_square);
+
+    for (Square from : bb_square_scan(bb_pawns)) {
+        // single pawn push
+        Bitboard bb_single = (BB_SINGLE_PAWN_MOVES[idx(color)][idx(from)] & unoccupied);
+        Bitboard bb_quiet = (bb_single & ~BB_PROMOTION_RANKS);
+        if (nonzero(bb_quiet)) {
+            Square to = bitscan_forward(bb_quiet);
+            moves.emplace_back(Move{from, to, MoveType::QUIET});
+        }
+        Bitboard bb_promotion = (bb_single & BB_PROMOTION_RANKS);
+        if (nonzero(bb_promotion)) {
+            Square to = bitscan_forward(bb_promotion);
+            moves.emplace_back(Move{from, to, MoveType::KNIGHT_PROMOTION});
+            moves.emplace_back(Move{from, to, MoveType::BISHOP_PROMOTION});
+            moves.emplace_back(Move{from, to, MoveType::ROOK_PROMOTION});
+            moves.emplace_back(Move{from, to, MoveType::QUEEN_PROMOTION});
+        }
+
+        // double pawn push
+        if (nonzero(bb_single)) {
+            Bitboard bb_double = (BB_DOUBLE_PAWN_MOVES[idx(color)][idx(from)] & unoccupied);
+            if (nonzero(bb_double)) {
+                Square to = bitscan_forward(bb_double);
+                moves.emplace_back(Move{from, to, MoveType::DOUBLE_PAWN_PUSH});
+            }
+        }
+
+        // captures
+        Bitboard bb_capture_pattern = BB_CAPTURE_PAWN_MOVES[idx(color)][idx(from)];
+        Bitboard bb_capture = (bb_capture_pattern & opponent_occupied);
+        Bitboard bb_capture_only = (bb_capture & ~BB_PROMOTION_RANKS);
+        for (Square to : bb_square_scan(bb_capture_only)) {
+            moves.emplace_back(Move{from, to, MoveType::CAPTURE});
+        }
+        Bitboard bb_capture_promote = (bb_capture & BB_PROMOTION_RANKS);
+        for (Square to : bb_square_scan(bb_capture_promote)) {
+            moves.emplace_back(Move{from, to, MoveType::KNIGHT_PROMOTION_CAPTURE});
+            moves.emplace_back(Move{from, to, MoveType::BISHOP_PROMOTION_CAPTURE});
+            moves.emplace_back(Move{from, to, MoveType::ROOK_PROMOTION_CAPTURE});
+            moves.emplace_back(Move{from, to, MoveType::QUEEN_PROMOTION_CAPTURE});
+        }
+
+    }
+
+    if (board.ep_square != Square::NONE) {
+        Square to = board.ep_square;
+        Bitboard bb_ep_pawn_mask = BB_CAPTURE_PAWN_MOVES[idx(~color)][idx(to)];
+        Bitboard bb_capture_ep = bb_ep_pawn_mask & board.pieces[idx(color)][idx(Piece::PAWN)];
+        for (Square from : bb_square_scan(bb_capture_ep)) {
+            moves.emplace_back(Move{from, to, MoveType::EP_CAPTURE});
+        }
     }
 }
 
@@ -28,6 +138,8 @@ MoveList generate_pseudo_legal_moves(const Board& board) {
     MoveList moves;
 
     generate_knight_moves(board, cache, moves);
+    generate_king_moves(board, cache, moves);
+    generate_pawn_moves(board, cache, moves);
 
     return moves;
 }
