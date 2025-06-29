@@ -15,15 +15,15 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # add_definitions(-DUSE_POPCNT -DUSE_AVX2 -DUSE_SSE41 -DUSE_SSSE3 -DUSE_SSE2)
 
 # Optimization configuration
-option(ENABLE_POPCNT "Enable POPCNT instruction" OFF)
-option(ENABLE_AVX2 "Enable AVX2 instructions" OFF)
-option(ENABLE_SSE41 "Enable SSE4.1 instructions" OFF)
-option(ENABLE_SSSE3 "Enable SSSE3 instructions" OFF)
-option(ENABLE_SSE3 "Enable SSE3 instructions" OFF)
-option(ENABLE_SSE2 "Enable SSE2 instructions" OFF)
+option(ENABLE_POPCNT "Enable POPCNT instruction" ON)
+option(ENABLE_AVX2 "Enable AVX2 instructions" ON)
+option(ENABLE_SSE41 "Enable SSE4.1 instructions" ON)
+option(ENABLE_SSSE3 "Enable SSSE3 instructions" ON)
+option(ENABLE_SSE3 "Enable SSE3 instructions" ON)
+option(ENABLE_SSE2 "Enable SSE2 instructions" ON)
 
 # Set optimization flags based on options
-set(OPTIMIZATION_FLAGS "-O3 -mtune=native")
+set(OPTIMIZATION_FLAGS "-O4 -mtune=native")
 
 if(ENABLE_SSE2)
     list(APPEND OPTIMIZATION_FLAGS "-msse2")

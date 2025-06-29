@@ -1,5 +1,6 @@
 #include "board.hpp"
 #include "bitboard.hpp"
+#include "magics.hpp"
 
 namespace bears_chess {
 
@@ -62,78 +63,136 @@ UndoInfo Board::do_move(const Move &move)
         halfmove_clock
     };
 
-    Color opponent = ~side_to_move;
-    Square from = move.from;
-    Square to = move.to;
+    const Color us = side_to_move;
+    const Color them = ~side_to_move;
+    const Square from = move.from;
+    const Square to = move.to;
+
     Piece moving_piece = get_piece_at(from);
+
+    ep_square = Square::NONE;
 
     halfmove_clock++;
 
     if (is_capture(move.move_type)) {
-        if (move.move_type == MoveType::EP_CAPTURE) {
-            Square ep_captured = square_of(file_of(ep_square), rank_of(from));
-            undo.captured = Piece::PAWN;
-            remove(opponent, Piece::PAWN, ep_captured);
-            ep_square = Square::NONE;
-        } else {
-            undo.captured = get_piece_of_color_at(opponent, to);
-            remove(opponent, undo.captured, to);
-        }
         halfmove_clock = 0;
+        if (move.move_type == MoveType::EP_CAPTURE) {
+            undo.captured = Piece::PAWN;
+            Square captured_sq = captured_ep_square(us, to);
+            remove(them, Piece::PAWN, captured_sq);
+        } else {
+            undo.captured = get_piece_of_color_at(them, to);
+            remove(them, undo.captured, to);
+        }
     } else if (moving_piece == Piece::PAWN) {
         halfmove_clock = 0;
+        if (move.move_type == MoveType::DOUBLE_PAWN_PUSH) {
+            ep_square = double_push_ep_square(us, to);
+        }
     }
 
-    remove(side_to_move, moving_piece, from);
+    remove(us, moving_piece, from);
 
     if (is_promotion(move.move_type)) {
         moving_piece = promote_to(move.move_type);
     }
 
-    place(side_to_move, moving_piece, to);
+    place(us, moving_piece, to);
 
     if (move.move_type == MoveType::KING_CASTLE) {
-        Square rook_from = CASTLE_ROOK_FROM_SQUARES<Piece::KING>[idx(side_to_move)];
-        Square rook_to = CASTLE_ROOK_TO_SQUARES<Piece::KING>[idx(side_to_move)];
-        remove(side_to_move, Piece::ROOK, rook_from);
-        place(side_to_move, Piece::ROOK, rook_to);
-        castling_rights = clear_castling_rights(castling_rights, side_to_move);
+        Square rook_from = CASTLE_ROOK_FROM_SQUARES<Piece::KING>[idx(us)];
+        Square rook_to = CASTLE_ROOK_TO_SQUARES<Piece::KING>[idx(us)];
+        remove(us, Piece::ROOK, rook_from);
+        place(us, Piece::ROOK, rook_to);
+        castling_rights = clear_castling_rights(castling_rights, us);
     } else if (move.move_type == MoveType::QUEEN_CASTLE) {
-        Square rook_from = CASTLE_ROOK_FROM_SQUARES<Piece::QUEEN>[idx(side_to_move)];
-        Square rook_to = CASTLE_ROOK_TO_SQUARES<Piece::QUEEN>[idx(side_to_move)];
-        remove(side_to_move, Piece::ROOK, rook_from);
-        place(side_to_move, Piece::ROOK, rook_to);
-        castling_rights = clear_castling_rights(castling_rights, side_to_move);
+        Square rook_from = CASTLE_ROOK_FROM_SQUARES<Piece::QUEEN>[idx(us)];
+        Square rook_to = CASTLE_ROOK_TO_SQUARES<Piece::QUEEN>[idx(us)];
+        remove(us, Piece::ROOK, rook_from);
+        place(us, Piece::ROOK, rook_to);
+        castling_rights = clear_castling_rights(castling_rights, us);
     } else if (moving_piece == Piece::KING) {
-        castling_rights = clear_castling_rights(castling_rights, side_to_move);
+        castling_rights = clear_castling_rights(castling_rights, us);
     } else if (moving_piece == Piece::ROOK) {
-        if (from == CASTLE_ROOK_FROM_SQUARES<Piece::KING>[idx(side_to_move)]) {
-            castling_rights = clear_half_castling_rights<Piece::KING>(castling_rights, side_to_move);
-        } else if (from == CASTLE_ROOK_FROM_SQUARES<Piece::QUEEN>[idx(side_to_move)]) {
-            castling_rights = clear_half_castling_rights<Piece::QUEEN>(castling_rights, side_to_move);
+        if (from == CASTLE_ROOK_FROM_SQUARES<Piece::KING>[idx(us)]) {
+            castling_rights = clear_half_castling_rights<Piece::KING>(castling_rights, us);
+        } else if (from == CASTLE_ROOK_FROM_SQUARES<Piece::QUEEN>[idx(us)]) {
+            castling_rights = clear_half_castling_rights<Piece::QUEEN>(castling_rights, us);
         }
     } else if (undo.captured == Piece::ROOK) {
-        if (to == CASTLE_ROOK_FROM_SQUARES<Piece::KING>[idx(opponent)]) {
-            castling_rights = clear_half_castling_rights<Piece::KING>(castling_rights, opponent);
-        } else if (to == CASTLE_ROOK_FROM_SQUARES<Piece::QUEEN>[idx(opponent)]) {
-            castling_rights = clear_half_castling_rights<Piece::QUEEN>(castling_rights, opponent);
+        if (to == CASTLE_ROOK_FROM_SQUARES<Piece::KING>[idx(them)]) {
+            castling_rights = clear_half_castling_rights<Piece::KING>(castling_rights, them);
+        } else if (to == CASTLE_ROOK_FROM_SQUARES<Piece::QUEEN>[idx(them)]) {
+            castling_rights = clear_half_castling_rights<Piece::QUEEN>(castling_rights, them);
         }
     }
 
     fullmove_number += static_cast<int>(side_to_move);
-    side_to_move = opponent;
+    side_to_move = them;
 
     return undo;
 }
 
 void Board::undo_move(const UndoInfo &undo_info)
 {
+    const Move& move = undo_info.move;
+    const Square from = move.from;
+    const Square to = move.to;
+    const Color us = ~side_to_move;
+    const Color them = side_to_move;
+    const Piece captured = undo_info.captured;
+
+    fullmove_number -= idx(us);
+    side_to_move = us;
+    halfmove_clock = undo_info.halfmove_clock;
+    castling_rights = undo_info.castling_rights;
+    ep_square = undo_info.ep_square;
+
+    Piece moving_piece = get_piece_of_color_at(us, to);
+    remove(us, moving_piece, to);
+    if (is_promotion(move.move_type)) {
+        moving_piece = Piece::PAWN;
+    }
+    place(us, moving_piece, from);
+
+    if (is_capture(move.move_type)) {   // undo_info.captured_piece != Piece::NONE may be faster?
+        if (move.move_type == MoveType::EP_CAPTURE) {
+            Square captured_sq = captured_ep_square(us, to);
+            place(them, Piece::PAWN, captured_sq);
+        } else {
+            place(them, undo_info.captured, to);
+        }
+    } else if (move.move_type == MoveType::KING_CASTLE) {
+        Square rook_from = CASTLE_ROOK_FROM_SQUARES<Piece::KING>[idx(us)];
+        Square rook_to = CASTLE_ROOK_TO_SQUARES<Piece::KING>[idx(us)];
+        remove(us, Piece::ROOK, rook_to);
+        place(us, Piece::ROOK, rook_from);
+    } else if (move.move_type == MoveType::QUEEN_CASTLE) {
+        Square rook_from = CASTLE_ROOK_FROM_SQUARES<Piece::QUEEN>[idx(us)];
+        Square rook_to = CASTLE_ROOK_TO_SQUARES<Piece::QUEEN>[idx(us)];
+        remove(us, Piece::ROOK, rook_to);
+        place(us, Piece::ROOK, rook_from);
+    }
 }
 
 bool Board::is_legal(const Move &last_move) const
 {
-    // TODO
-    return false;
+    Color us = ~side_to_move;
+    Color them = side_to_move;
+    Square king_square = bitscan_forward(pieces[idx(us)][idx(Piece::KING)]);
+    if (is_square_attacked(king_square, them))
+        return false;
+    if (last_move.move_type == MoveType::KING_CASTLE)
+        return !(
+            is_square_attacked(sq_shift<1>(king_square, Direction::WEST), them) ||
+            is_square_attacked(sq_shift<2>(king_square, Direction::WEST), them)
+        );
+    if (last_move.move_type == MoveType::QUEEN_CASTLE)
+        return !(
+            is_square_attacked(sq_shift<1>(king_square, Direction::EAST), them) ||
+            is_square_attacked(sq_shift<2>(king_square, Direction::EAST), them)
+        );
+    return true;
 }
 
 } // namespace bears_chess

@@ -2,6 +2,7 @@
 
 #include "types.hpp"
 #include "bitboard.hpp"
+#include "magics.hpp"
 
 namespace bears_chess {
 
@@ -10,6 +11,8 @@ class Board {
         Board();
         Board(const Board&) = default;
         Board& operator=(const Board&) = default;
+        bool operator==(const Board&) const = default;
+        bool operator!=(const Board&) const = default;
 
         UndoInfo do_move(const Move& move);
         void undo_move(const UndoInfo& undo_info);
@@ -93,6 +96,22 @@ class Board {
         inline Piece get_piece_at(Square s) const {
             auto [color, piece] = get_color_piece_at(s);
             return piece;
+        }
+
+        inline bool is_square_attacked(Square sq, Color by) const {
+            if (nonzero(pieces[idx(by)][idx(Piece::PAWN)] & BB_CAPTURE_PAWN_MOVES[idx(~by)][idx(sq)]))
+                return true;
+            if (nonzero(pieces[idx(by)][idx(Piece::KNIGHT)] & BB_KNIGHT_MOVES[idx(sq)]))
+                return true;
+            if (nonzero(pieces[idx(by)][idx(Piece::KING)] & BB_KING_MOVES[idx(sq)]))
+                return true;
+            Bitboard bb_rook_attackers = pieces[idx(by)][idx(Piece::ROOK)] | pieces[idx(by)][idx(Piece::QUEEN)];
+            if (nonzero(bb_rook_attackers & magic_lookup<Piece::ROOK>(sq, occupied)))
+                return true;
+            Bitboard bb_bishop_attackers = pieces[idx(by)][idx(Piece::BISHOP)] | pieces[idx(by)][idx(Piece::QUEEN)];
+            if (nonzero(bb_bishop_attackers & magic_lookup<Piece::BISHOP>(sq, occupied)))
+                return true;
+            return false;
         }
 
         Color side_to_move;

@@ -124,17 +124,6 @@ inline void generate_pawn_moves(const Board& board, MoveList& moves) {
     }
 }
 
-template<Piece slider_piece>
-constexpr Bitboard magic_lookup(Square from, Bitboard occupied) {
-    static_assert(
-        slider_piece == Piece::ROOK || slider_piece == Piece::BISHOP,
-        "magics available only for slider_piece of ROOK or BISHOP"
-    );
-    Bitboard bb_attack_mask = BB_ATTACK_MASK<slider_piece>[idx(from)];
-    Bitboard bb_blockers = bb_attack_mask & occupied;
-    return get_bb_slider_moves<slider_piece>(from, bb_blockers);
-}
-
 template <Piece target_piece, Piece move_type>
 inline void generate_slider_moves(const Board& board, MoveList& moves) {
     Color color = board.side_to_move;

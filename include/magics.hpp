@@ -114,7 +114,7 @@ constexpr const std::array<std::vector<Bitboard>, num_of<Square>>& get_magic_tab
     // static std::array<std::vector<Bitboard>, num_of<Square>> table = []() {
     //     std::array<std::vector<Bitboard>, num_of<Square>> table{};
     //     for (Square sq : iter<Square>) {
-    //         table[idx(sq)] = magic_table<slider_piece>(sq);
+    //         table[idx(sq)] = generate_magic_attack_table<slider_piece>(sq);
     //     }
     //     return table;
     // }();
@@ -149,5 +149,16 @@ inline Bitboard get_bb_slider_moves(Square sq, Bitboard bb_blockers) noexcept {
 //     );
 //     return generate_bb_slider_moves(bb_square(sq), bb_blockers, SLIDER_DIRECTIONS<slider_piece>);
 // }
+
+template<Piece slider_piece>
+constexpr Bitboard magic_lookup(Square from, Bitboard occupied) {
+    static_assert(
+        slider_piece == Piece::ROOK || slider_piece == Piece::BISHOP,
+        "magics available only for slider_piece of ROOK or BISHOP"
+    );
+    Bitboard bb_attack_mask = BB_ATTACK_MASK<slider_piece>[idx(from)];
+    Bitboard bb_blockers = bb_attack_mask & occupied;
+    return get_bb_slider_moves<slider_piece>(from, bb_blockers);
+}
 
 }    // namespace bears_chess

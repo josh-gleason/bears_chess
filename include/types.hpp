@@ -164,9 +164,9 @@ template<Piece side>
 constexpr bool castling_allowed(CastlingRights castling_rights, Color color) {
     static_assert(side == Piece::KING || side == Piece::QUEEN, "only king or queen side castling possible");
     if constexpr (side == Piece::KING) {
-        return check_flag(castling_rights | CastlingRights::KINGS, CastlingRights::WHITE << (idx(color) * 2));
+        return check_flag(castling_rights & CastlingRights::KINGS, CastlingRights::WHITE << (idx(color) * 2));
     } else {
-        return check_flag(castling_rights | CastlingRights::QUEENS, CastlingRights::WHITE << (idx(color) * 2));
+        return check_flag(castling_rights & CastlingRights::QUEENS, CastlingRights::WHITE << (idx(color) * 2));
     }
 }
 
@@ -272,14 +272,6 @@ enum class Direction : int8_t {
     NORTHWEST = NORTH + WEST
 };
 
-constexpr std::array<Direction, 4> CARDINAL_DIRECTIONS = {
-    Direction::NORTH, Direction::EAST, Direction::SOUTH, Direction::WEST
-};
-
-constexpr std::array<Direction, 4> ORDINAL_DIRECTIONS = {
-    Direction::NORTHEAST, Direction::SOUTHEAST, Direction::SOUTHWEST, Direction::NORTHWEST
-};
-
 namespace detail {
     constexpr size_t dir_hash_fun(const Direction& d) noexcept {
         return static_cast<size_t>((static_cast<int8_t>(d) + 9) % 11);
@@ -289,6 +281,35 @@ namespace detail {
 template<> struct enum_traits<Direction> :
     hash_ops<Direction, detail::dir_hash_fun, 11>
 {};
+
+constexpr std::array<Direction, 4> CARDINAL_DIRECTIONS = {
+    Direction::NORTH, Direction::EAST, Direction::SOUTH, Direction::WEST
+};
+
+constexpr std::array<Direction, 4> ORDINAL_DIRECTIONS = {
+    Direction::NORTHEAST, Direction::SOUTHEAST, Direction::SOUTHWEST, Direction::NORTHWEST
+};
+
+template<int times = 1>
+constexpr Square sq_shift(Square sq, Direction dir) {
+    // no bounds checking
+    if constexpr (times == 1) {
+        return static_cast<Square>(idx(sq) + idx(dir));
+    } else {
+        return static_cast<Square>(idx(sq) + (idx(dir) * times));
+    }
+}
+
+constexpr Square captured_ep_square(Color capturing_side, Square ep_square) {
+    // return the square with the en passant captured piece on it
+    return sq_shift(ep_square, static_cast<Direction>((idx(capturing_side) << 4) - 8));
+}
+
+constexpr Square double_push_ep_square(Color side_to_move, Square to) {
+    // return the en passant square due to a double pawn push
+    return sq_shift(to, static_cast<Direction>((idx(side_to_move) << 4) - 8));
+}
+
 
 using MoveList = std::vector<Move>;
 
