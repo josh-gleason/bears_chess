@@ -134,6 +134,32 @@ constexpr Color operator~(Color color) noexcept {
     return static_cast<Color>(static_cast<int8_t>(color) ^ 1);
 }
 
+constexpr CastlingRights clear_castling_rights(CastlingRights r, Color c) {
+    if (c == Color::WHITE) {
+        return r & CastlingRights::BLACK;
+    } else {
+        return r & CastlingRights::WHITE;
+    }
+}
+
+template<Piece castle_side>
+constexpr CastlingRights clear_half_castling_rights(CastlingRights r, Color c) {
+    if constexpr (castle_side == Piece::KING) {
+        if (c == Color::WHITE) {
+            return clear_flag(r, CastlingRights::WHITE_KING);
+        } else {
+            return clear_flag(r, CastlingRights::BLACK_KING);
+        }
+    } else {
+        if (c == Color::WHITE) {
+            return clear_flag(r, CastlingRights::WHITE_QUEEN);
+        } else {
+            return clear_flag(r, CastlingRights::BLACK_QUEEN);
+        }
+    }
+    
+}
+
 template<Piece side>
 constexpr bool castling_allowed(CastlingRights castling_rights, Color color) {
     static_assert(side == Piece::KING || side == Piece::QUEEN, "only king or queen side castling possible");
@@ -204,6 +230,26 @@ constexpr auto CASTLE_MOVES = []() -> std::array<Move, num_of<Color>> {
             Move{Square::E1, Square::C1, MoveType::QUEEN_CASTLE},
             Move{Square::E8, Square::C8, MoveType::QUEEN_CASTLE}
         };
+    }
+}();
+
+template<Piece castle_side>
+constexpr auto CASTLE_ROOK_FROM_SQUARES = []() -> std::array<Square, num_of<Color>> {
+    static_assert(castle_side == Piece::KING || castle_side == Piece::QUEEN);
+    if constexpr (castle_side == Piece::KING) {
+        return { Square::H1, Square::H8 };
+    } else {
+        return { Square::A1, Square::A8 };
+    }
+}();
+
+template<Piece castle_side>
+constexpr auto CASTLE_ROOK_TO_SQUARES = []() -> std::array<Square, num_of<Color>> {
+    static_assert(castle_side == Piece::KING || castle_side == Piece::QUEEN);
+    if constexpr (castle_side == Piece::KING) {
+        return { Square::F1, Square::F8 };
+    } else {
+        return { Square::D1, Square::D8 };
     }
 }();
 

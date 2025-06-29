@@ -14,7 +14,7 @@ int main()
     // std::cout << load_fen(PERFT_POSITION_5_FEN) << std::endl;
     // std::cout << load_fen(PERFT_POSITION_6_FEN) << std::endl;
 
-    Board board = load_fen(PERFT_POSITION_2_FEN);
+    Board board = load_fen(PERFT_POSITION_6_FEN);
 
     std::cout << set_board_format((board.side_to_move == Color::WHITE ? BoardFormat::NONE : BoardFormat::ORIENT_BLACK) | BoardFormat::HIDE_FEN);
 

@@ -13,6 +13,7 @@ class Board {
 
         UndoInfo do_move(const Move& move);
         void undo_move(const UndoInfo& undo_info);
+        bool is_legal(const Move& last_move) const;
     
         // utility functions
         inline void place(Color c, Piece p, Square s) {
@@ -38,6 +39,15 @@ class Board {
             occupied &= mask;
         }
 
+        inline void clear_square_of_color(Color c, Square s) {
+            Bitboard mask = ~bb_square(s);
+            occupied_by_color[idx(c)] &= mask;
+            for (Piece piece : iter<Piece>) {
+                pieces[idx(c)][idx(piece)] &= mask;
+            }
+            occupied &= mask;
+        }
+
         inline bool test_bit(Color c, Piece p, Square s) const {
             return nonzero(pieces[idx(c)][idx(p)] & bb_square(s));
         }
@@ -57,6 +67,15 @@ class Board {
                 }
             }
             return Color::NONE;
+        }
+
+        inline Piece get_piece_of_color_at(Color c, Square s) const {
+            for (Piece piece : iter<Piece>) {
+                if (test_bit(c, piece, s)) {
+                    return piece;
+                }
+            }
+            return Piece::NONE;
         }
 
         inline std::pair<Color, Piece> get_color_piece_at(Square s) const {
