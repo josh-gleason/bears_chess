@@ -25,3 +25,5 @@ target_compile_definitions(bears_chess PUBLIC
     $<$<CONFIG:Debug>:SPDLOG_ACTIVE_LEVEL=1>
     $<$<CONFIG:Release>:SPDLOG_ACTIVE_LEVEL=6>
 )
+
+target_compile_options(bears_chess PRIVATE -fconstexpr-ops-limit=1000000000 -fconstexpr-loop-limit=10000000)

@@ -246,15 +246,15 @@ constexpr int popcount(Bitboard bb) noexcept { return __builtin_popcountll(idx(b
 // extract the least significant bit
 constexpr Bitboard lsb(Bitboard bb) noexcept { return (bb & -bb); }
 
-class bb_square_iterator {
+class BBSquareIterator {
     public:
         using iterator_category = std::input_iterator_tag;
         using value_type = Square;
         using difference_type = std::ptrdiff_t;
-        constexpr bb_square_iterator(Bitboard _bb) noexcept : bb(_bb) {}
-        constexpr bool operator!=(const bb_square_iterator& other) const noexcept { return bb != other.bb; }
+        constexpr BBSquareIterator(Bitboard _bb) noexcept : bb(_bb) {}
+        constexpr bool operator!=(const BBSquareIterator& other) const noexcept { return bb != other.bb; }
         constexpr Square operator*() const noexcept { return bitscan_forward(bb); }
-        constexpr bb_square_iterator& operator++() noexcept {
+        constexpr BBSquareIterator& operator++() noexcept {
             bb &= bb - to_bb(1ULL);
             return *this;
         }
@@ -262,25 +262,25 @@ class bb_square_iterator {
         Bitboard bb;
 };
 
-// for (Square sq : bb_square_scan(bb)) to iterate over occupied squares of Bitboard bb (starting with lsb)
-class bb_square_scan {
+// for (Square sq : BBSquareScan(bb)) to iterate over occupied squares of Bitboard bb (starting with lsb)
+class BBSquareScan {
     public:
-        constexpr bb_square_scan(Bitboard _bb) noexcept : bb(_bb) {}
-        constexpr bb_square_iterator begin() const noexcept { return bb_square_iterator(bb); }
-        constexpr bb_square_iterator end() const noexcept { return bb_square_iterator(Bitboard::EMPTY); }
+        constexpr BBSquareScan(Bitboard _bb) noexcept : bb(_bb) {}
+        constexpr BBSquareIterator begin() const noexcept { return BBSquareIterator(bb); }
+        constexpr BBSquareIterator end() const noexcept { return BBSquareIterator(Bitboard::EMPTY); }
     private:
         Bitboard bb;
 };
 
-class bb_bit_iterator {
+class BBBitIterator {
     public:
         using iterator_category = std::input_iterator_tag;
         using value_type = Bitboard;
         using difference_type = std::ptrdiff_t;
-        constexpr bb_bit_iterator(Bitboard _bb) noexcept : bb(_bb) {}
-        constexpr bool operator!=(const bb_bit_iterator& other) const noexcept { return bb != other.bb; }
+        constexpr BBBitIterator(Bitboard _bb) noexcept : bb(_bb) {}
+        constexpr bool operator!=(const BBBitIterator& other) const noexcept { return bb != other.bb; }
         constexpr Bitboard operator*() const noexcept { return lsb(bb); }
-        constexpr bb_bit_iterator& operator++() noexcept {
+        constexpr BBBitIterator& operator++() noexcept {
             bb &= bb - to_bb(1ULL);
             return *this;
         }
@@ -288,12 +288,12 @@ class bb_bit_iterator {
         Bitboard bb;
 };
 
-// for (Bitboard bb_bit : bb_bit_scan(bb)) to iterate over set bits of bb (starting with lsb)
-class bb_bit_scan {
+// for (Bitboard bb_bit : BBBitScan(bb)) to iterate over set bits of bb (starting with lsb)
+class BBBitScan {
     public:
-        constexpr bb_bit_scan(Bitboard _bb) noexcept : bb(_bb) {}
-        constexpr bb_bit_iterator begin() const noexcept { return bb_bit_iterator(bb); }
-        constexpr bb_bit_iterator end() const noexcept { return bb_bit_iterator(Bitboard::EMPTY); }
+        constexpr BBBitScan(Bitboard _bb) noexcept : bb(_bb) {}
+        constexpr BBBitIterator begin() const noexcept { return BBBitIterator(bb); }
+        constexpr BBBitIterator end() const noexcept { return BBBitIterator(Bitboard::EMPTY); }
     private:
         Bitboard bb;
 };
@@ -383,7 +383,6 @@ constexpr std::array<std::array<Bitboard, num_of<Square>>, num_of<Color>> BB_CAP
 
 constexpr const Bitboard BB_PROMOTION_RANKS = bb_rank(Rank::_1) | bb_rank(Rank::_8);
 
-
 constexpr std::array<Bitboard, hash_max<Direction>> BB_DIRECTION_PREMASK = []() {
     static_assert([]{
         constexpr std::array hashes = {
@@ -444,33 +443,26 @@ constexpr Bitboard ray(Square from, Direction dir) noexcept {
     return mask;
 }
 
-constexpr std::array<Bitboard, num_of<Square>> BB_ROOK_ATTACK_MASK = []() {
+template<Piece slider_piece>
+constexpr std::array<Bitboard, num_of<Square>> BB_ATTACK_MASK = []() {
     std::array<Bitboard, num_of<Square>> table{};
     for (Square s : iter<Square>) {
-        table[idx(s)] = (
-            ray(s, Direction::NORTH) |
-            ray(s, Direction::EAST) |
-            ray(s, Direction::SOUTH) |
-            ray(s, Direction::WEST)
-        );
+        if constexpr (slider_piece == Piece::ROOK) {
+            table[idx(s)] = (
+                ray(s, Direction::NORTH) | ray(s, Direction::EAST) |
+                ray(s, Direction::SOUTH) | ray(s, Direction::WEST)
+            );
+        } else {
+            table[idx(s)] = (
+                ray(s, Direction::NORTHEAST) | ray(s, Direction::SOUTHEAST) |
+                ray(s, Direction::SOUTHWEST) | ray(s, Direction::SOUTHWEST))
+            ;
+        }
     }
     return table;
 }();
 
-constexpr std::array<Bitboard, num_of<Square>> BB_BISHOP_ATTACK_MASK = []() {
-    std::array<Bitboard, num_of<Square>> table{};
-    for (Square s : iter<Square>) {
-        table[idx(s)] = (
-            ray(s, Direction::NORTHEAST) |
-            ray(s, Direction::SOUTHEAST) |
-            ray(s, Direction::SOUTHWEST) |
-            ray(s, Direction::NORTHWEST)
-        );
-    }
-    return table;
-}();
-
-struct AttackSet {
+struct MagicEntry {
     Bitboard bb_blockers;
     Bitboard bb_moves;
 };

@@ -678,7 +678,7 @@ std::ostream &operator<<(std::ostream &out, const detail::Highlighted<Bitboard> 
     for (Square square : iter<Square>) {
         board.clear_square(square);
     }
-    for (Square square : bb_square_scan(bb)) {
+    for (Square square : BBSquareScan(bb)) {
         board.place(color, piece, square);
     }
 

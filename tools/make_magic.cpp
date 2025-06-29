@@ -33,7 +33,7 @@ class MagicHash {
             return hash;
         }
 
-        Stats check_magic(const std::vector<AttackSet>& attack_sets) const {
+        Stats check_magic(const std::vector<MagicEntry>& attack_sets) const {
             const size_t size = attack_sets.size();
             std::unordered_map<size_t, Bitboard> hash_to_moves;
 
@@ -71,8 +71,7 @@ std::ostream& operator<<(std::ostream& out, const MagicHash& hash) {
     std::ios::fmtflags original_flags = out.flags();
     char original_fill = out.fill();
 
-    out << "MagicHash(0x" << std::hex << std::setw(16) << std::setfill('0') << hash.scale << "ULL, "
-        << std::dec << static_cast<int>(hash.shift) << ", " << hash.target_size << ")";
+    out << "0x" << std::hex << std::setw(16) << std::setfill('0') << hash.scale << "ULL";
 
     out.flags(original_flags);
     out.fill(original_fill);
@@ -80,7 +79,7 @@ std::ostream& operator<<(std::ostream& out, const MagicHash& hash) {
     return out;
 }
 
-MagicHash find_magic(const std::vector<AttackSet>& attack_sets) {
+MagicHash find_magic(const std::vector<MagicEntry>& attack_sets) {
     std::mt19937_64 rng(std::random_device{}());
     std::uniform_int_distribution<uint64_t> dist;
 
@@ -95,9 +94,26 @@ MagicHash find_magic(const std::vector<AttackSet>& attack_sets) {
     }
 }
 
+template<Piece slider_piece>
+void find_magics(std::ostream& out) {
+    static_assert(slider_piece == Piece::ROOK || slider_piece == Piece::BISHOP, "magics only available for rook and bishop");
+    std::string piece_name = (slider_piece == Piece::ROOK ? "Piece::ROOK" : "Piece::BISHOP");
+    out << "template<> constexpr std::array<uint64_t, num_of<Square>> MAGICS<" << piece_name << "> = {" << std::endl;
+    for (Square sq : iter<Square>) {
+        auto attack_set_view = attack_view<Piece::ROOK>(sq);
+        const std::vector<MagicEntry> attack_sets(attack_set_view.begin(), attack_set_view.end());
+        MagicHash magic = find_magic(attack_sets);
+        auto stats = magic.check_magic(attack_sets);
+        assert(stats.valid);
+        assert(!stats.mod_needed);
+        out << "    " << magic << (sq != Square::H8 ? "," : "") << std::endl;
+    }
+    out << "};\n" << std::endl;
+}
+
 int main() {
-    // std::ofstream fout("../../include/magic_defs.hpp");
-    auto& fout = std::cout;
+    std::ofstream fout("../../include/magic_defs.hpp");
+    // auto& fout = std::cout;
 
     fout << "#pragma once\n"
          << "\n"
@@ -106,33 +122,13 @@ int main() {
          << "#include \"types.hpp\"\n"
          << "\n"
          << "namespace bears_chess {\n"
+         << "\n"
+         << "template<Piece P> constexpr bool always_false = false;\n"
+         << "template<Piece P> constexpr std::array<uint64_t, num_of<Square>> MAGICS = []() requires always_false<P> {};\n"
          << std::endl;
-    fout << "constexpr std::array<MagicInfo, num_of<Square>> ROOK_MAGICS = {" << std::endl;
-    for (Square sq : iter<Square>) {
-        auto attack_set_view = rook_attack_view(sq);
-        const std::vector<AttackSet> attack_sets(attack_set_view.begin(), attack_set_view.end());
-        MagicHash magic = find_magic(attack_sets);
-        auto stats = magic.check_magic(attack_sets);
-        fout << "    square=" << sq << ", valid=" << (stats.valid ? "true" : "FALSE")
-             << ", mod_needed=" << (stats.mod_needed ? "TRUE" : "false")
-             << ", max_hash=" << stats.max_hash << std::endl;
-        
-        fout << "    " << magic << (sq != Square::H8 ? "," : "") << std::endl;
-    }
-    fout << "};" << std::endl;
 
-    fout << "constexpr std::array<MagicInfo, num_of<Square>> BISHOP_MAGICS = {" << std::endl;
-    for (Square sq : iter<Square>) {
-        auto attack_set_view = bishop_attack_view(sq);
-        const std::vector<AttackSet> attack_sets(attack_set_view.begin(), attack_set_view.end());
-        MagicHash magic = find_magic(attack_sets);
-        auto stats = magic.check_magic(attack_sets);
-        fout << "    square=" << sq << ", valid=" << (stats.valid ? "true" : "FALSE")
-             << ", mod_needed=" << (stats.mod_needed ? "TRUE" : "false")
-             << ", max_hash=" << stats.max_hash << std::endl;
-        fout << "    " << magic << (sq != Square::H8 ? "," : "") << std::endl;
-    }
-    fout << "};" << std::endl;
+    find_magics<Piece::ROOK>(fout);
+    find_magics<Piece::BISHOP>(fout);
 
     fout << "\n"
          << "}    // namespace bears_chess\n"

@@ -21,14 +21,14 @@ inline void generate_knight_moves(const Board& board, const BoardCache& cache, M
     Bitboard opponent_occupied = board.occupied_by_color[idx(~color)];
 
     Bitboard bb_knights = board.pieces[idx(color)][idx(Piece::KNIGHT)];
-    for (Square from : bb_square_scan(bb_knights)) {
+    for (Square from : BBSquareScan(bb_knights)) {
         Bitboard bb_move_pattern = BB_KNIGHT_MOVES[idx(from)];
         Bitboard bb_quiet = (bb_move_pattern & unoccupied);
         Bitboard bb_capture = (bb_move_pattern & opponent_occupied);
-        for (Square to : bb_square_scan(bb_quiet)) {
+        for (Square to : BBSquareScan(bb_quiet)) {
             moves.emplace_back(Move{from, to, MoveType::QUIET});
         }
-        for (Square to : bb_square_scan(bb_capture)) {
+        for (Square to : BBSquareScan(bb_capture)) {
             moves.emplace_back(Move{from, to, MoveType::CAPTURE});
         }
     }
@@ -42,10 +42,10 @@ inline void generate_knight_moves_alt(const Board& board, const BoardCache& cach
     Bitboard occupied = board.occupied;
 
     Bitboard bb_knights = board.pieces[idx(color)][idx(Piece::KNIGHT)];
-    for (Square from : bb_square_scan(bb_knights)) {
+    for (Square from : BBSquareScan(bb_knights)) {
         Bitboard bb_move_pattern = BB_KNIGHT_MOVES[idx(from)];
         Bitboard bb_moves = (bb_move_pattern & self_unoccupied);
-        for (Square to : bb_square_scan(bb_moves)) {
+        for (Square to : BBSquareScan(bb_moves)) {
             bool capture = nonzero(bb_square(to) & occupied);
             MoveType move_type = capture ? MoveType::CAPTURE : MoveType::QUIET;
             moves.emplace_back(Move{from, to, move_type});
@@ -64,10 +64,10 @@ inline void generate_king_moves(const Board& board, const BoardCache& cache, Mov
 
     Bitboard bb_quiet = (bb_move_pattern & unoccupied);
     Bitboard bb_capture = (bb_move_pattern & opponent_occupied);
-    for (Square to : bb_square_scan(bb_quiet)) {
+    for (Square to : BBSquareScan(bb_quiet)) {
         moves.emplace_back(Move{from, to, MoveType::QUIET});
     }
-    for (Square to : bb_square_scan(bb_capture)) {
+    for (Square to : BBSquareScan(bb_capture)) {
         moves.emplace_back(Move{from, to, MoveType::CAPTURE});
     }
 }
@@ -81,7 +81,7 @@ inline void generate_pawn_moves(const Board& board, const BoardCache& cache, Mov
     Bitboard bb_pawns = board.pieces[idx(color)][idx(Piece::PAWN)];
     Bitboard bb_ep_square = bb_square(board.ep_square);
 
-    for (Square from : bb_square_scan(bb_pawns)) {
+    for (Square from : BBSquareScan(bb_pawns)) {
         // single pawn push
         Bitboard bb_single = (BB_SINGLE_PAWN_MOVES[idx(color)][idx(from)] & unoccupied);
         Bitboard bb_quiet = (bb_single & ~BB_PROMOTION_RANKS);
@@ -113,10 +113,10 @@ inline void generate_pawn_moves(const Board& board, const BoardCache& cache, Mov
         Bitboard bb_capture = (bb_capture_pattern & opponent_occupied);
         Bitboard bb_capture_only = (bb_capture & ~BB_PROMOTION_RANKS);
         Bitboard bb_capture_promote = (bb_capture & BB_PROMOTION_RANKS);
-        for (Square to : bb_square_scan(bb_capture_only)) {
+        for (Square to : BBSquareScan(bb_capture_only)) {
             moves.emplace_back(Move{from, to, MoveType::CAPTURE});
         }
-        for (Square to : bb_square_scan(bb_capture_promote)) {
+        for (Square to : BBSquareScan(bb_capture_promote)) {
             moves.emplace_back(Move{from, to, MoveType::KNIGHT_PROMOTION_CAPTURE});
             moves.emplace_back(Move{from, to, MoveType::BISHOP_PROMOTION_CAPTURE});
             moves.emplace_back(Move{from, to, MoveType::ROOK_PROMOTION_CAPTURE});
@@ -128,26 +128,21 @@ inline void generate_pawn_moves(const Board& board, const BoardCache& cache, Mov
         Square to = board.ep_square;
         Bitboard bb_ep_pawn_mask = BB_CAPTURE_PAWN_MOVES[idx(~color)][idx(to)];
         Bitboard bb_capture_ep = bb_ep_pawn_mask & board.pieces[idx(color)][idx(Piece::PAWN)];
-        for (Square from : bb_square_scan(bb_capture_ep)) {
+        for (Square from : BBSquareScan(bb_capture_ep)) {
             moves.emplace_back(Move{from, to, MoveType::EP_CAPTURE});
         }
     }
 }
 
-template<Piece piece>
+template<Piece slider_piece>
 constexpr Bitboard magic_lookup(Square from, Bitboard occupied) {
-    // static_assert(piece == Piece::ROOK || piece == Piece::BISHOP, "magic hash available only for rook and bishop");
-    // constexpr auto& bb_attack_masks = (piece == Piece::ROOK ? BB_ROOK_ATTACK_MASK : BB_BISHOP_ATTACK_MASK);
-    // auto& magic_hashes = (piece == Piece::ROOK ? MAGIC_ROOK_HASHES : MAGIC_BISHOP_HASHES);
-    // Bitboard bb_attack_mask = bb_attack_mask[idx(from)];
-    // Bitboard bb_blockers = bb_attack_mask & occupied;
-
-    // size_t hash = magic_hashes[idx(from)](bb_blockers);
-
-    // auto& attack_lookup = (piece == Piece::ROOK ? MAGIC )
-
-    // return 
-    return Bitboard::EMPTY;
+    static_assert(
+        slider_piece == Piece::ROOK || slider_piece == Piece::BISHOP,
+        "magics available only for slider_piece of ROOK or BISHOP"
+    );
+    Bitboard bb_attack_mask = BB_ATTACK_MASK<slider_piece>[idx(from)];
+    Bitboard bb_blockers = bb_attack_mask & occupied;
+    return get_bb_slider_moves<slider_piece>(from, bb_blockers);
 }
 
 template <Piece target_piece, Piece move_type>
@@ -158,18 +153,23 @@ inline void generate_slider_moves(const Board& board, MoveList& moves) {
     Bitboard opponent_occupied = board.occupied_by_color[idx(~color)];
 
     Bitboard bb_pieces = board.pieces[idx(color)][idx(target_piece)];
-    for (Square from : bb_square_scan(bb_pieces)) {
+    for (Square from : BBSquareScan(bb_pieces)) {
         Bitboard bb_moves = magic_lookup<move_type>(from, occupied);
         Bitboard bb_quiet = bb_moves & ~occupied;
         Bitboard bb_capture = bb_moves & opponent_occupied;
 
-        for (Square to : bb_square_scan(bb_quiet)) {
+        for (Square to : BBSquareScan(bb_quiet)) {
             moves.emplace_back(Move{from, to, MoveType::QUIET});
         }
-        for (Square to : bb_square_scan(bb_capture)) {
+        for (Square to : BBSquareScan(bb_capture)) {
             moves.emplace_back(Move{from, to, MoveType::CAPTURE});
         }
     }
+}
+
+inline void generate_castle_moves(const Board& board, MoveList& moves) {
+    // check if castling through check during make move
+
 }
 
 MoveList generate_pseudo_legal_moves(const Board& board) {
@@ -183,6 +183,7 @@ MoveList generate_pseudo_legal_moves(const Board& board) {
     generate_slider_moves<Piece::QUEEN, Piece::ROOK>(board, moves);
     generate_slider_moves<Piece::BISHOP, Piece::BISHOP>(board, moves);
     generate_slider_moves<Piece::QUEEN, Piece::BISHOP>(board, moves);
+    generate_castle_moves(board, moves);
 
     return moves;
 }
