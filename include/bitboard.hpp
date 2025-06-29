@@ -397,8 +397,8 @@ constexpr std::array<Bitboard, hash_max<Direction>> BB_DIRECTION_PREMASK = []() 
         return true;
     }(), "Direction hash is invalid or out of range");
 
-    std::array<Bitboard, 11> table{};
-    for (int i = 0; i < 11; ++i) {
+    std::array<Bitboard, hash_max<Direction>> table{};
+    for (int i = 0; i < hash_max<Direction>; ++i) {
         table[i] = Bitboard::FULL;    
     }
     table[hash<Direction>(Direction::EAST)] = ~bb_file(File::H);
@@ -455,7 +455,7 @@ constexpr std::array<Bitboard, num_of<Square>> BB_ATTACK_MASK = []() {
         } else {
             table[idx(s)] = (
                 ray(s, Direction::NORTHEAST) | ray(s, Direction::SOUTHEAST) |
-                ray(s, Direction::SOUTHWEST) | ray(s, Direction::SOUTHWEST))
+                ray(s, Direction::NORTHWEST) | ray(s, Direction::SOUTHWEST))
             ;
         }
     }
@@ -466,5 +466,21 @@ struct MagicEntry {
     Bitboard bb_blockers;
     Bitboard bb_moves;
 };
+
+template<Piece castle_side>
+constexpr auto BB_CASTLE_PATHS = []() -> std::array<Bitboard, num_of<Color>> {
+    static_assert(castle_side == Piece::KING || castle_side == Piece::QUEEN);
+    if constexpr (castle_side == Piece::KING) {
+        return {
+            bb_square(Square::F1) | bb_square(Square::G1),
+            bb_square(Square::F8) | bb_square(Square::G8)
+        };
+    } else {
+        return {
+            bb_square(Square::D1) | bb_square(Square::C1) | bb_square(Square::B1),
+            bb_square(Square::D8) | bb_square(Square::C8) | bb_square(Square::B8)
+        };
+    }
+}();
 
 } // namespace bears_chess

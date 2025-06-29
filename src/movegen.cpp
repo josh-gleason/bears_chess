@@ -3,17 +3,7 @@
 
 namespace bears_chess {
 
-struct BoardCache {
-
-};
-
-BoardCache generate_cache() {
-    BoardCache cache;
-
-    return cache;
-}
-
-inline void generate_knight_moves(const Board& board, const BoardCache& cache, MoveList& moves) {
+inline void generate_knight_moves(const Board& board, MoveList& moves) {
     // find knights for our color
     Color color = board.side_to_move;
 
@@ -34,7 +24,7 @@ inline void generate_knight_moves(const Board& board, const BoardCache& cache, M
     }
 }
 
-inline void generate_knight_moves_alt(const Board& board, const BoardCache& cache, MoveList& moves) {
+inline void generate_knight_moves_alt(const Board& board, MoveList& moves) {
     // TODO: test to see if this is faster
     Color color = board.side_to_move;
 
@@ -53,7 +43,7 @@ inline void generate_knight_moves_alt(const Board& board, const BoardCache& cach
     }
 }
 
-inline void generate_king_moves(const Board& board, const BoardCache& cache, MoveList& moves) {
+inline void generate_king_moves(const Board& board, MoveList& moves) {
     Color color = board.side_to_move;
 
     Bitboard unoccupied = ~board.occupied;
@@ -72,7 +62,7 @@ inline void generate_king_moves(const Board& board, const BoardCache& cache, Mov
     }
 }
 
-inline void generate_pawn_moves(const Board& board, const BoardCache& cache, MoveList& moves) {
+inline void generate_pawn_moves(const Board& board, MoveList& moves) {
     Color color = board.side_to_move;
 
     Bitboard unoccupied = ~board.occupied;
@@ -168,17 +158,23 @@ inline void generate_slider_moves(const Board& board, MoveList& moves) {
 }
 
 inline void generate_castle_moves(const Board& board, MoveList& moves) {
-    // check if castling through check during make move
-
+    Color color = board.side_to_move;
+    Bitboard occupied = board.occupied;
+    CastlingRights castling_rights = board.castling_rights;
+    if (castling_allowed<Piece::KING>(castling_rights, color) && !(occupied & BB_CASTLE_PATHS<Piece::KING>[idx(color)])) {
+        moves.emplace_back(CASTLE_MOVES<Piece::KING>[idx(color)]);
+    }
+    if (castling_allowed<Piece::QUEEN>(castling_rights, color) && !(occupied & BB_CASTLE_PATHS<Piece::QUEEN>[idx(color)])) {
+        moves.emplace_back(CASTLE_MOVES<Piece::QUEEN>[idx(color)]);
+    }
 }
 
 MoveList generate_pseudo_legal_moves(const Board& board) {
-    BoardCache cache = generate_cache();
     MoveList moves;
 
-    generate_knight_moves(board, cache, moves);
-    generate_king_moves(board, cache, moves);
-    generate_pawn_moves(board, cache, moves);
+    generate_knight_moves(board, moves);
+    generate_king_moves(board, moves);
+    generate_pawn_moves(board, moves);
     generate_slider_moves<Piece::ROOK, Piece::ROOK>(board, moves);
     generate_slider_moves<Piece::QUEEN, Piece::ROOK>(board, moves);
     generate_slider_moves<Piece::BISHOP, Piece::BISHOP>(board, moves);

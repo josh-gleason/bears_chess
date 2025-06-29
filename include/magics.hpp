@@ -30,7 +30,7 @@ constexpr size_t log2(size_t n) {
 }
 
 constexpr size_t magic_hash(Bitboard bb_blockers, uint64_t magic, size_t target_size) {
-    return static_cast<uint64_t>(bb_blockers) * magic >> (64 - log2(target_size));
+    return (static_cast<uint64_t>(bb_blockers) * magic) >> (64 - log2(target_size));
 }
 
 constexpr Bitboard assign_bits(Bitboard bb, uint64_t bits) noexcept {
@@ -43,19 +43,18 @@ constexpr Bitboard assign_bits(Bitboard bb, uint64_t bits) noexcept {
 }
 
 template<size_t D>
-constexpr MagicEntry make_attack_set(Bitboard bb_attack, const std::array<Direction, D>& directions, Bitboard bb_loc, uint64_t bits) noexcept {
-    Bitboard blockers = assign_bits(bb_attack, bits);
-    Bitboard moves = Bitboard::EMPTY;
+constexpr Bitboard generate_bb_slider_moves(Bitboard bb_loc, Bitboard bb_blockers, const std::array<Direction, D>& directions) noexcept {
+    Bitboard bb_moves = Bitboard::EMPTY;
     for (Direction dir : directions) {
         Bitboard bb_bit = bb_shift<true>(bb_loc, dir);
         while (nonzero(bb_bit)) {
-            moves |= bb_bit;
-            if (nonzero(blockers & bb_bit))
+            bb_moves |= bb_bit;
+            if (nonzero(bb_blockers & bb_bit))
                 break;
             bb_bit = bb_shift<true>(bb_bit, dir);
         }
     }
-    return { blockers, moves };
+    return bb_moves;
 }
 
 template<Piece slider_piece>
@@ -69,7 +68,9 @@ constexpr auto attack_view(Square sq) {
     return (
         std::views::iota(0ULL, 1ULL << popcount(bb_attack)) |
         std::views::transform([bb_attack, bb_loc](size_t bits) {
-            return make_attack_set(bb_attack, SLIDER_DIRECTIONS<slider_piece>, bb_loc, bits);
+            Bitboard bb_blockers = assign_bits(bb_attack, bits);
+            Bitboard bb_moves = generate_bb_slider_moves(bb_loc, bb_blockers, SLIDER_DIRECTIONS<slider_piece>);
+            return MagicEntry{bb_blockers, bb_moves};
         })
     );
 }
@@ -139,5 +140,14 @@ inline Bitboard get_bb_slider_moves(Square sq, Bitboard bb_blockers) noexcept {
     size_t hash = magic_hash(bb_blockers, magic, target_size);
     return get_magic_tables<slider_piece>()[idx(sq)][hash];
 }
+
+// template<Piece slider_piece>
+// inline Bitboard get_bb_slider_moves(Square sq, Bitboard bb_blockers) noexcept {
+//     static_assert(
+//         slider_piece == Piece::ROOK || slider_piece == Piece::BISHOP,
+//         "magics available only for slider_piece of ROOK or BISHOP"
+//     );
+//     return generate_bb_slider_moves(bb_square(sq), bb_blockers, SLIDER_DIRECTIONS<slider_piece>);
+// }
 
 }    // namespace bears_chess

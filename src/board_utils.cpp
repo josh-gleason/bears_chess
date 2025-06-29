@@ -709,8 +709,62 @@ std::ostream& operator<<(std::ostream& out, Piece piece) {
     return out << piece_to_str(Color::WHITE, piece);
 }
 
-std::ostream& operator<<(std::ostream& out, Color color) {
-    return out << color_to_str(color);
+std::ostream& operator<<(std::ostream& out, MoveType move_type) {
+    switch (move_type) {
+        case MoveType::QUIET:
+            out << "quiet";
+            break;
+        case MoveType::DOUBLE_PAWN_PUSH:
+            out << piece_to_str(Color::WHITE, Piece::PAWN) << "x2";
+            break;
+        case MoveType::KING_CASTLE:
+            out << "O-O";
+            break;
+        case MoveType::QUEEN_CASTLE:
+            out << "O-O-O";
+            break;
+        case MoveType::CAPTURE:
+            out << "x";
+            break;
+        case MoveType::EP_CAPTURE:
+            out << "x-ep";
+            break;
+        case MoveType::KNIGHT_PROMOTION:
+            out << "=" << piece_to_str(Color::WHITE, Piece::KNIGHT);
+            break;
+        case MoveType::BISHOP_PROMOTION:
+            out << "=" << piece_to_str(Color::WHITE, Piece::BISHOP);
+            break;
+        case MoveType::ROOK_PROMOTION:
+            out << "=" << piece_to_str(Color::WHITE, Piece::ROOK);
+            break;
+        case MoveType::QUEEN_PROMOTION:
+            out << "=" << piece_to_str(Color::WHITE, Piece::QUEEN);
+            break;
+        case MoveType::KNIGHT_PROMOTION_CAPTURE:
+            out << "x=" << piece_to_str(Color::WHITE, Piece::KNIGHT);
+            break;
+        case MoveType::BISHOP_PROMOTION_CAPTURE:
+            out << "x=" << piece_to_str(Color::WHITE, Piece::BISHOP);
+            break;
+        case MoveType::ROOK_PROMOTION_CAPTURE:
+            out << "x=" << piece_to_str(Color::WHITE, Piece::ROOK);
+            break;
+        case MoveType::QUEEN_PROMOTION_CAPTURE:
+            out << "x=" << piece_to_str(Color::WHITE, Piece::QUEEN);
+            break;
+        case MoveType::NONE:
+            out << "none";
+            break;
+        default:
+            out << "MoveType(" << static_cast<int>(move_type) << ")";
+            break;
+    };
+    return out;
+}
+
+std::ostream& operator<<(std::ostream& out, Move move) {
+    return out << move.from << "->" << move.to << " " << move.move_type;
 }
 
 } // namespace bears_chess

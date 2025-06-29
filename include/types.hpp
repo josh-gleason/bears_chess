@@ -108,11 +108,14 @@ enum class CastlingRights : uint8_t {
     BLACK_QUEEN = 0b1000,
     WHITE = 0b0011,
     BLACK = 0b1100,
+    KINGS = 0b0101,
+    QUEENS = 0b1010,
     ALL = 0b1111
 };
 
 template<> struct enum_traits<CastlingRights> :
     bitmask_ops,
+    shift_ops,
     flag_ops
 {};
 
@@ -129,6 +132,16 @@ template<> struct enum_traits<Color> :
 
 constexpr Color operator~(Color color) noexcept {
     return static_cast<Color>(static_cast<int8_t>(color) ^ 1);
+}
+
+template<Piece side>
+constexpr bool castling_allowed(CastlingRights castling_rights, Color color) {
+    static_assert(side == Piece::KING || side == Piece::QUEEN, "only king or queen side castling possible");
+    if constexpr (side == Piece::KING) {
+        return check_flag(castling_rights | CastlingRights::KINGS, CastlingRights::WHITE << (idx(color) * 2));
+    } else {
+        return check_flag(castling_rights | CastlingRights::QUEENS, CastlingRights::WHITE << (idx(color) * 2));
+    }
 }
 
 enum class MoveType : int8_t {
@@ -178,6 +191,22 @@ struct Move {
     MoveType move_type;
 };
 
+template<Piece castle_side>
+constexpr auto CASTLE_MOVES = []() -> std::array<Move, num_of<Color>> {
+    static_assert(castle_side == Piece::KING || castle_side == Piece::QUEEN);
+    if constexpr (castle_side == Piece::KING) {
+        return {
+            Move{Square::E1, Square::G1, MoveType::KING_CASTLE},
+            Move{Square::E8, Square::G8, MoveType::KING_CASTLE}
+        };
+    } else {
+        return {
+            Move{Square::E1, Square::C1, MoveType::QUEEN_CASTLE},
+            Move{Square::E8, Square::C8, MoveType::QUEEN_CASTLE}
+        };
+    }
+}();
+
 struct UndoInfo {
     Move move;
     Piece captured;
@@ -206,7 +235,9 @@ constexpr std::array<Direction, 4> ORDINAL_DIRECTIONS = {
 };
 
 namespace detail {
-constexpr size_t dir_hash_fun(const Direction& d) noexcept { return static_cast<size_t>((static_cast<int8_t>(d) + 9) % 11); }
+    constexpr size_t dir_hash_fun(const Direction& d) noexcept {
+        return static_cast<size_t>((static_cast<int8_t>(d) + 9) % 11);
+    }
 }
 
 template<> struct enum_traits<Direction> :

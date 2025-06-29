@@ -93,5 +93,7 @@ std::ostream& operator<<(std::ostream& out, Rank rank);
 std::ostream& operator<<(std::ostream& out, File file);
 std::ostream& operator<<(std::ostream& out, Piece piece);
 std::ostream& operator<<(std::ostream& out, Color color);
+std::ostream& operator<<(std::ostream& out, MoveType move_type);
+std::ostream& operator<<(std::ostream& out, Move move);
 
 } // namespace bears_chess
