@@ -129,7 +129,7 @@ Board load_fen(const std::string &fen)
                     if (file > last<File>) {
                         throw std::invalid_argument("Invalid FEN: overfull rank");
                     }
-                    board.clear_square(square_of(file, rank));
+                    board.clear_square<false>(square_of(file, rank));
                     ++file;
                 }
             } else {
@@ -138,7 +138,7 @@ Board load_fen(const std::string &fen)
                 }
                 auto [color, piece] = char_to_piece(c);
                 Square square = square_of(file, rank);
-                board.clear_square(square_of(file, rank));
+                board.clear_square<false>(square_of(file, rank));
                 board.place(color, piece, square);
                 ++file;
             }
@@ -252,8 +252,8 @@ std::string get_fen(const Board& board)
         int empty_count = 0;
         for (File file : iter<File>) {
             Square square = square_of(file, rank);
-            Piece piece = board.get_piece_at(square);
-            Color color = board.get_color_at(square);
+            Piece piece = board.get_piece_at<false>(square);
+            Color color = board.get_color_at<false>(square);
 
             if (piece == Piece::NONE) {
                 ++empty_count;
@@ -453,13 +453,13 @@ static std::string board_rank_string(const Board& board, Rank rank, BoardFormat 
     }
     for (File file : get_file_order(fmt)) {
         Square square = square_of(file, rank);
-        Color color = board.get_color_at(square);
+        Color color = board.get_color_at<false>(square);
         bool highlighted = nonzero(highlights & bb_square(square));
         if (check_flag(fmt, BoardFormat::OCCUPANCY_ONLY)) {
             bool occupied = board.is_occupied(square);
             rank_string += get_square_occupancy_str(color, occupied, square, fmt, highlighted);
         } else {
-            Piece piece = board.get_piece_at(square);
+            Piece piece = board.get_piece_at<false>(square);
             rank_string += get_square_str(color, piece, square, fmt, highlighted);
         }
     }
@@ -676,7 +676,7 @@ std::ostream &operator<<(std::ostream &out, const detail::Highlighted<Bitboard> 
 
     Board board;
     for (Square square : iter<Square>) {
-        board.clear_square(square);
+        board.clear_square<false>(square);
     }
     for (Square square : BBSquareScan(bb)) {
         board.place(color, piece, square);

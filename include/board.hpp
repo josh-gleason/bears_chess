@@ -19,7 +19,11 @@ class Board {
         bool is_legal(const Move& last_move) const;
     
         // utility functions
+
         inline void place(Color c, Piece p, Square s) {
+            last_color_sq[idx(s)] = c;
+            last_piece_sq[idx(s)] = p;
+
             pieces[idx(c)][idx(p)] |= bb_square(s);
             occupied_by_color[idx(c)] |= bb_square(s);
             occupied |= bb_square(s);
@@ -31,22 +35,25 @@ class Board {
             occupied &= ~bb_square(s);
         }
 
+        template<bool assume_occupied=true>
         inline void clear_square(Square s) {
-            for (Color color : iter<Color>) {
-                for (Piece piece : iter<Piece>) {
-                    remove(color, piece, s);
-                }
+            if constexpr (!assume_occupied) {
+                if (!is_occupied(s))
+                    return;
             }
+            remove(last_color_sq[idx(s)], last_piece_sq[idx(s)], s);
         }
 
+        template<bool assume_occupied=true>
         inline void clear_square_of_color(Color c, Square s) {
-            Bitboard mask = ~bb_square(s);
-            occupied_by_color[idx(c)] &= mask;
-            for (Piece piece : iter<Piece>) {
-                pieces[idx(c)][idx(piece)] &= mask;
+            if constexpr (!assume_occupied) {
+                if (!is_occupied(s))
+                    return;
             }
-            occupied &= mask;
+            Piece piece = last_piece_sq[idx(s)];
+            remove(c, last_piece_sq[idx(s)], s);
         }
+
 
         inline bool test_bit(Color c, Piece p, Square s) const {
             return nonzero(pieces[idx(c)][idx(p)] & bb_square(s));
@@ -60,40 +67,33 @@ class Board {
             return nonzero(occupied_by_color[idx(c)] & bb_square(s));
         }
 
+        template<bool assume_occupied=true>
         inline Color get_color_at(Square s) const {
-            for (Color color : iter<Color>) {
-                if (is_occupied_by_color(color, s)) {
-                    return color;
-                }
+            if constexpr (!assume_occupied) {
+                if (!is_occupied(s))
+                    return Color::NONE;
             }
-            return Color::NONE;
+            return last_color_sq[idx(s)];
         }
 
-        inline Piece get_piece_of_color_at(Color c, Square s) const {
-            for (Piece piece : iter<Piece>) {
-                if (test_bit(c, piece, s)) {
-                    return piece;
-                }
-            }
-            return Piece::NONE;
-        }
-
-        inline std::pair<Color, Piece> get_color_piece_at(Square s) const {
-            Color color = get_color_at(s);
-            if (color != Color::NONE) {
-                for (Piece piece : iter<Piece>) {
-                    if (test_bit(color, piece, s)) {
-                        return std::make_pair(color, piece);
-                    }
-                }
-            }
-            return std::make_pair(Color::NONE, Piece::NONE);
-        }
-
+        template<bool assume_occupied=true>
         inline Piece get_piece_at(Square s) const {
-            auto [color, piece] = get_color_piece_at(s);
-            return piece;
+            if constexpr (!assume_occupied) {
+                if (!is_occupied(s))
+                    return Piece::NONE;
+            }
+            return last_piece_sq[idx(s)];
         }
+
+        template<bool assume_occupied=true>
+        inline Piece get_piece_of_color_at(Color c, Square s) const {
+            if constexpr (assume_occupied) {
+                return get_piece_at(s);
+            } else {
+                return (is_occupied_by_color(c, s) ? get_piece_at(s) : Piece::NONE);
+            }
+        }
+
 
         inline bool is_square_attacked(Square sq, Color by) const {
             if (nonzero(pieces[idx(by)][idx(Piece::PAWN)] & BB_CAPTURE_PAWN_MOVES[idx(~by)][idx(sq)]))
@@ -123,7 +123,9 @@ class Board {
         Bitboard occupied_by_color[num_of<Color>];
         Bitboard occupied;
 
-        // other information computed when requested
+        // mailbox cache
+        Piece last_piece_sq[num_of<Square>];
+        Color last_color_sq[num_of<Square>];
 };
 
 } // namespace bears_chess
