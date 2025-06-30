@@ -24,7 +24,7 @@ uint64_t perft(Board& board, int depth) {
 void perft_test(const std::string& fen, int max_depth) {
     Board board = load_fen(fen);
     std::cout << "======================== BEGIN PERFT TEST ================================" << std::endl;
-    std::cout << fen << std::endl;
+    std::cout << board << std::endl;
 
     for (int depth = 1; depth <= max_depth; ++depth) {
         auto start = std::chrono::steady_clock::now();
@@ -104,7 +104,7 @@ int main()
     //     test_do_undo(load_fen(fen), 2);
     // }
 
-    perft_test(INITIAL_POSITION_FEN, 6);
+    perft_test(PERFT_POSITION_2_FEN, 5);
 
     return 0;
 }
