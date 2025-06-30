@@ -74,7 +74,7 @@ UndoInfo Board::do_move(const Move &move)
     const Square from = move.from;
     const Square to = move.to;
 
-    Piece moving_piece = get_piece_at(from);
+    Piece moving_piece = get_piece_of_color_at(us, from);
 
     ep_square = Square::NONE;
 

@@ -32,14 +32,11 @@ class Board {
         }
 
         inline void clear_square(Square s) {
-            Bitboard mask = ~bb_square(s);
             for (Color color : iter<Color>) {
-                occupied_by_color[idx(color)] &= mask;
                 for (Piece piece : iter<Piece>) {
-                    pieces[idx(color)][idx(piece)] &= mask;
+                    remove(color, piece, s);
                 }
             }
-            occupied &= mask;
         }
 
         inline void clear_square_of_color(Color c, Square s) {
