@@ -54,7 +54,6 @@ class Board {
             remove(c, last_piece_sq[idx(s)], s);
         }
 
-
         inline bool test_bit(Color c, Piece p, Square s) const {
             return nonzero(pieces[idx(c)][idx(p)] & bb_square(s));
         }
@@ -93,7 +92,6 @@ class Board {
                 return (is_occupied_by_color(c, s) ? get_piece_at(s) : Piece::NONE);
             }
         }
-
 
         inline bool is_square_attacked(Square sq, Color by) const {
             if (nonzero(pieces[idx(by)][idx(Piece::PAWN)] & BB_CAPTURE_PAWN_MOVES[idx(~by)][idx(sq)]))

@@ -69,7 +69,6 @@ inline void generate_pawn_moves(const Board& board, MoveList& moves) {
     Bitboard opponent_occupied = board.occupied_by_color[idx(~color)];
 
     Bitboard bb_pawns = board.pieces[idx(color)][idx(Piece::PAWN)];
-    Bitboard bb_ep_square = bb_square(board.ep_square);
 
     for (Square from : BBSquareScan(bb_pawns)) {
         // single pawn push
