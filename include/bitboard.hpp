@@ -69,7 +69,7 @@ constexpr std::array<std::array<Bitboard, num_of<Rank> + 1>, num_of<File> + 1> B
         table[idx(file)][idx(Rank::NONE)] = Bitboard::EMPTY;
     }
     for (Rank rank : iter<Rank>) {
-        table[idx(File::NONE)][idx(Rank::NONE)] = Bitboard::EMPTY;
+        table[idx(File::NONE)][idx(rank)] = Bitboard::EMPTY;
     }
     table[idx(File::NONE)][idx(Rank::NONE)] = Bitboard::EMPTY;
     return table;
