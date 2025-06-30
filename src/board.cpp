@@ -10,8 +10,14 @@ Board::Board() :
     fullmove_number(1),
     castling_rights(CastlingRights::ALL),
     ep_square(Square::NONE),
-    halfmove_clock(0)
+    halfmove_clock(0),
+    occupied(Bitboard::EMPTY),
+    occupied_by_color{Bitboard::EMPTY, Bitboard::EMPTY}
 {
+    for (Color c : iter<Color>)
+        for (Piece p : iter<Piece>)
+            pieces[idx(c)][idx(p)] = Bitboard::EMPTY;
+
     // Rank 1
     place(Color::WHITE, Piece::ROOK, Square::A1);
     place(Color::WHITE, Piece::KNIGHT, Square::B1);
