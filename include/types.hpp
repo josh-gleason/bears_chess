@@ -9,8 +9,6 @@
 
 namespace bears_chess {
 
-// using Bitboard = uint64_t;
-
 template<typename E>
 constexpr std::underlying_type_t<E> idx(E e) noexcept {
     static_assert(std::is_enum_v<E>, "idx only works with enums");

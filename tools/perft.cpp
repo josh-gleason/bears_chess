@@ -24,7 +24,7 @@ uint64_t perft(Board& board, int depth) {
 void perft_test(const std::string& fen, int max_depth) {
     Board board = load_fen(fen);
     std::cout << "======================== BEGIN PERFT TEST ================================" << std::endl;
-    std::cout << board << std::endl;
+    std::cout << fen << std::endl;
 
     for (int depth = 1; depth <= max_depth; ++depth) {
         auto start = std::chrono::steady_clock::now();
@@ -89,14 +89,14 @@ void show_pseudolegal_moves(const std::string &fen) {
 
 int main()
 {
-    const std::vector<std::string> perft_fens = {
-        INITIAL_POSITION_FEN,
-        PERFT_POSITION_2_FEN,
-        PERFT_POSITION_3_FEN,
-        PERFT_POSITION_4_FEN,
-        PERFT_POSITION_5_FEN,
-        PERFT_POSITION_6_FEN
-    };
+    // const std::vector<std::string> perft_fens = {
+    //     INITIAL_POSITION_FEN,
+    //     PERFT_POSITION_2_FEN,
+    //     PERFT_POSITION_3_FEN,
+    //     PERFT_POSITION_4_FEN,
+    //     PERFT_POSITION_5_FEN,
+    //     PERFT_POSITION_6_FEN
+    // };
 
     // show_pseudolegal_moves(PERFT_POSITION_3_FEN);
 
@@ -104,10 +104,7 @@ int main()
     //     test_do_undo(load_fen(fen), 2);
     // }
 
-    for (auto fen : perft_fens) {
-        perft_test(fen, 6);
-        break;
-    }
+    perft_test(INITIAL_POSITION_FEN, 6);
 
     return 0;
 }
