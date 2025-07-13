@@ -139,7 +139,10 @@ Board load_fen(const std::string &fen)
                 auto [color, piece] = char_to_piece(c);
                 Square square = square_of(file, rank);
                 board.clear_square<false>(square_of(file, rank));
-                board.place(color, piece, square);
+                if (piece != Piece::KING)
+                    board.place(color, piece, square);
+                else
+                    board.place_king(color, square);
                 ++file;
             }
         }
@@ -678,8 +681,12 @@ std::ostream &operator<<(std::ostream &out, const detail::Highlighted<Bitboard> 
     for (Square square : iter<Square>) {
         board.clear_square<false>(square);
     }
+
     for (Square square : BBSquareScan(bb)) {
-        board.place(color, piece, square);
+        if (piece != Piece::KING)
+            board.place(color, piece, square);
+        else
+            board.place_king(color, square);
     }
 
     return out << set_board_format(new_board_fmt) << show_highlights(board, highlights) << set_board_format(prev_board_fmt);

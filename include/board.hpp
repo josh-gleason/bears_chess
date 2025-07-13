@@ -29,6 +29,17 @@ class Board {
             occupied |= bb_square(s);
         }
 
+        inline void place_king(Color c, Square s) {
+            last_color_sq[idx(s)] = c;
+            last_piece_sq[idx(s)] = Piece::KING;
+
+            pieces[idx(c)][idx(Piece::KING)] |= bb_square(s);
+            occupied_by_color[idx(c)] |= bb_square(s);
+            occupied |= bb_square(s);
+
+            king_sq[idx(c)] = s;
+        }
+
         inline void remove(Color c, Piece p, Square s) {
             pieces[idx(c)][idx(p)] &= ~bb_square(s);
             occupied_by_color[idx(c)] &= ~bb_square(s);
@@ -124,6 +135,7 @@ class Board {
         // mailbox cache
         Piece last_piece_sq[num_of<Square>];
         Color last_color_sq[num_of<Square>];
+        Square king_sq[num_of<Color>];
 };
 
 } // namespace bears_chess

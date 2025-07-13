@@ -23,7 +23,7 @@ Board::Board() :
     place(Color::WHITE, Piece::KNIGHT, Square::B1);
     place(Color::WHITE, Piece::BISHOP, Square::C1);
     place(Color::WHITE, Piece::QUEEN, Square::D1);
-    place(Color::WHITE, Piece::KING, Square::E1);
+    place_king(Color::WHITE, Square::E1);
     place(Color::WHITE, Piece::BISHOP, Square::F1);
     place(Color::WHITE, Piece::KNIGHT, Square::G1);
     place(Color::WHITE, Piece::ROOK, Square::H1);
@@ -53,7 +53,7 @@ Board::Board() :
     place(Color::BLACK, Piece::KNIGHT, Square::B8);
     place(Color::BLACK, Piece::BISHOP, Square::C8);
     place(Color::BLACK, Piece::QUEEN, Square::D8);
-    place(Color::BLACK, Piece::KING, Square::E8);
+    place_king(Color::BLACK, Square::E8);
     place(Color::BLACK, Piece::BISHOP, Square::F8);
     place(Color::BLACK, Piece::KNIGHT, Square::G8);
     place(Color::BLACK, Piece::ROOK, Square::H8);
@@ -111,14 +111,17 @@ UndoInfo Board::do_move(const Move &move)
         remove(us, Piece::ROOK, rook_from);
         place(us, Piece::ROOK, rook_to);
         castling_rights = clear_castling_rights(castling_rights, us);
+        king_sq[idx(us)] = to;
     } else if (move.move_type == MoveType::QUEEN_CASTLE) {
         Square rook_from = CASTLE_ROOK_FROM_SQUARES<Piece::QUEEN>[idx(us)];
         Square rook_to = CASTLE_ROOK_TO_SQUARES<Piece::QUEEN>[idx(us)];
         remove(us, Piece::ROOK, rook_from);
         place(us, Piece::ROOK, rook_to);
         castling_rights = clear_castling_rights(castling_rights, us);
+        king_sq[idx(us)] = to;
     } else if (moving_piece == Piece::KING) {
         castling_rights = clear_castling_rights(castling_rights, us);
+        king_sq[idx(us)] = to;
     } else if (moving_piece == Piece::ROOK) {
         if (from == CASTLE_ROOK_FROM_SQUARES<Piece::KING>[idx(us)]) {
             castling_rights = clear_half_castling_rights<Piece::KING>(castling_rights, us);
@@ -158,8 +161,11 @@ void Board::undo_move(const UndoInfo &undo_info)
     remove(us, moving_piece, to);
     if (is_promotion(move.move_type)) {
         moving_piece = Piece::PAWN;
+    } else if (moving_piece == Piece::KING) {
+        place_king(us, from);
+    } else {
+        place(us, moving_piece, from);
     }
-    place(us, moving_piece, from);
 
     if (is_capture(move.move_type)) {   // undo_info.captured_piece != Piece::NONE may be faster?
         if (move.move_type == MoveType::EP_CAPTURE) {
@@ -185,7 +191,7 @@ bool Board::is_legal(const Move &last_move) const
 {
     Color us = ~side_to_move;
     Color them = side_to_move;
-    Square king_square = bitscan_forward(pieces[idx(us)][idx(Piece::KING)]);
+    Square king_square = king_sq[idx(us)];
     if (is_square_attacked(king_square, them))
         return false;
     if (last_move.move_type == MoveType::KING_CASTLE)

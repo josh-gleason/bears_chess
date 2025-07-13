@@ -117,7 +117,7 @@ template<Piece slider_piece>
 constexpr size_t magic_table_total_size = magic_table_offset<slider_piece>[num_of<Square>];
 
 #ifndef COMPILE_TIME_MAGICS
-#define COMPILE_TIME_MAGICS 0
+#define COMPILE_TIME_MAGICS 1
 #endif
 
 #if(COMPILE_TIME_MAGICS==1)
