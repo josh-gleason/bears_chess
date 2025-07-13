@@ -1,9 +1,6 @@
 #pragma once
 
-#include <vector>
-#include <unordered_map>
-#include <iomanip>
-#include <span>
+#include <array>
 #include <ranges>
 
 #include "types.hpp"
@@ -116,73 +113,18 @@ constexpr std::array<size_t, num_of<Square> + 1> magic_table_offset = []() {
 template<Piece slider_piece>
 constexpr size_t magic_table_total_size = magic_table_offset<slider_piece>[num_of<Square>];
 
-#ifndef COMPILE_TIME_MAGICS
-#define COMPILE_TIME_MAGICS 1
-#endif
-
-#if(COMPILE_TIME_MAGICS==1)
 template<Piece slider_piece>
-constexpr std::array<Bitboard, magic_table_total_size<slider_piece>> big_magic_table = []() {
-    std::array<Bitboard, magic_table_total_size<slider_piece>> table{};
-    for (Square sq : iter<Square>) {
-        size_t offset = magic_table_offset<slider_piece>[idx(sq)];
-        int shift = magic_table_shift<slider_piece>[idx(sq)];
-        uint64_t magic = MAGICS<slider_piece>[idx(sq)];
-        for (MagicEntry entry : attack_view<slider_piece>(sq)) {
-            size_t hash = magic_hash(entry.bb_blockers, magic, shift);
-            table[offset + hash] = entry.bb_moves;
-        }
-    }
-    return table;
-}();
+extern const std::array<Bitboard, magic_table_total_size<slider_piece>> MAGIC_ATTACK_TABLE;
 
 template<Piece slider_piece>
-constexpr Bitboard get_bb_slider_moves(Square sq, Bitboard bb_blockers) noexcept {
-    size_t offset = magic_table_offset<slider_piece>[idx(sq)];
-    uint64_t magic = MAGICS<slider_piece>[idx(sq)];
-    int shift = magic_table_shift<slider_piece>[idx(sq)];
-    size_t hash = magic_hash(bb_blockers, magic, shift);
-    return big_magic_table<slider_piece>[offset + hash];
-}
-#else
-template<Piece slider_piece>
-constexpr const std::array<Bitboard, magic_table_total_size<slider_piece>>& big_magic_table() {
-    static std::array<Bitboard, magic_table_total_size<slider_piece>> table{};
-    static bool initialized = false;
-    if (!initialized) {
-        for (Square sq : iter<Square>) {
-            size_t offset = magic_table_offset<slider_piece>[idx(sq)];
-            int shift = magic_table_shift<slider_piece>[idx(sq)];
-            uint64_t magic = MAGICS<slider_piece>[idx(sq)];
-            for (MagicEntry entry : attack_view<slider_piece>(sq)) {
-                size_t hash = magic_hash(entry.bb_blockers, magic, shift);
-                table[offset + hash] = entry.bb_moves;
-            }
-        }
-        initialized = true;
-    }
-    return table;
-};
-
-template<Piece slider_piece>
-constexpr Bitboard get_bb_slider_moves(Square sq, Bitboard bb_blockers) noexcept {
-    size_t offset = magic_table_offset<slider_piece>[idx(sq)];
-    uint64_t magic = MAGICS<slider_piece>[idx(sq)];
-    int shift = magic_table_shift<slider_piece>[idx(sq)];
-    size_t hash = magic_hash(bb_blockers, magic, shift);
-    return big_magic_table<slider_piece>()[offset + hash];
-}
-#endif
-
-template<Piece slider_piece>
-constexpr Bitboard magic_lookup(Square from, Bitboard occupied) {
-    static_assert(
-        slider_piece == Piece::ROOK || slider_piece == Piece::BISHOP,
-        "magics available only for slider_piece of ROOK or BISHOP"
-    );
+inline Bitboard magic_lookup(Square from, Bitboard bb_occupied) noexcept {
     Bitboard bb_attack_mask = BB_ATTACK_MASK<slider_piece>[idx(from)];
-    Bitboard bb_blockers = bb_attack_mask & occupied;
-    return get_bb_slider_moves<slider_piece>(from, bb_blockers);
+    Bitboard bb_blockers = bb_attack_mask & bb_occupied;
+    uint64_t magic = MAGICS<slider_piece>[idx(from)];
+    int shift = magic_table_shift<slider_piece>[idx(from)];
+    size_t offset = magic_table_offset<slider_piece>[idx(from)];
+    size_t hash = magic_hash(bb_blockers, magic, shift);
+    return MAGIC_ATTACK_TABLE<slider_piece>[offset + hash];
 }
 
 }    // namespace bears_chess
