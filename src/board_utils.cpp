@@ -385,27 +385,6 @@ static std::string get_square_occupancy_str(Color color, bool occupied, Square s
     return get_ansi_code(square, color, fmt, highlighted) + get_piece_occupancy_glyph(color, occupied, fmt) + " " + get_ansi_reset(fmt);
 }
 
-static std::vector<Square> get_square_order(BoardFormat fmt) {
-    std::vector<Square> squares;
-    squares.reserve(num_of<Square>);
-    if (check_flag(fmt, BoardFormat::ORIENT_BLACK)) {
-        // order displayed from top left (H1, G1, ...)
-        for (Rank rank : iter<Rank>) {
-            for (File file : iter_rev<File>) {
-                squares.push_back(square_of(file, rank));
-            }
-        }
-    } else {
-        // order displayed from top left (A8, B8, ...)
-        for (Rank rank : iter_rev<Rank>) {
-            for (File file : iter<File>) {
-                squares.push_back(square_of(file, rank));
-            }
-        }
-    }
-    return squares;
-}
-
 static std::vector<Rank> get_rank_order(BoardFormat fmt) {
     std::vector<Rank> ranks;
     ranks.reserve(num_of<Rank>);
@@ -583,113 +562,119 @@ Color get_bitboard_fmt_color(std::ostream &out) {
     return get_ostream_word<Color>(out, get_stream_bitboard_color_fmt_idx(), DEFAULT_BITBOARD_COLOR);
 }
 
-std::ostream& operator<<(std::ostream &out, detail::BoardFormatFlags fmt) {
-    set_stream_board_fmt(out, fmt.flags);
-    return out;
-}
-
-std::ostream &operator<<(std::ostream &out, detail::BitboardFormatFlags fmt)
-{
-    set_stream_bitboard_color_fmt(out, fmt.color);
-    set_stream_bitboard_piece_fmt(out, fmt.piece);
-    return out;
-}
-
-std::ostream &operator<<(std::ostream &out, const detail::Highlighted<Board> &highlighted_board)
-{
-    constexpr int FULL_MOVE_LINE = 1;
-    constexpr int TURN_LINE = 2;
-    constexpr int CASTLING_RIGHTS_LINE = 4;
-    constexpr int HALF_MOVE_LINE = 5;
-    constexpr int EP_SQUARE_LINE = 6;
-    
-    const Board& board = highlighted_board.obj;
-    Bitboard highlights = highlighted_board.highlights;
-
-    BoardFormat fmt = get_board_fmt(out);
-    
-
-    if (!check_flag(fmt, BoardFormat::HIDE_FEN)) {
-        out << get_fen(board) << "\n";
+namespace detail {
+    std::ostream& operator<<(std::ostream &out, BoardFormatFlags fmt) {
+        set_stream_board_fmt(out, fmt.flags);
+        return out;
     }
 
-    auto ranks = get_rank_order(fmt);
+    std::ostream &operator<<(std::ostream &out, BitboardFormatFlags fmt)
+    {
+        set_stream_bitboard_color_fmt(out, fmt.color);
+        set_stream_bitboard_piece_fmt(out, fmt.piece);
+        return out;
+    }
 
-    if (check_flag(fmt, BoardFormat::HIDE_BOARD)) {
-        for (size_t rank_idx = 0; rank_idx < ranks.size(); ++rank_idx) {
-            std::string info = "";
-            if (rank_idx == FULL_MOVE_LINE) {
-                info = full_move_string(board, fmt);
-            } else if (rank_idx == TURN_LINE) {
-                info = turn_string(board, fmt);
-            } else if (rank_idx == CASTLING_RIGHTS_LINE) {
-                info = castling_rights_string(board, fmt);
-            } else if (rank_idx == HALF_MOVE_LINE) {
-                info = halfmove_clock_string(board, fmt);
-            } else if (rank_idx == EP_SQUARE_LINE) {
-                info = ep_square_string(board, fmt);
-            }
-            if (info.size() > 0) {
-                out << info << "\n";
-            }
+    std::ostream &operator<<(std::ostream &out, const Highlighted<Board> &highlighted_board)
+    {
+        constexpr int FULL_MOVE_LINE = 1;
+        constexpr int TURN_LINE = 2;
+        constexpr int CASTLING_RIGHTS_LINE = 4;
+        constexpr int HALF_MOVE_LINE = 5;
+        constexpr int EP_SQUARE_LINE = 6;
+        
+        const Board& board = highlighted_board.obj;
+        Bitboard highlights = highlighted_board.highlights;
+
+        BoardFormat fmt = get_board_fmt(out);
+        
+        if (check_flag(fmt, BoardFormat::ORIENT_TURN)) {
+            fmt = clear_flag(fmt, BoardFormat::ORIENT_TURN);
+            fmt = (board.side_to_move == Color::WHITE) ? clear_flag(fmt, BoardFormat::ORIENT_BLACK) : set_flag(fmt, BoardFormat::ORIENT_BLACK);
         }
-    } else {
-        for (size_t rank_idx = 0; rank_idx < ranks.size(); ++rank_idx) {
-            out << board_rank_string(board, ranks[rank_idx], fmt, highlights);
 
-            if (rank_idx == FULL_MOVE_LINE) {
-                out << "    " << full_move_string(board, fmt);
-            } else if (rank_idx == TURN_LINE) {
-                out << "    " << turn_string(board, fmt);
-            } else if (rank_idx == CASTLING_RIGHTS_LINE) {
-                out << "    " << castling_rights_string(board, fmt);
-            } else if (rank_idx == HALF_MOVE_LINE) {
-                out << "    " << halfmove_clock_string(board, fmt);
-            } else if (rank_idx == EP_SQUARE_LINE) {
-                out << "    " << ep_square_string(board, fmt);
-            }
-
-            out << "\n";
+        if (!check_flag(fmt, BoardFormat::HIDE_FEN)) {
+            out << get_fen(board) << "\n";
         }
-        out << files_string(fmt);
+
+        auto ranks = get_rank_order(fmt);
+
+        if (check_flag(fmt, BoardFormat::HIDE_BOARD)) {
+            for (size_t rank_idx = 0; rank_idx < ranks.size(); ++rank_idx) {
+                std::string info = "";
+                if (rank_idx == FULL_MOVE_LINE) {
+                    info = full_move_string(board, fmt);
+                } else if (rank_idx == TURN_LINE) {
+                    info = turn_string(board, fmt);
+                } else if (rank_idx == CASTLING_RIGHTS_LINE) {
+                    info = castling_rights_string(board, fmt);
+                } else if (rank_idx == HALF_MOVE_LINE) {
+                    info = halfmove_clock_string(board, fmt);
+                } else if (rank_idx == EP_SQUARE_LINE) {
+                    info = ep_square_string(board, fmt);
+                }
+                if (info.size() > 0) {
+                    out << info << "\n";
+                }
+            }
+        } else {
+            for (size_t rank_idx = 0; rank_idx < ranks.size(); ++rank_idx) {
+                out << board_rank_string(board, ranks[rank_idx], fmt, highlights);
+
+                if (rank_idx == FULL_MOVE_LINE) {
+                    out << "    " << full_move_string(board, fmt);
+                } else if (rank_idx == TURN_LINE) {
+                    out << "    " << turn_string(board, fmt);
+                } else if (rank_idx == CASTLING_RIGHTS_LINE) {
+                    out << "    " << castling_rights_string(board, fmt);
+                } else if (rank_idx == HALF_MOVE_LINE) {
+                    out << "    " << halfmove_clock_string(board, fmt);
+                } else if (rank_idx == EP_SQUARE_LINE) {
+                    out << "    " << ep_square_string(board, fmt);
+                }
+
+                out << "\n";
+            }
+            out << files_string(fmt);
+        }
+
+        return out;
     }
 
-    return out;
-}
+    std::ostream &operator<<(std::ostream &out, const Highlighted<Bitboard> &highlighted_bb)
+    {
+        BoardFormat prev_board_fmt = get_board_fmt(out);
+        BoardFormat new_board_fmt = prev_board_fmt;
 
-std::ostream &operator<<(std::ostream &out, const detail::Highlighted<Bitboard> &highlighted_bb)
-{
-    BoardFormat prev_board_fmt = get_board_fmt(out);
-    BoardFormat new_board_fmt = prev_board_fmt;
+        Color color = get_bitboard_fmt_color(out);
+        Piece piece = get_bitboard_fmt_piece(out);
 
-    Color color = get_bitboard_fmt_color(out);
-    Piece piece = get_bitboard_fmt_piece(out);
+        Bitboard bb = highlighted_bb.obj;
+        Bitboard highlights = highlighted_bb.highlights;
 
-    Bitboard bb = highlighted_bb.obj;
-    Bitboard highlights = highlighted_bb.highlights;
+        if (color == Color::NONE) {
+            color = Color::BLACK;
+        }
+        if (piece == Piece::NONE) {
+            piece = Piece::PAWN;
+            new_board_fmt |= BoardFormat::OCCUPANCY_ONLY;
+        }
+        new_board_fmt |= BoardFormat::ONLY_BOARD;
 
-    if (color == Color::NONE) {
-        color = Color::BLACK;
+        Board board;
+        for (Square square : iter<Square>) {
+            board.clear_square<false>(square);
+        }
+
+        for (Square square : BBSquareScan(bb)) {
+            if (piece != Piece::KING)
+                board.place(color, piece, square);
+            else
+                board.place_king(color, square);
+        }
+
+        return out << set_board_format(new_board_fmt) << show_highlights(board, highlights) << set_board_format(prev_board_fmt);
     }
-    if (piece == Piece::NONE) {
-        piece = Piece::PAWN;
-        new_board_fmt |= BoardFormat::OCCUPANCY_ONLY;
-    }
-    new_board_fmt |= BoardFormat::ONLY_BOARD;
-
-    Board board;
-    for (Square square : iter<Square>) {
-        board.clear_square<false>(square);
-    }
-
-    for (Square square : BBSquareScan(bb)) {
-        if (piece != Piece::KING)
-            board.place(color, piece, square);
-        else
-            board.place_king(color, square);
-    }
-
-    return out << set_board_format(new_board_fmt) << show_highlights(board, highlights) << set_board_format(prev_board_fmt);
 }
 
 std::ostream& operator<<(std::ostream& out, const Board& board) {
@@ -714,6 +699,10 @@ std::ostream& operator<<(std::ostream& out, File file) {
 
 std::ostream& operator<<(std::ostream& out, Piece piece) {
     return out << piece_to_str(Color::WHITE, piece);
+}
+
+std::ostream& operator<<(std::ostream& out, Color color) {
+    return out << color_to_str(color);
 }
 
 std::ostream& operator<<(std::ostream& out, MoveType move_type) {

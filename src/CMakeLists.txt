@@ -12,4 +12,4 @@ target_include_directories(bears_chess
         ${PROJECT_SOURCE_DIR}/include
 )
 
-target_compile_options(bears_chess PRIVATE -fconstexpr-ops-limit=1000000000 -fconstexpr-loop-limit=10000000)
+# target_compile_options(bears_chess PRIVATE -fconstexpr-ops-limit=1000000000 -fconstexpr-loop-limit=10000000)

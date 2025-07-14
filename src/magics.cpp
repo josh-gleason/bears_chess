@@ -18,10 +18,7 @@ constexpr std::array<Bitboard, magic_table_total_size<slider_piece>> build_magic
     return table;
 }
 
-template<>
-const auto MAGIC_ATTACK_TABLE<Piece::ROOK> = build_magic_attack_table<Piece::ROOK>();
-
-template<>
-const auto MAGIC_ATTACK_TABLE<Piece::BISHOP> = build_magic_attack_table<Piece::BISHOP>();
+const std::array<Bitboard, magic_table_total_size<Piece::ROOK>> ROOK_ATTACK_TABLE = build_magic_attack_table<Piece::ROOK>();
+const std::array<Bitboard, magic_table_total_size<Piece::BISHOP>> BISHOP_ATTACK_TABLE = build_magic_attack_table<Piece::BISHOP>();
 
 }   // namespace bears_chess

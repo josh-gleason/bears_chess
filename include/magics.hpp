@@ -50,12 +50,8 @@ constexpr Bitboard generate_bb_slider_moves(Bitboard bb_loc, Bitboard bb_blocker
     return bb_moves;
 }
 
-template<Piece slider_piece>
+template<Piece slider_piece> requires (slider_piece == Piece::ROOK || slider_piece == Piece::BISHOP)
 constexpr auto attack_view(Square sq) {
-    static_assert(
-        slider_piece == Piece::ROOK || slider_piece == Piece::BISHOP,
-        "magics available only for slider_piece of ROOK or BISHOP"
-    );
     Bitboard bb_attack = BB_ATTACK_MASK<slider_piece>[idx(sq)];
     Bitboard bb_loc = bb_square(sq);
     return (
@@ -68,12 +64,8 @@ constexpr auto attack_view(Square sq) {
     );
 }
 
-template<Piece slider_piece>
+template<Piece slider_piece> requires (slider_piece == Piece::ROOK || slider_piece == Piece::BISHOP)
 constexpr std::array<size_t, num_of<Square>> magic_table_size = []() {
-    static_assert(
-        slider_piece == Piece::ROOK || slider_piece == Piece::BISHOP,
-        "magics available only for slider_piece of ROOK or BISHOP"
-    );
     std::array<size_t, num_of<Square>> table{};
     for (Square sq : iter<Square>) {
         table[idx(sq)] = 1ULL << popcount(BB_ATTACK_MASK<slider_piece>[idx(sq)]);
@@ -81,12 +73,8 @@ constexpr std::array<size_t, num_of<Square>> magic_table_size = []() {
     return table;
 }();
 
-template<Piece slider_piece>
+template<Piece slider_piece> requires (slider_piece == Piece::ROOK || slider_piece == Piece::BISHOP)
 constexpr std::array<int, num_of<Square>> magic_table_shift = []() {
-    static_assert(
-        slider_piece == Piece::ROOK || slider_piece == Piece::BISHOP,
-        "magics available only for slider_piece of ROOK or BISHOP"
-    );
     std::array<int, num_of<Square>> table{};
     for (Square sq : iter<Square>) {
         table[idx(sq)] = 1 + __builtin_clzll(magic_table_size<slider_piece>[idx(sq)]);
@@ -94,12 +82,8 @@ constexpr std::array<int, num_of<Square>> magic_table_shift = []() {
     return table;
 }();
 
-template<Piece slider_piece>
+template<Piece slider_piece> requires (slider_piece == Piece::ROOK || slider_piece == Piece::BISHOP)
 constexpr std::array<size_t, num_of<Square> + 1> magic_table_offset = []() {
-    static_assert(
-        slider_piece == Piece::ROOK || slider_piece == Piece::BISHOP,
-        "magics available only for slider_piece of ROOK or BISHOP"
-    );
     std::array<size_t, num_of<Square> + 1> table{};
     size_t offset = 0;
     for (Square sq : iter<Square>) {
@@ -110,13 +94,13 @@ constexpr std::array<size_t, num_of<Square> + 1> magic_table_offset = []() {
     return table;
 }();
 
-template<Piece slider_piece>
+template<Piece slider_piece> requires (slider_piece == Piece::ROOK || slider_piece == Piece::BISHOP)
 constexpr size_t magic_table_total_size = magic_table_offset<slider_piece>[num_of<Square>];
 
-template<Piece slider_piece>
-extern const std::array<Bitboard, magic_table_total_size<slider_piece>> MAGIC_ATTACK_TABLE;
+extern const std::array<Bitboard, magic_table_total_size<Piece::ROOK>> ROOK_ATTACK_TABLE;
+extern const std::array<Bitboard, magic_table_total_size<Piece::BISHOP>> BISHOP_ATTACK_TABLE;
 
-template<Piece slider_piece>
+template<Piece slider_piece> requires (slider_piece == Piece::ROOK || slider_piece == Piece::BISHOP)
 inline Bitboard magic_lookup(Square from, Bitboard bb_occupied) noexcept {
     Bitboard bb_attack_mask = BB_ATTACK_MASK<slider_piece>[idx(from)];
     Bitboard bb_blockers = bb_attack_mask & bb_occupied;
@@ -124,7 +108,10 @@ inline Bitboard magic_lookup(Square from, Bitboard bb_occupied) noexcept {
     int shift = magic_table_shift<slider_piece>[idx(from)];
     size_t offset = magic_table_offset<slider_piece>[idx(from)];
     size_t hash = magic_hash(bb_blockers, magic, shift);
-    return MAGIC_ATTACK_TABLE<slider_piece>[offset + hash];
+    if constexpr (slider_piece == Piece::ROOK) {
+        return ROOK_ATTACK_TABLE[offset + hash];
+    }
+    return BISHOP_ATTACK_TABLE[offset + hash];
 }
 
 }    // namespace bears_chess

@@ -1,8 +1,10 @@
 #include <ranges>
 #include <iostream>
+#include <iomanip>
 #include <fstream>
 #include <random>
 #include <vector>
+#include <unordered_map>
 
 #include "bitboard.hpp"
 #include "board_utils.hpp"
@@ -21,7 +23,7 @@ class MagicHash {
         };
 
         constexpr MagicHash(scale_t _scale, size_t _target_size) :
-            scale(_scale), target_size(_target_size), shift(64 - log2(target_size))
+            scale(_scale), target_size(_target_size), shift(64 - log2(_target_size))
         {}
 
         template<bool ApplyMod=true>
@@ -35,7 +37,7 @@ class MagicHash {
 
         Stats check_magic(const std::vector<MagicEntry>& attack_sets) const {
             const size_t size = attack_sets.size();
-            std::unordered_map<size_t, Bitboard> hash_to_moves;
+            std::unordered_map<std::size_t, Bitboard> hash_to_moves;
 
             Stats result{false, 0, false};
             for (const auto& attack_set : attack_sets) {
@@ -62,9 +64,9 @@ class MagicHash {
 
         friend std::ostream& operator<<(std::ostream&, const MagicHash&);
     private:
-        const scale_t scale;
-        const int8_t shift;
-        const size_t target_size;
+        const scale_t scale{};
+        const int8_t shift{};
+        const size_t target_size{};
 };
 
 std::ostream& operator<<(std::ostream& out, const MagicHash& hash) {
