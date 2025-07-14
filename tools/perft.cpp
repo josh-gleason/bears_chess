@@ -2,36 +2,132 @@
 #include <print>
 #include <iostream>
 #include <chrono>
+#include <map>
 #include "board_utils.hpp"
 #include "movegen.hpp"
 
 using namespace std;
 using namespace bears_chess;
 
-uint64_t perft(Board& board, int depth) {
-    if (depth == 0) return 1;
+struct DepthStats {
+    uint64_t nodes{};
+    uint64_t captures{};
+    uint64_t eps{};
+    uint64_t castles{};
+    uint64_t promotions{};
+    uint64_t checks{};
+    uint64_t discovery_checks{};
+    uint64_t double_checks{};
+    uint64_t checkmates{};
 
+    std::string to_string(int depth) const {
+        return std::format(FMT_STR, depth, nodes, captures, eps, castles, promotions, checks, discovery_checks, double_checks, checkmates);
+    }
+
+    static std::string header_string() {
+        return std::format(DepthStats::FMT_STR, "depth", "nodes", "capture", "e.p.", "castle", "promotion", "check", "disc-check", "dbl-check", "checkmate");
+    }
+
+    private:
+        static constexpr const char* FMT_STR = "{:<7}{:<14}{:<14}{:<14}{:<14}{:<14}{:<14}{:<14}{:<14}{:<14}";
+};
+
+struct MoveComparator {
+    bool operator()(const Move& lhs, const Move& rhs) const {
+        if (lhs.from != rhs.from) return std::format("{}", lhs.from) < std::format("{}", rhs.from);
+        if (lhs.to != rhs.to) return std::format("{}", lhs.to) < std::format("{}", rhs.to);
+        return lhs.move_type < rhs.move_type;
+    }
+};
+
+uint64_t perft_dfs_stats(
+    Board& board, int depth,
+    std::vector<DepthStats>& all_stats,
+    std::map<Move, uint64_t, MoveComparator>& move_counts,
+    std::optional<Move> first_move=std::nullopt
+) {
+    if (depth == 0) {
+        move_counts.insert({*first_move, 0});
+        move_counts[*first_move]++;
+        return 1;
+    }
+
+    if (all_stats.size() < depth) {
+        all_stats.resize(depth);
+    }
+    auto& stats = all_stats[depth - 1];
+
+    MoveList moves = generate_pseudo_legal_moves(board);
+    uint64_t nodes = 0;
+
+    for (const Move& move : moves) {
+        UndoInfo undo = board.do_move(move);
+        if (board.is_legal(move)) {
+            stats.nodes++;
+            if (is_capture(move.move_type)) stats.captures++;
+            if (move.move_type == MoveType::EP_CAPTURE) stats.eps++;
+            if (is_castle(move.move_type)) stats.castles++;
+            if (is_promotion(move.move_type)) stats.promotions++;
+            // if (board.is_in_check()) stats.checks++;
+            // if (board.is_discovery_check()) stats.discovery_checks++;
+            // if (board.is_double_check()) stats.double_checks++;
+            // if (board.is_checkmate()) stats.checkmates++;
+            
+            nodes += perft_dfs_stats(board, depth - 1, all_stats, move_counts, first_move ? *first_move : move);
+        }
+        board.undo_move(undo);
+    }
+
+    return nodes;
+}
+
+void perft_tree(const std::string& fen, int max_depth) {
+    Board board = load_fen(fen);
+    println("======================== BEGIN PERFT TEST ================================");
+    println("{}", board);
+
+    std::vector<DepthStats> perft_stats;
+    std::map<Move, uint64_t, MoveComparator> move_count;
+
+    uint64_t nodes = perft_dfs_stats(board, max_depth, perft_stats, move_count);
+
+    for (const auto& [move, count] : move_count) {
+        println("{:s}: {}", move, count);
+    }
+    println("");
+    println("{}", DepthStats::header_string());
+    for (int depth = 0; depth < max_depth; ++depth) {
+        auto& depth_stats = perft_stats[max_depth - depth - 1];
+        println("{}", depth_stats.to_string(depth + 1));
+    }
+    println("Depth {}: {} nodes", max_depth, nodes);
+}
+
+
+uint64_t perft_dfs(Board& board, int depth) {
+    if (depth == 0) return 1;
     MoveList moves = generate_pseudo_legal_moves(board);
     uint64_t nodes = 0;
     for (const Move& move : moves) {
         UndoInfo undo = board.do_move(move);
         if (board.is_legal(move)) {
-            nodes += perft(board, depth - 1);
+            nodes += perft_dfs(board, depth - 1);
         }
         board.undo_move(undo);
     }
     return nodes;
 }
 
-void perft_test(const std::string& fen, int max_depth) {
+void perft_speed(const std::string& fen, int max_depth) {
     Board board = load_fen(fen);
     println("======================== BEGIN PERFT TEST ================================");
     println("{}", board);
 
     for (int depth = 1; depth <= max_depth; ++depth) {
         auto start = std::chrono::steady_clock::now();
-        uint64_t nodes = perft(board, depth);
+        uint64_t nodes = perft_dfs(board, depth);
         auto end = std::chrono::steady_clock::now();
+
         double elapsed = std::chrono::duration<double>(end - start).count();
         println("Depth {}: {} nodes ({} sec, {:g} nps)", depth, nodes, elapsed, nodes/elapsed);
     }
@@ -48,10 +144,76 @@ void test_do_undo(const Board& original, int depth) {
 
         // Compare all relevant board state
         if (board != original) {
-            println("Mismatch after do/undo for move: {}", move);
-            println("Original:\n{}", original);
-            println("After undo:\n{}", board);
-            ++failures;
+            bool differ = false;
+            if (board.side_to_move != original.side_to_move) {
+                println("side_to_move does not match");
+                differ = true;
+            }
+            if (board.fullmove_number != original.fullmove_number) {
+                println("fullmove_number does not match");
+                differ = true;
+            }
+            if (board.castling_rights != original.castling_rights) {
+                println("castling_rights does not match");
+                differ = true;
+            }
+            if (board.ep_square != original.ep_square) {
+                println("ep_square does not match");
+                differ = true;
+            }
+            if (board.halfmove_clock != original.halfmove_clock) {
+                println("halfmove_clock does not match");
+                differ = true;
+            }
+            if (board.occupied != original.occupied) {
+                println("occupied does not match");
+                differ = true;
+            }
+            for (Piece p : iter<Piece>) {
+                if (board.pieces[idx(Color::WHITE)][idx(p)] != board.pieces[idx(Color::WHITE)][idx(p)]) {
+                    println("pieces[0][idx({})] does not match", p);
+                    differ = true;
+                }
+                if (board.pieces[idx(Color::BLACK)][idx(p)] != board.pieces[idx(Color::BLACK)][idx(p)]) {
+                    println("pieces[1][idx({})] does not match", p);
+                    differ = true;
+                }
+            }
+            if (board.occupied_by_color[idx(Color::WHITE)] != original.occupied_by_color[idx(Color::WHITE)]) {
+                println("occupied_by_color[0] does not match");
+                differ = true;
+            }
+            if (board.occupied_by_color[idx(Color::BLACK)] != original.occupied_by_color[idx(Color::BLACK)]) {
+                println("occupied_by_color[1] does not match");
+                differ = true;
+            }
+            if (board.king_sq[idx(Color::WHITE)] != original.king_sq[idx(Color::WHITE)]) {
+                println("king_sq[0] does not match");
+                differ = true;
+            }
+            if (board.king_sq[idx(Color::BLACK)] != original.king_sq[idx(Color::BLACK)]) {
+                println("king_sq[1] does not match");
+                differ = true;
+            }
+            for (Square sq : iter<Square>) {
+                if (!board.is_occupied(sq) && !original.is_occupied(sq)) {
+                    continue;
+                }
+                if (board.last_piece_sq[idx(sq)] != original.last_piece_sq[idx(sq)]) {
+                    println("last_piece_sq[idx({})] does not match", sq);
+                    differ = true;
+                }
+                if (board.last_color_sq[idx(sq)] != original.last_color_sq[idx(sq)]) {
+                    println("last_color_sq[idx({})] does not match", sq);
+                    differ = true;
+                }
+            }
+            if (differ) {
+                println("Mismatch after do/undo for move: {}", move);
+                println("Original:\n{}", original);
+                println("After undo:\n{}", board);
+                ++failures;
+            }
         } else if (depth > 1) {
             undo = board.do_move(move);
             test_do_undo(board, depth - 1);
@@ -64,7 +226,7 @@ void test_do_undo(const Board& original, int depth) {
 }
 
 void show_pseudolegal_moves(const std::string &fen) {
-    Board board = load_fen(PERFT_POSITION_3_FEN);
+    Board board = load_fen(fen);
     MoveList moves = generate_pseudo_legal_moves(board);
     println("# Moves: {}", moves.size());
     for (Square from : BBSquareScan(board.occupied_by_color[idx(board.side_to_move)])) {
@@ -90,19 +252,15 @@ void show_pseudolegal_moves(const std::string &fen) {
 int main()
 {
     // show_pseudolegal_moves(PERFT_POSITION_3_FEN);
+    // test_do_undo(load_fen("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/P1N2Q2/1PPBBPpP/2KR3R b kq - 0 2"), 2);
+    // test_do_undo(load_fen(PERFT_POSITION_2_FEN), 4);
 
-    // for (auto fen : perft_fens) {
-    //     test_do_undo(load_fen(fen), 2);
-    // }
-
-    // perft_test(INITIAL_POSITION_FEN, 6);
-
-    perft_test(INITIAL_POSITION_FEN, 6);
-    perft_test(PERFT_POSITION_2_FEN, 5);
-    perft_test(PERFT_POSITION_3_FEN, 5);
-    perft_test(PERFT_POSITION_4_FEN, 5);
-    perft_test(PERFT_POSITION_5_FEN, 5);
-    perft_test(PERFT_POSITION_6_FEN, 5);
+    perft_speed(INITIAL_POSITION_FEN, 6);
+    perft_speed(PERFT_POSITION_2_FEN, 5);
+    perft_speed(PERFT_POSITION_3_FEN, 6);
+    perft_speed(PERFT_POSITION_4_FEN, 6);
+    perft_speed(PERFT_POSITION_5_FEN, 5);
+    perft_speed(PERFT_POSITION_6_FEN, 5);
 
     return 0;
 }

@@ -158,9 +158,8 @@ inline void generate_castle_moves(const Board& board, MoveList& moves) {
 }
 
 MoveList generate_pseudo_legal_moves(const Board& board) {
-    // TODO: Not thread safe, should return an iterator tbh
-    static MoveList moves;
-    moves.resize(0);
+    MoveList moves;
+    moves.reserve(218);
 
     generate_knight_moves(board, moves);
     generate_king_moves(board, moves);

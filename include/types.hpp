@@ -204,6 +204,10 @@ constexpr bool is_promotion(MoveType move_type) {
     return static_cast<bool>(move_type & MoveType::PROMOTION_BIT);
 }
 
+constexpr bool is_castle(MoveType move_type) {
+    return static_cast<bool>((move_type == MoveType::KING_CASTLE) || (move_type == MoveType::QUEEN_CASTLE));
+}
+
 constexpr Piece promote_to(MoveType move_type) {
     assert(is_promotion(move_type));
     return static_cast<Piece>(move_type & MoveType::PROMOTION_PIECE_BITS);

@@ -160,7 +160,7 @@ void Board::undo_move(const UndoInfo &undo_info)
     Piece moving_piece = get_piece_of_color_at(us, to);
     remove(us, moving_piece, to);
     if (is_promotion(move.move_type)) {
-        moving_piece = Piece::PAWN;
+        place(us, Piece::PAWN, from);
     } else if (moving_piece == Piece::KING) {
         place_king(us, from);
     } else {

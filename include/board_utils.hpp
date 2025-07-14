@@ -35,7 +35,7 @@ enum class BoardFormat : long {
     OCCUPANCY_ONLY = 0x1000, // replace all pieces with X
 
     RESET = 0x0,             // reset the format
-    ONLY_BOARD = 0x1f8,       // hide all state info and fen string
+    ONLY_BOARD = 0x1f8,      // hide all state info and fen string
     ONLY_FEN = 0x8f8,        // only print the FEN string
     ONLY_STATE = 0x900,      // only print the state information (turn, castling rights, etc...)
     HIDE_STATE = 0xf8,       // hide all state info (including turn and move number)
@@ -78,8 +78,7 @@ namespace detail {
         || std::same_as<T, File> 
         || std::same_as<T, Piece> 
         || std::same_as<T, Color> 
-        || std::same_as<T, MoveType> 
-        || std::same_as<T, Move>;
+        || std::same_as<T, MoveType>;
     
     template<typename T>
     concept BoardPrintable =
@@ -218,7 +217,7 @@ struct std::formatter<BitboardT> {
     }
 };
 
-template<bears_chess::detail::SimplePrintable T> // requires (!requires { typename std::formatter<T>; })
+template<bears_chess::detail::SimplePrintable T>
 struct std::formatter<T>
 {
     bears_chess::detail::BoardFormatFlags fmt;
@@ -232,6 +231,8 @@ struct std::formatter<T>
             switch (*it) {
                 case 'a': fmt.flags |= BoardFormat::NO_UNICODE; break;    // ASCII only
                 case 'c': fmt.flags |= BoardFormat::NO_COLOR; break;      // no ansi color sequences
+                default:
+                    throw std::format_error(string("Invalid format specifier: '") + *it + "'");
             }
         }
         return it;
@@ -243,3 +244,41 @@ struct std::formatter<T>
     }
 };
 
+template <>
+struct std::formatter<bears_chess::Move>
+{
+    bears_chess::detail::BoardFormatFlags fmt;
+    bool simple;
+
+    template<typename ParseContext>
+    constexpr ParseContext::iterator parse(ParseContext& ctx) {
+        using namespace bears_chess;
+        auto it = ctx.begin();
+        simple = false;
+        fmt.flags = BoardFormat::NONE;
+        for (;it != ctx.end() && *it != '}'; ++it) {
+            switch (*it) {
+                case 'a': fmt.flags |= BoardFormat::NO_UNICODE; break;    // ASCII only
+                case 'c': fmt.flags |= BoardFormat::NO_COLOR; break;      // no ansi color sequences
+                case 's': simple = true; break;
+                default:
+                    throw std::format_error(string("Invalid format specifier: '") + *it + "'");
+            }
+        }
+        return it;
+    }
+
+    template<typename FormatContext>
+    FormatContext::iterator format(const bears_chess::Move &m, FormatContext& ctx) const {
+        ostringstream sout;
+        if (simple) {
+            sout << fmt << m.from << m.to;
+            if (is_promotion(m.move_type)) {
+                sout << promote_to(m.move_type);
+            }
+        } else {
+            sout << fmt << m;
+        }
+        return std::ranges::copy(std::move(sout).str(), ctx.out()).out;
+    }
+};
