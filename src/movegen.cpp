@@ -1,5 +1,6 @@
 #include "movegen.hpp"
 #include "magics.hpp"
+#include <algorithm>
 
 namespace bears_chess {
 
@@ -172,5 +173,21 @@ MoveList generate_pseudo_legal_moves(const Board& board) {
 
     return moves;
 }
+
+MoveList generate_legal_moves(Board& board) {
+    // TODO replace with true legal move generation
+    MoveList pseudo_legal_moves = generate_pseudo_legal_moves(board);
+    MoveList legal_moves;
+    legal_moves.reserve(pseudo_legal_moves.size());
+
+    for (const Move& move : pseudo_legal_moves) {
+        auto undo_info = board.do_move(move);
+        if (board.is_legal(move))
+            legal_moves.emplace_back(move);
+        board.undo_move(undo_info);
+    }
+    return legal_moves;
+}
+
 
 } // namespace bears_chess

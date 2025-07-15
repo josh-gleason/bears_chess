@@ -324,4 +324,9 @@ constexpr bool all_unique(const std::array<T, N>& arr) {
     return true;
 }
 
+enum class MoveGenType : int {
+    LEGAL,
+    PSEUDO_LEGAL
+};
+
 } // namespace bears_chess
