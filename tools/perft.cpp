@@ -3,6 +3,7 @@
 #include <iostream>
 #include <chrono>
 #include <map>
+#include <unordered_map>
 #include "board_utils.hpp"
 #include "movegen.hpp"
 
@@ -40,11 +41,26 @@ struct MoveComparator {
     }
 };
 
+struct MoveHash {
+    size_t operator()(const Move& move) const {
+        size_t hash_from = std::hash<int8_t>()(idx(move.from));
+        size_t hash_to = std::hash<int8_t>()(idx(move.to));
+        size_t hash_type = std::hash<int8_t>()(idx(move.move_type));
+        return hash_from ^ (hash_to << 1) ^ (hash_type << 2); // Combine hashes
+    }
+};
+
+struct MoveEqual {
+    bool operator()(const Move& lhs, const Move& rhs) const {
+        return lhs.from == rhs.from && lhs.to == rhs.to && lhs.move_type == rhs.move_type;
+    }
+};
+
 template<MoveGenType T>
 uint64_t perft_dfs_stats(
     Board& board, int depth,
     std::vector<DepthStats>& all_stats,
-    std::map<Move, uint64_t, MoveComparator>& move_counts,
+    std::unordered_map<Move, uint64_t, MoveHash, MoveEqual>& move_counts,
     std::optional<Move> first_move=std::nullopt
 ) {
     if (depth == 0) {
@@ -98,7 +114,7 @@ void perft_tree(const std::string& fen, int max_depth) {
     println("{}", board);
 
     std::vector<DepthStats> perft_stats;
-    std::map<Move, uint64_t, MoveComparator> move_count;
+    std::unordered_map<Move, uint64_t, MoveHash, MoveEqual> move_count; // Use unordered_map
     
     auto start = std::chrono::steady_clock::now();
     uint64_t nodes = perft_dfs_stats<T>(board, max_depth, perft_stats, move_count);
@@ -295,10 +311,10 @@ int main()
     // test_do_undo(load_fen("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/P1N2Q2/1PPBBPpP/2KR3R b kq - 0 2"), 2);
     // test_do_undo(load_fen(PERFT_POSITION_2_FEN), 4);
 
-    perft_tree(PERFT_POSITION_2_FEN, 4);
+    perft_tree(PERFT_POSITION_2_FEN, 5);
 
     // perft_speed(INITIAL_POSITION_FEN, 6);
-    // perft_speed(PERFT_POSITION_2_FEN, 5);
+    perft_speed(PERFT_POSITION_2_FEN, 5);
     // perft_speed(PERFT_POSITION_3_FEN, 6);
     // perft_speed(PERFT_POSITION_4_FEN, 6);
     // perft_speed(PERFT_POSITION_5_FEN, 5);
