@@ -20,6 +20,12 @@ enum class Piece : int8_t {
     NONE
 };
 
+template<Piece P>
+constexpr bool is_slider = (P == Piece::ROOK || P == Piece::BISHOP || P == Piece::QUEEN);
+
+template<Piece P>
+constexpr bool is_bishop_or_rook = (P == Piece::ROOK || P == Piece::BISHOP);
+
 template<> struct enum_traits<Piece> :
     preincrement_ops,
     inequality_ops,
@@ -271,8 +277,51 @@ enum class Direction : int8_t {
     NORTHEAST = NORTH + EAST,
     SOUTHEAST = SOUTH + EAST,
     SOUTHWEST = SOUTH + WEST,
-    NORTHWEST = NORTH + WEST
+    NORTHWEST = NORTH + WEST,
+    NONE = 0
 };
+
+enum class IndexDirection : int8_t {
+    NORTH, NORTHEAST, EAST, SOUTHEAST,
+    SOUTH, SOUTHWEST, WEST, NORTHWEST,
+    NONE = 8
+};
+
+template<> struct enum_traits<IndexDirection> :
+    preincrement_ops,
+    inequality_ops,
+    range_ops<IndexDirection::NORTH, IndexDirection::NORTHWEST>
+{};
+
+template<typename DirType>
+requires (std::is_same_v<DirType, IndexDirection> || std::is_same_v<DirType, Direction>)
+constexpr DirType dir_between(Square from, Square to) {
+    DirType dir;
+    auto dr = idx(rank_of(from)) - idx(rank_of(to));
+    auto df = idx(file_of(from)) - idx(file_of(to));
+    
+    // note that from == to results in valid direction
+    if (dr == 0) {
+        return df < 0 ? DirType::EAST : DirType::WEST;
+    } else if (df == 0) {
+        return dr < 0 ? DirType::NORTH : DirType::SOUTH;
+    } else if (dr < 0) {
+        return dr == df ? DirType::NORTHEAST : (dr == -df ? DirType::NORTHWEST : DirType::NONE);
+    } else {
+        return dr == df ? DirType::SOUTHWEST : (dr == -df ? DirType::SOUTHEAST : DirType::NONE);
+    }
+}
+
+template<typename DirType>
+constexpr std::array<std::array<DirType, num_of<Square>>, num_of<Square>> DIR_BETWEEN = []() {
+    std::array<std::array<DirType, num_of<Square>>, num_of<Square>> table{};
+    for (auto from : iter<Square>) {
+        for (auto to : iter<Square>) {
+            table[idx(from)][idx(to)] = dir_between<DirType>(from, to);
+        }
+    }
+    return table;
+}();
 
 namespace detail {
     constexpr size_t dir_hash_fun(const Direction& d) noexcept {

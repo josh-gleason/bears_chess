@@ -74,6 +74,7 @@ template<FlagEnum T> constexpr T toggle_flag(T x, T f) noexcept { return static_
 
 template<typename E> concept BooleanEnum = std::is_enum_v<E> && std::is_base_of_v<boolean_ops, enum_traits<E>>;
 template<BooleanEnum T> constexpr bool nonzero(T a) noexcept { return static_cast<std::underlying_type_t<T>>(a) != 0; }
+template<BooleanEnum T> constexpr bool zero(T a) noexcept { return static_cast<std::underlying_type_t<T>>(a) == 0; }
 template<BooleanEnum T> constexpr bool operator!(T a) noexcept { return static_cast<std::underlying_type_t<T>>(a) == 0; }
 
 template<typename E> concept RangeEnum = std::is_enum_v<E> && std::is_base_of_v<range_ops<enum_traits<E>::first, enum_traits<E>::last>, enum_traits<E>> && requires {

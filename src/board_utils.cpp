@@ -52,8 +52,8 @@ constexpr const char* OCCUPIED_STR[num_of<Color>] = {
 constexpr const char* ANSI_LIGHT_SQUARE = "\033[48;2;186;168;140m";
 constexpr const char* ANSI_DARK_SQUARE = "\033[48;2;181;136;99m";
 // constexpr const char* ANSI_HIGHLIGHTED_LIGHT_SQUARE = "\033[48;2;185;180;90m";
-constexpr const char* ANSI_HIGHLIGHTED_LIGHT_SQUARE = "\033[48;2;208;200;119m";
-constexpr const char* ANSI_HIGHLIGHTED_DARK_SQUARE = "\033[48;2;205;184;83m";
+constexpr const char* ANSI_HIGHLIGHTED_LIGHT_SQUARE = "\033[48;2;208;90;105m";
+constexpr const char* ANSI_HIGHLIGHTED_DARK_SQUARE = "\033[48;2;205;70;83m";
 constexpr const char* ANSI_WHITE_PIECE = "\033[38;2;255;255;255m";
 constexpr const char* ANSI_BLACK_PIECE = "\033[38;2;0;0;0m";
 

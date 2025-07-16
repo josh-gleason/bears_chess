@@ -78,6 +78,8 @@ constexpr std::array<std::array<Bitboard, num_of<Rank> + 1>, num_of<File> + 1> B
 constexpr Bitboard bb_square(Square square) noexcept { return BB_SQUARE[idx(square)]; }
 constexpr Bitboard bb_file(File file) noexcept { return BB_FILE[idx(file)]; }
 constexpr Bitboard bb_rank(Rank rank) noexcept { return BB_RANK[idx(rank)]; }
+constexpr Bitboard bb_file(Square sq) noexcept { return BB_FILE[idx(file_of(sq))]; }
+constexpr Bitboard bb_rank(Square sq) noexcept { return BB_RANK[idx(rank_of(sq))]; }
 constexpr Bitboard bb_file_rank(File file, Rank rank) noexcept { return BB_FILE_RANK[idx(file)][idx(rank)]; }
 
 constexpr Bitboard operator&(Bitboard bb, Square square) noexcept { return (bb & bb_square(square)); }
@@ -443,24 +445,68 @@ constexpr Bitboard ray(Square from, Direction dir) noexcept {
     return mask;
 }
 
+template<Piece slider_piece, bool first = false, bool last = true>
+constexpr Bitboard bb_slider_attack(Square sq) {
+    Bitboard attack = Bitboard::EMPTY;
+    if constexpr (slider_piece == Piece::ROOK || slider_piece == Piece::QUEEN) {
+        attack |= (
+            ray<first, last>(sq, Direction::NORTH) | ray<first, last>(sq, Direction::EAST) |
+            ray<first, last>(sq, Direction::SOUTH) | ray<first, last>(sq, Direction::WEST)
+        );
+    }
+    if constexpr (slider_piece == Piece::BISHOP || slider_piece == Piece::QUEEN) {
+        attack |= (
+            ray<first, last>(sq, Direction::NORTHEAST) | ray<first, last>(sq, Direction::SOUTHEAST) |
+            ray<first, last>(sq, Direction::NORTHWEST) | ray<first, last>(sq, Direction::SOUTHWEST)
+        );
+    }
+    return attack;
+}
+
+
 template<Piece slider_piece>
 constexpr std::array<Bitboard, num_of<Square>> BB_ATTACK_MASK = []() {
     std::array<Bitboard, num_of<Square>> table{};
     for (Square s : iter<Square>) {
-        if constexpr (slider_piece == Piece::ROOK) {
-            table[idx(s)] = (
-                ray(s, Direction::NORTH) | ray(s, Direction::EAST) |
-                ray(s, Direction::SOUTH) | ray(s, Direction::WEST)
-            );
-        } else {
-            table[idx(s)] = (
-                ray(s, Direction::NORTHEAST) | ray(s, Direction::SOUTHEAST) |
-                ray(s, Direction::NORTHWEST) | ray(s, Direction::SOUTHWEST))
-            ;
+        table[idx(s)] = bb_slider_attack<slider_piece, false, false>(s);
+    }
+    return table;
+}();
+
+
+template<Piece move_type = Piece::QUEEN, bool first = true, bool last = false>
+constexpr Bitboard ray_between(Square from, Square to) noexcept {
+    if (zero(bb_slider_attack<move_type, true>(from) & bb_square(to))) {
+        return Bitboard::EMPTY;
+    }
+    Direction dir = dir_between<Direction>(from, to);
+    Bitboard bb_bit = bb_square(from);
+    if constexpr (!first) {
+        bb_bit = bb_shift<true>(bb_bit, dir) & ~bb_square(to);
+    }
+    Bitboard mask = Bitboard::EMPTY;
+    while (nonzero(bb_bit)) {
+        mask |= bb_bit;
+        bb_bit = bb_shift<true>(bb_bit, dir) & ~bb_square(to);
+    }
+    if constexpr (last) {
+        mask |= bb_square(to);
+    }
+    return mask;
+}
+
+
+template<Piece move_type = Piece::QUEEN>
+constexpr std::array<std::array<Bitboard, num_of<Square>>, num_of<Square>> BB_RAY = []() {
+    std::array<std::array<Bitboard, num_of<Square>>, num_of<Square>> table{};
+    for (Square from : iter<Square>) {
+        for (Square to : iter<Square>) {
+            table[idx(from)][idx(to)] = ray_between<move_type>(from, to);
         }
     }
     return table;
 }();
+
 
 struct MagicEntry {
     Bitboard bb_blockers;
