@@ -15,4 +15,6 @@ MoveList generate_moves(const Board& board) {
     }
 }
 
+bool is_checkmate(const Board& board);
+
 } // namespace bears_chess

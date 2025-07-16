@@ -1,4 +1,5 @@
 #include "movegen.hpp"
+#include "evaluation_utils.hpp"
 #include "magics.hpp"
 #include <algorithm>
 
@@ -149,115 +150,8 @@ MoveList generate_pseudo_legal_moves(const Board& board) {
     return moves;
 }
 
-inline Bitboard generate_knight_attacks(const Board& board, Color color) {
-    Bitboard bb_knights = board.pieces[idx(color)][idx(Piece::KNIGHT)];
-    Bitboard bb_knight_attacks = Bitboard::EMPTY;
-    for (Square from : BBSquareScan(bb_knights)) {
-        bb_knight_attacks |= BB_KNIGHT_MOVES[idx(from)];
-    }
-    return bb_knight_attacks;
-}
-
-template<Piece move_type> requires is_bishop_or_rook<move_type>
-inline Bitboard generate_slider_attacks(const Board& board, Color color, Bitboard bb_occupied) {
-    Bitboard bb_pieces = (board.pieces[idx(color)][idx(move_type)] | board.pieces[idx(color)][idx(Piece::QUEEN)]);
-    Bitboard bb_slider_attacks = Bitboard::EMPTY;
-    for (Square from : BBSquareScan(bb_pieces)) {
-        bb_slider_attacks |= magic_lookup<move_type>(from, bb_occupied);
-    }
-    return bb_slider_attacks;
-}
-
-
-inline Bitboard generate_pawn_attacks(const Board& board, Color color) {
-    Bitboard bb_pawns = board.pieces[idx(color)][idx(Piece::PAWN)];
-    Bitboard bb_pawn_attacks = Bitboard::EMPTY;
-    for (Square from : BBSquareScan(bb_pawns)) {
-        bb_pawn_attacks |= BB_CAPTURE_PAWN_MOVES[idx(color)][idx(from)];
-    }
-    return bb_pawn_attacks;
-}
-
-inline Bitboard generate_king_attacks(const Board& board, Color color) {
-    return BB_KING_MOVES[idx(board.king_sq[idx(color)])];
-}
-
-inline Bitboard calculate_opponent_attacks(const Board& board) {
-    Bitboard attacks = Bitboard::EMPTY;
-
-    Color color = board.side_to_move;
-    Color opponent_color = ~color;
-    Bitboard bb_occupied_sans_king = board.occupied & (~board.pieces[idx(color)][idx(Piece::KING)]);
-
-    attacks |= generate_knight_attacks(board, opponent_color);
-    attacks |= generate_slider_attacks<Piece::ROOK>(board, opponent_color, bb_occupied_sans_king);
-    attacks |= generate_slider_attacks<Piece::BISHOP>(board, opponent_color, bb_occupied_sans_king);
-    attacks |= generate_pawn_attacks(board, opponent_color);
-    attacks |= generate_king_attacks(board, opponent_color);
-
-    return attacks;
-}
-
-template<Piece move_type> requires is_bishop_or_rook<move_type>
-Bitboard calculate_pinned_pieces(const Board& board, Bitboard pin_masks[num_of<IndexDirection>], Bitboard& block_check) {
-    Bitboard pinned = Bitboard::EMPTY;
-
-    Square king_square = board.king_sq[idx(board.side_to_move)];
-    Color color = board.side_to_move;
-    Color opponent_color = ~color;
-
-    Bitboard enemy_sliders = (
-        board.pieces[idx(opponent_color)][idx(move_type)]
-        | board.pieces[idx(opponent_color)][idx(Piece::QUEEN)]
-    );
-
-    for (auto pinner_sq : BBSquareScan(enemy_sliders)) {
-        Bitboard between = BB_RAY<move_type>[idx(pinner_sq)][idx(king_square)];
-
-        Bitboard my_pieces_between = between & board.occupied_by_color[idx(color)];
-        Bitboard opponent_pieces_between = between & board.occupied_by_color[idx(opponent_color)];
-
-        int my_piece_count = popcount(my_pieces_between);
-        int opponent_piece_count = popcount(opponent_pieces_between);
-
-        if (opponent_piece_count == 1) {
-            if (my_piece_count == 0) {
-                // king is checked by a slider
-                block_check |= between;
-            } else if (my_piece_count == 1) {
-                IndexDirection pinner_dir = DIR_BETWEEN<IndexDirection>[idx(king_square)][idx(pinner_sq)];
-                pin_masks[idx(pinner_dir)] = between;
-                pinned |= my_pieces_between;
-            }
-        }
-
-    }
-
-    return pinned;
-}
-
-inline Bitboard calculate_checkers(const Board& board, Bitboard opponent_attacks) {
-    Color color = board.side_to_move;
-    Color opponent_color = ~color;
-    Square king_square = board.king_sq[idx(color)];
-    Bitboard bb_king = bb_square(king_square);
-    if (zero(opponent_attacks & bb_king)) {
-        return Bitboard::EMPTY;
-    }
-
-    Bitboard opponent_queens = board.pieces[idx(opponent_color)][idx(Piece::QUEEN)];
-    Bitboard opponent_rooks = board.pieces[idx(opponent_color)][idx(Piece::ROOK)];
-    Bitboard opponent_bishops = board.pieces[idx(opponent_color)][idx(Piece::BISHOP)];
-
-    Bitboard knight_checkers = BB_KNIGHT_MOVES[idx(king_square)] & board.pieces[idx(opponent_color)][idx(Piece::KNIGHT)];
-    Bitboard pawn_checkers = BB_CAPTURE_PAWN_MOVES[idx(color)][idx(king_square)] & board.pieces[idx(opponent_color)][idx(Piece::PAWN)];
-    Bitboard rook_checkers = magic_lookup<Piece::ROOK>(king_square, board.occupied) & (opponent_rooks | opponent_queens);
-    Bitboard bishop_checkers = magic_lookup<Piece::BISHOP>(king_square, board.occupied) & (opponent_bishops | opponent_queens);
-
-    return knight_checkers | pawn_checkers | rook_checkers | bishop_checkers;
-}
-
-inline void generate_legal_king_moves(const Board& board, MoveList& moves, const BoardCache& cache) {
+template<bool check_only=false>
+inline bool generate_legal_king_moves(const Board& board, MoveList& moves, const BoardCache& cache) {
     Color color = board.side_to_move;
     Color opponent_color = ~color;
 
@@ -268,11 +162,15 @@ inline void generate_legal_king_moves(const Board& board, MoveList& moves, const
     Bitboard bb_moves = BB_KING_MOVES[idx(from)];
     Bitboard bb_quiet = (bb_moves & unoccupied & ~cache.opponent_attacks);
     Bitboard bb_capture = (bb_moves & opponent_occupied & ~cache.opponent_attacks);
+    if constexpr (check_only) if (nonzero(bb_quiet | bb_capture)) return true;
     append_moves(moves, from, bb_quiet, MoveType::QUIET);
     append_moves(moves, from, bb_capture, MoveType::CAPTURE);
+    
+    return false;
 }
 
-inline void generate_legal_knight_moves(const Board& board, MoveList& moves, const BoardCache& cache) {
+template<bool check_only=false>
+inline bool generate_legal_knight_moves(const Board& board, MoveList& moves, const BoardCache& cache) {
     Color color = board.side_to_move;
 
     Bitboard bb_knights = board.pieces[idx(color)][idx(Piece::KNIGHT)] & ~cache.pinned_pieces;
@@ -283,13 +181,15 @@ inline void generate_legal_knight_moves(const Board& board, MoveList& moves, con
         Bitboard bb_moves = BB_KNIGHT_MOVES[idx(from)];
         Bitboard bb_quiet = (bb_moves & legal_quiet);
         Bitboard bb_capture = (bb_moves & legal_capture);
+        if constexpr (check_only) if (nonzero(bb_quiet | bb_capture)) return true;
         append_moves(moves, from, bb_quiet, MoveType::QUIET);
         append_moves(moves, from, bb_capture, MoveType::CAPTURE);
     }
+    return false;
 }
 
-template<Piece move_type> requires is_bishop_or_rook<move_type>
-inline void generate_legal_slider_moves(const Board& board, MoveList& moves, const BoardCache& cache) {
+template<Piece move_type, bool check_only=false> requires is_bishop_or_rook<move_type>
+inline bool generate_legal_slider_moves(const Board& board, MoveList& moves, const BoardCache& cache) {
     Color color = board.side_to_move;
     Color opponent_color = ~color;
     Bitboard occupied = board.occupied;
@@ -309,6 +209,7 @@ inline void generate_legal_slider_moves(const Board& board, MoveList& moves, con
         Bitboard bb_moves = magic_lookup<move_type>(from, occupied) & cache.pin_masks[idx(pin_dir)];
         Bitboard bb_quiet = bb_moves & legal_quiet;
         Bitboard bb_capture = bb_moves & legal_capture;
+        if constexpr (check_only) if (nonzero(bb_quiet | bb_capture)) return true;
         append_moves(moves, from, bb_quiet, MoveType::QUIET);
         append_moves(moves, from, bb_capture, MoveType::CAPTURE);
     }
@@ -317,12 +218,16 @@ inline void generate_legal_slider_moves(const Board& board, MoveList& moves, con
         Bitboard bb_moves = magic_lookup<move_type>(from, occupied);
         Bitboard bb_quiet = bb_moves & legal_quiet;
         Bitboard bb_capture = bb_moves & legal_capture;
+        if constexpr (check_only) if (nonzero(bb_quiet | bb_capture)) return true;
         append_moves(moves, from, bb_quiet, MoveType::QUIET);
         append_moves(moves, from, bb_capture, MoveType::CAPTURE);
     }
+
+    return false;
 }
 
-inline void generate_legal_ep_moves(const Board& board, MoveList& moves, const BoardCache& cache) {
+template<bool check_only=false>
+inline bool generate_legal_ep_moves(const Board& board, MoveList& moves, const BoardCache& cache) {
     Color color = board.side_to_move;
     Color opponent_color = ~color;
 
@@ -360,14 +265,17 @@ inline void generate_legal_ep_moves(const Board& board, MoveList& moves, const B
                     }
                 }
                 if (!exposing) {
+                    if constexpr (check_only) return true;
                     moves.emplace_back(from, to, MoveType::EP_CAPTURE);
                 }
             }
         }
     }
+    return false;
 }
 
-inline void generate_legal_pawn_moves(const Board& board, MoveList& moves, const BoardCache& cache) {
+template<bool check_only=false>
+inline bool generate_legal_pawn_moves(const Board& board, MoveList& moves, const BoardCache& cache) {
     Color color = board.side_to_move;
     Color opponent_color = ~color;
 
@@ -398,10 +306,12 @@ inline void generate_legal_pawn_moves(const Board& board, MoveList& moves, const
         Bitboard bb_quiet = bb_single & ~BB_PROMOTION_RANKS;
         Bitboard bb_promotion = bb_single & BB_PROMOTION_RANKS;
         if (nonzero(bb_quiet)) {
+            if constexpr (check_only) return true;
             Square to = bitscan_forward(bb_quiet);
             moves.emplace_back(from, to, MoveType::QUIET);
         }
         if (nonzero(bb_promotion)) {
+            if constexpr (check_only) return true;
             Square to = bitscan_forward(bb_promotion);
             moves.emplace_back(from, to, MoveType::KNIGHT_PROMOTION);
             moves.emplace_back(from, to, MoveType::BISHOP_PROMOTION);
@@ -413,6 +323,7 @@ inline void generate_legal_pawn_moves(const Board& board, MoveList& moves, const
         if (nonzero(bb_single_unoccupied)) {
             Bitboard bb_double = BB_DOUBLE_PAWN_MOVES[idx(color)][idx(from)] & legal_quiet_pawn;
             if (nonzero(bb_double)) {
+                if constexpr (check_only) return true;
                 Square to = bitscan_forward(bb_double);
                 moves.emplace_back(from, to, MoveType::DOUBLE_PAWN_PUSH);
             }
@@ -420,6 +331,7 @@ inline void generate_legal_pawn_moves(const Board& board, MoveList& moves, const
 
         // captures
         Bitboard bb_capture = BB_CAPTURE_PAWN_MOVES[idx(color)][idx(from)] & legal_capture_pawn;
+        if constexpr (check_only) if (nonzero(bb_capture)) return true;
         Bitboard bb_capture_only = (bb_capture & ~BB_PROMOTION_RANKS);
         Bitboard bb_capture_promote = (bb_capture & BB_PROMOTION_RANKS);
         append_moves(moves, from, bb_capture_only, MoveType::CAPTURE);
@@ -432,28 +344,34 @@ inline void generate_legal_pawn_moves(const Board& board, MoveList& moves, const
     }
 
     if (board.ep_square != Square::NONE) {
-        generate_legal_ep_moves(board, moves, cache);
+        bool any_moves = generate_legal_ep_moves<check_only>(board, moves, cache);
+        if constexpr (check_only) if (any_moves) return true;
     }
+    return false;
 }
 
-inline void generate_legal_castle_moves(const Board& board, MoveList& moves, const BoardCache& cache) {
+template<bool check_only=false>
+inline bool generate_legal_castle_moves(const Board& board, MoveList& moves, const BoardCache& cache) {
     Color color = board.side_to_move;
     Bitboard occupied = board.occupied;
     CastlingRights castling_rights = board.castling_rights;
     Bitboard bb_king = bb_square(board.king_sq[idx(color)]);
     if (nonzero(cache.opponent_attacks & bb_king)) {
-        return;
+        return false;
     }
 
     // b-file attacks dont prevent castle
     Bitboard occupied_or_attacked = occupied | (cache.opponent_attacks & ~bb_file(File::B));
 
     if (castling_allowed<Piece::KING>(castling_rights, color) && zero(BB_CASTLE_PATHS<Piece::KING>[idx(color)] & occupied_or_attacked)) {
+        if constexpr (check_only) return true;
         moves.emplace_back(CASTLE_MOVES<Piece::KING>[idx(color)]);
     }
     if (castling_allowed<Piece::QUEEN>(castling_rights, color) && zero(BB_CASTLE_PATHS<Piece::QUEEN>[idx(color)] & occupied_or_attacked)) {
+        if constexpr (check_only) return true;
         moves.emplace_back(CASTLE_MOVES<Piece::QUEEN>[idx(color)]);
     }
+    return false;
 }
 
 MoveList generate_legal_moves(const Board& board) {
@@ -461,8 +379,8 @@ MoveList generate_legal_moves(const Board& board) {
     MoveList moves;
     moves.reserve(218);
 
-    cache.opponent_attacks = calculate_opponent_attacks(board);
-    Bitboard checkers = calculate_checkers(board, cache.opponent_attacks);
+    cache.opponent_attacks = calculate_opponent_attacks<true>(board);
+    Bitboard checkers = calculate_checkers<true>(board, cache.opponent_attacks);
     int num_checkers = popcount(checkers);
 
     if (num_checkers == 2) {
@@ -486,5 +404,36 @@ MoveList generate_legal_moves(const Board& board) {
     return moves;
 }
 
+bool is_checkmate(const Board& board) {
+    MoveList unused;
+    BoardCache cache;
+    cache.opponent_attacks = calculate_opponent_attacks<true>(board);
+    Bitboard checkers = calculate_checkers<true>(board, cache.opponent_attacks);
+    int num_checkers = popcount(checkers);
+
+    if (num_checkers == 2) {
+        return !generate_legal_king_moves<true>(board, unused, cache);
+    } else if (num_checkers == 1) {
+        if (generate_legal_king_moves<true>(board, unused, cache))
+            return false;
+        if (generate_legal_castle_moves<true>(board, unused, cache))
+            return false;
+        cache.block_mask = checkers;
+        cache.pinned_pieces = (
+            calculate_pinned_pieces<Piece::ROOK>(board, cache.pin_masks, cache.block_mask)
+            | calculate_pinned_pieces<Piece::BISHOP>(board, cache.pin_masks, cache.block_mask)
+        );
+        if (generate_legal_knight_moves<true>(board, unused, cache))
+            return false;
+        if (generate_legal_slider_moves<Piece::ROOK, true>(board, unused, cache))
+            return false;
+        if (generate_legal_slider_moves<Piece::BISHOP, true>(board, unused, cache))
+            return false;
+        if (generate_legal_pawn_moves<true>(board, unused, cache))
+            return false;
+        return true;
+    }
+    return false;
+}
 
 } // namespace bears_chess
