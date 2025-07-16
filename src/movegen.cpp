@@ -325,7 +325,52 @@ inline void generate_legal_slider_moves(const Board& board, MoveList& moves, con
     }
 }
 
-inline void generate_legal_pawn_moves(Board& board, MoveList& moves, const BoardCache& cache) {
+inline void generate_legal_ep_moves(const Board& board, MoveList& moves, const BoardCache& cache) {
+    Color color = board.side_to_move;
+    Color opponent_color = ~color;
+
+    Square king_sq = board.king_sq[idx(color)];
+    Bitboard bb_king = bb_square(king_sq);
+
+    Square to = board.ep_square;
+    Bitboard bb_opponent_pawn = BB_SINGLE_PAWN_MOVES[idx(~color)][idx(to)];
+    if (nonzero(cache.check_restriction & bb_opponent_pawn)) {
+        // pawn is allowed to be captured
+        Bitboard bb_ep_pawn_mask = BB_CAPTURE_PAWN_MOVES[idx(~color)][idx(to)];
+        Bitboard bb_capture_ep = bb_ep_pawn_mask & board.pieces[idx(color)][idx(Piece::PAWN)];
+
+        for (Square from : BBSquareScan(bb_capture_ep)) {
+            Bitboard legal_mask = bb_square(to);
+            Bitboard bb_from = bb_square(from);
+
+            if (nonzero(cache.pinned_pieces & bb_from)) {
+                IndexDirection pin_dir = DIR_BETWEEN<IndexDirection>[idx(king_sq)][idx(from)];
+                legal_mask &= cache.pin_masks[idx(pin_dir)];
+            }
+            if (nonzero(legal_mask)) {
+                Bitboard exposing_rank = bb_rank(bitscan_forward(bb_opponent_pawn));
+                bool exposing = nonzero(bb_king & exposing_rank);
+                if (exposing) {
+                    Bitboard opponent_sliders = exposing_rank & (
+                        board.pieces[idx(opponent_color)][idx(Piece::ROOK)] | board.pieces[idx(opponent_color)][idx(Piece::QUEEN)]
+                    );
+                    if (nonzero(opponent_sliders)) {
+                        // check if after removing pawns if king is in check
+                        Bitboard attack = magic_lookup<Piece::ROOK>(king_sq, board.occupied & ~(bb_opponent_pawn | bb_from));
+                        exposing = nonzero(opponent_sliders & attack);
+                    } else {
+                        exposing = false;
+                    }
+                }
+                if (!exposing) {
+                    moves.emplace_back(from, to, MoveType::EP_CAPTURE);
+                }
+            }
+        }
+    }
+}
+
+inline void generate_legal_pawn_moves(const Board& board, MoveList& moves, const BoardCache& cache) {
     Color color = board.side_to_move;
     Color opponent_color = ~color;
 
@@ -336,8 +381,6 @@ inline void generate_legal_pawn_moves(Board& board, MoveList& moves, const Board
 
     Bitboard legal_quiet = unoccupied & cache.check_restriction;
     Bitboard legal_capture = opponent_occupied & cache.check_restriction;
-    Bitboard promo_ranks = BB_PROMOTION_RANKS;
-    int dir = (color == Color::WHITE ? +8 : -8);
 
     Square king_sq = board.king_sq[idx(color)];
     Bitboard bb_king = bb_square(king_sq);
@@ -392,41 +435,7 @@ inline void generate_legal_pawn_moves(Board& board, MoveList& moves, const Board
     }
 
     if (board.ep_square != Square::NONE) {
-        Square to = board.ep_square;
-        Bitboard bb_opponent_pawn = BB_SINGLE_PAWN_MOVES[idx(~color)][idx(to)];
-        if (nonzero(cache.check_restriction & bb_opponent_pawn)) {
-            // pawn is allowed to be captured
-            Bitboard bb_ep_pawn_mask = BB_CAPTURE_PAWN_MOVES[idx(~color)][idx(to)];
-            Bitboard bb_capture_ep = bb_ep_pawn_mask & board.pieces[idx(color)][idx(Piece::PAWN)];
-
-            for (Square from : BBSquareScan(bb_capture_ep)) {
-                Bitboard legal_mask = bb_square(to);
-                Bitboard bb_from = bb_square(from);
-
-                if (nonzero(cache.pinned_pieces & bb_from)) {
-                    IndexDirection pin_dir = DIR_BETWEEN<IndexDirection>[idx(king_sq)][idx(from)];
-                    legal_mask &= cache.pin_masks[idx(pin_dir)];
-                }
-                if (nonzero(legal_mask)) {
-                    Bitboard exposing_rank = bb_rank(bitscan_forward(bb_opponent_pawn));
-                    bool exposing = nonzero(bb_king & exposing_rank);
-                    if (exposing) {
-                        Bitboard opponent_sliders = exposing_rank & (
-                            board.pieces[idx(opponent_color)][idx(Piece::ROOK)] | board.pieces[idx(opponent_color)][idx(Piece::QUEEN)]
-                        );
-                        exposing = false;
-                        if (nonzero(opponent_sliders)) {
-                            // check if after removing pawns if king is in check
-                            Bitboard attack = magic_lookup<Piece::ROOK>(king_sq, occupied & ~(bb_opponent_pawn | bb_from));
-                            exposing = nonzero(opponent_sliders & attack);
-                        }
-                    }
-                    if (!exposing) {
-                        moves.emplace_back(from, to, MoveType::EP_CAPTURE);
-                    }
-                }
-            }
-        }
+        generate_legal_ep_moves(board, moves, cache);
     }
 }
 
@@ -450,7 +459,7 @@ inline void generate_legal_castle_moves(const Board& board, MoveList& moves, con
     }
 }
 
-MoveList generate_legal_moves(Board& board) {
+MoveList generate_legal_moves(const Board& board) {
     BoardCache cache;
     MoveList moves;
     moves.reserve(218);
