@@ -6,7 +6,7 @@ namespace bears_chess {
 
 struct BoardCache {
     Bitboard opponent_attacks;      // enemy attack mask ignoring our king
-    Bitboard check_restriction;     // non-king moves are restricted to these squares (to prevent check)
+    Bitboard block_mask;            // non-king moves are restricted to these squares to block checkers if present
     Bitboard pinned_pieces;         // all pieces that are pinned
     Bitboard pin_masks[num_of<IndexDirection>];     // legal move mask for pinned piece, indexed by direction from king
 };
@@ -18,7 +18,6 @@ inline void append_moves(MoveList& moves, Square from, Bitboard to_squares, Move
 }
 
 inline void generate_knight_moves(const Board& board, MoveList& moves) {
-    // find knights for our color
     Color color = board.side_to_move;
 
     Bitboard unoccupied = ~board.occupied;
@@ -26,9 +25,9 @@ inline void generate_knight_moves(const Board& board, MoveList& moves) {
 
     Bitboard bb_knights = board.pieces[idx(color)][idx(Piece::KNIGHT)];
     for (Square from : BBSquareScan(bb_knights)) {
-        Bitboard bb_move_pattern = BB_KNIGHT_MOVES[idx(from)];
-        Bitboard bb_quiet = (bb_move_pattern & unoccupied);
-        Bitboard bb_capture = (bb_move_pattern & opponent_occupied);
+        Bitboard bb_moves = BB_KNIGHT_MOVES[idx(from)];
+        Bitboard bb_quiet = (bb_moves & unoccupied);
+        Bitboard bb_capture = (bb_moves & opponent_occupied);
         append_moves(moves, from, bb_quiet, MoveType::QUIET);
         append_moves(moves, from, bb_capture, MoveType::CAPTURE);
     }
@@ -41,10 +40,9 @@ inline void generate_king_moves(const Board& board, MoveList& moves) {
     Bitboard opponent_occupied = board.occupied_by_color[idx(~color)];
 
     Square from = board.king_sq[idx(color)];
-    Bitboard bb_move_pattern = BB_KING_MOVES[idx(from)];
-
-    Bitboard bb_quiet = (bb_move_pattern & unoccupied);
-    Bitboard bb_capture = (bb_move_pattern & opponent_occupied);
+    Bitboard bb_moves = BB_KING_MOVES[idx(from)];
+    Bitboard bb_quiet = (bb_moves & unoccupied);
+    Bitboard bb_capture = (bb_moves & opponent_occupied);
     append_moves(moves, from, bb_quiet, MoveType::QUIET);
     append_moves(moves, from, bb_capture, MoveType::CAPTURE);
 }
@@ -267,25 +265,24 @@ inline void generate_legal_king_moves(const Board& board, MoveList& moves, const
     Bitboard opponent_occupied = board.occupied_by_color[idx(opponent_color)];
 
     Square from = board.king_sq[idx(color)];
-    Bitboard bb_move_pattern = BB_KING_MOVES[idx(from)];
-    Bitboard bb_quiet = (bb_move_pattern & unoccupied & ~cache.opponent_attacks);
-    Bitboard bb_capture = (bb_move_pattern & opponent_occupied & ~cache.opponent_attacks);
+    Bitboard bb_moves = BB_KING_MOVES[idx(from)];
+    Bitboard bb_quiet = (bb_moves & unoccupied & ~cache.opponent_attacks);
+    Bitboard bb_capture = (bb_moves & opponent_occupied & ~cache.opponent_attacks);
     append_moves(moves, from, bb_quiet, MoveType::QUIET);
     append_moves(moves, from, bb_capture, MoveType::CAPTURE);
 }
 
 inline void generate_legal_knight_moves(const Board& board, MoveList& moves, const BoardCache& cache) {
-    // find knights for our color
     Color color = board.side_to_move;
 
     Bitboard bb_knights = board.pieces[idx(color)][idx(Piece::KNIGHT)] & ~cache.pinned_pieces;
-    Bitboard legal_quiet = ~board.occupied & cache.check_restriction;
-    Bitboard legal_capture = board.occupied_by_color[idx(~color)] & cache.check_restriction;
+    Bitboard legal_quiet = ~board.occupied & cache.block_mask;
+    Bitboard legal_capture = board.occupied_by_color[idx(~color)] & cache.block_mask;
 
     for (Square from : BBSquareScan(bb_knights)) {
-        Bitboard bb_move_pattern = BB_KNIGHT_MOVES[idx(from)];
-        Bitboard bb_quiet = (bb_move_pattern & legal_quiet);
-        Bitboard bb_capture = (bb_move_pattern & legal_capture);
+        Bitboard bb_moves = BB_KNIGHT_MOVES[idx(from)];
+        Bitboard bb_quiet = (bb_moves & legal_quiet);
+        Bitboard bb_capture = (bb_moves & legal_capture);
         append_moves(moves, from, bb_quiet, MoveType::QUIET);
         append_moves(moves, from, bb_capture, MoveType::CAPTURE);
     }
@@ -302,24 +299,24 @@ inline void generate_legal_slider_moves(const Board& board, MoveList& moves, con
     Bitboard pinned_sliders = bb_sliders & cache.pinned_pieces;
     Bitboard unpinned_sliders = bb_sliders & ~cache.pinned_pieces;
 
-    Bitboard legal_quiet = ~occupied & cache.check_restriction;
-    Bitboard legal_capture = opponent_occupied & cache.check_restriction;
+    Bitboard legal_quiet = ~occupied & cache.block_mask;
+    Bitboard legal_capture = opponent_occupied & cache.block_mask;
 
     Square king_square = board.king_sq[idx(color)];
 
     for (Square from : BBSquareScan(pinned_sliders)) {
         IndexDirection pin_dir = DIR_BETWEEN<IndexDirection>[idx(king_square)][idx(from)];
-        Bitboard attacks = magic_lookup<move_type>(from, occupied) & cache.pin_masks[idx(pin_dir)];
-        Bitboard bb_quiet = attacks & legal_quiet;
-        Bitboard bb_capture = attacks & legal_capture;
+        Bitboard bb_moves = magic_lookup<move_type>(from, occupied) & cache.pin_masks[idx(pin_dir)];
+        Bitboard bb_quiet = bb_moves & legal_quiet;
+        Bitboard bb_capture = bb_moves & legal_capture;
         append_moves(moves, from, bb_quiet, MoveType::QUIET);
         append_moves(moves, from, bb_capture, MoveType::CAPTURE);
     }
 
     for (Square from : BBSquareScan(unpinned_sliders)) {
-        Bitboard attacks = magic_lookup<move_type>(from, occupied);
-        Bitboard bb_quiet = attacks & legal_quiet;
-        Bitboard bb_capture = attacks & legal_capture;
+        Bitboard bb_moves = magic_lookup<move_type>(from, occupied);
+        Bitboard bb_quiet = bb_moves & legal_quiet;
+        Bitboard bb_capture = bb_moves & legal_capture;
         append_moves(moves, from, bb_quiet, MoveType::QUIET);
         append_moves(moves, from, bb_capture, MoveType::CAPTURE);
     }
@@ -334,7 +331,7 @@ inline void generate_legal_ep_moves(const Board& board, MoveList& moves, const B
 
     Square to = board.ep_square;
     Bitboard bb_opponent_pawn = BB_SINGLE_PAWN_MOVES[idx(~color)][idx(to)];
-    if (nonzero(cache.check_restriction & bb_opponent_pawn)) {
+    if (nonzero(cache.block_mask & bb_opponent_pawn)) {
         // pawn is allowed to be captured
         Bitboard bb_ep_pawn_mask = BB_CAPTURE_PAWN_MOVES[idx(~color)][idx(to)];
         Bitboard bb_capture_ep = bb_ep_pawn_mask & board.pieces[idx(color)][idx(Piece::PAWN)];
@@ -379,8 +376,8 @@ inline void generate_legal_pawn_moves(const Board& board, MoveList& moves, const
     Bitboard bb_pawns = board.pieces[idx(color)][idx(Piece::PAWN)];
     Bitboard unoccupied = ~occupied;
 
-    Bitboard legal_quiet = unoccupied & cache.check_restriction;
-    Bitboard legal_capture = opponent_occupied & cache.check_restriction;
+    Bitboard legal_quiet = unoccupied & cache.block_mask;
+    Bitboard legal_capture = opponent_occupied & cache.block_mask;
 
     Square king_sq = board.king_sq[idx(color)];
     Bitboard bb_king = bb_square(king_sq);
@@ -472,10 +469,10 @@ MoveList generate_legal_moves(const Board& board) {
         generate_legal_king_moves(board, moves, cache);
     } else {
         // hold mask of squares we can move pieces to to block check
-        cache.check_restriction = num_checkers == 0 ? Bitboard::FULL : checkers;
+        cache.block_mask = num_checkers == 0 ? Bitboard::FULL : checkers;
         cache.pinned_pieces = (
-            calculate_pinned_pieces<Piece::ROOK>(board, cache.pin_masks, cache.check_restriction)
-            | calculate_pinned_pieces<Piece::BISHOP>(board, cache.pin_masks, cache.check_restriction)
+            calculate_pinned_pieces<Piece::ROOK>(board, cache.pin_masks, cache.block_mask)
+            | calculate_pinned_pieces<Piece::BISHOP>(board, cache.pin_masks, cache.block_mask)
         );
 
         generate_legal_king_moves(board, moves, cache);

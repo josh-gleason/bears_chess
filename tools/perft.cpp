@@ -4,6 +4,9 @@
 #include <chrono>
 #include <map>
 #include <unordered_map>
+#include <mutex>
+#include <thread>
+#include <future>
 #include "board_utils.hpp"
 #include "movegen.hpp"
 
@@ -52,7 +55,7 @@ inline bool is_legal(const Board& board, const Move& last_move) {
 }
 
 template<MoveGenType move_gen_type=LEGAL, bool collect_stats=false>
-inline uint64_t perft(Board& board, int depth, const std::vector<DepthStats>::iterator &stats) {
+inline uint64_t perft(Board& board, int depth, const std::vector<DepthStats>::iterator &stats, std::mutex& stats_mutex) {
     if (depth == 0) {
         return 1;
     }
@@ -68,9 +71,10 @@ inline uint64_t perft(Board& board, int depth, const std::vector<DepthStats>::it
         UndoInfo undo = board.do_move(move);
         if (is_legal<move_gen_type>(board, move)) {
             if constexpr (collect_stats) {
+                std::lock_guard<std::mutex> lock(stats_mutex);
                 stats->increment(board, move);
             }
-            nodes += perft<move_gen_type, collect_stats>(board, depth - 1, stats + 1);
+            nodes += perft<move_gen_type, collect_stats>(board, depth - 1, stats + 1, stats_mutex);
         }
         board.undo_move(undo);
     }
@@ -79,7 +83,7 @@ inline uint64_t perft(Board& board, int depth, const std::vector<DepthStats>::it
 }
 
 template<MoveGenType move_gen_type=LEGAL, bool collect_stats=false, bool show_moves=false>
-void run_perft(const std::string& fen, int max_depth) {
+void run_perft(const std::string& fen, int max_depth, bool multi_threaded=false) {
     Board board = load_fen(fen);
     // println("======================== BEGIN PERFT TEST ================================");
     print("{:F}", board);
@@ -88,23 +92,48 @@ void run_perft(const std::string& fen, int max_depth) {
     auto stats_iter = perft_stats.begin();
     uint64_t nodes = 0;
 
+    std::mutex stats_mutex;
+
+    auto process_move = [&](const Move& move) -> uint64_t {
+        uint64_t move_nodes = 0;
+        Board local_board = board; // Copy the board for thread safety
+        UndoInfo undo = local_board.do_move(move);
+        if (is_legal<move_gen_type>(local_board, move)) {
+            if constexpr (collect_stats) {
+                std::lock_guard<std::mutex> lock(stats_mutex);
+                stats_iter->increment(local_board, move);
+            }
+            move_nodes += perft<move_gen_type, collect_stats>(local_board, max_depth - 1, stats_iter + 1, stats_mutex);
+        }
+        local_board.undo_move(undo);
+        return move_nodes;
+    };
+
     auto start = std::chrono::steady_clock::now();
     MoveList moves = generate_moves<move_gen_type>(board);
-    for (auto move : moves) {
-        uint64_t move_nodes = 0;
-        UndoInfo undo = board.do_move(move);
-        if (is_legal<move_gen_type>(board, move)) {
-            if constexpr (collect_stats) {
-                stats_iter->increment(board, move);
-            }
-            move_nodes += perft<move_gen_type, collect_stats>(board, max_depth - 1, stats_iter + 1);
+    if (multi_threaded) {
+        std::vector<std::future<uint64_t>> futures;
+        for (const Move& move : moves) {
+            futures.push_back(std::async(std::launch::async, process_move, move));
         }
-        board.undo_move(undo);
-        nodes += move_nodes;
-        if constexpr (show_moves) {
-            println("{:s}: {}", move, move_nodes);
+
+        for (size_t i = 0; i < moves.size(); ++i) {
+            uint32_t node_count = futures[i].get();
+            nodes += node_count;
+            if constexpr (show_moves) {
+                println("{:s}: {}", moves[i], node_count);
+            }
+        }
+    } else {
+        for (const Move& move : moves) {
+            uint32_t node_count = process_move(move);
+            nodes += node_count;
+            if constexpr (show_moves) {
+                println("{:s}: {}", move, node_count);
+            }
         }
     }
+
     auto end = std::chrono::steady_clock::now();
     double elapsed = std::chrono::duration<double>(end - start).count();
 
