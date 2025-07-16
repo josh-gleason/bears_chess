@@ -29,77 +29,47 @@ struct DepthStats {
         return std::format(DepthStats::FMT_STR, "depth", "nodes", "capture", "e.p.", "castle", "promotion", "check", "disc-check", "dbl-check", "checkmate");
     }
 
+    inline void increment(const Board& board, const Move& last_move) {
+        nodes++;
+        captures += static_cast<int>(is_capture(last_move.move_type));
+        eps += static_cast<int>(last_move.move_type == MoveType::EP_CAPTURE);
+        castles += static_cast<int>(is_castle(last_move.move_type));
+        promotions += static_cast<int>(is_promotion(last_move.move_type));
+    }
+
     private:
         static constexpr const char* FMT_STR = "{:<7}{:<14}{:<14}{:<14}{:<14}{:<14}{:<14}{:<14}{:<14}{:<14}";
 };
 
-struct MoveComparator {
-    bool operator()(const Move& lhs, const Move& rhs) const {
-        if (lhs.from != rhs.from) return std::format("{}", lhs.from) < std::format("{}", rhs.from);
-        if (lhs.to != rhs.to) return std::format("{}", lhs.to) < std::format("{}", rhs.to);
-        return lhs.move_type < rhs.move_type;
-    }
-};
-
-struct MoveHash {
-    size_t operator()(const Move& move) const {
-        size_t hash_from = std::hash<int8_t>()(idx(move.from));
-        size_t hash_to = std::hash<int8_t>()(idx(move.to));
-        size_t hash_type = std::hash<int8_t>()(idx(move.move_type));
-        return hash_from ^ (hash_to << 1) ^ (hash_type << 2); // Combine hashes
-    }
-};
-
-struct MoveEqual {
-    bool operator()(const Move& lhs, const Move& rhs) const {
-        return lhs.from == rhs.from && lhs.to == rhs.to && lhs.move_type == rhs.move_type;
-    }
-};
-
 template<MoveGenType T>
-uint64_t perft_dfs_stats(
-    Board& board, int depth,
-    std::vector<DepthStats>& all_stats,
-    std::unordered_map<Move, uint64_t, MoveHash, MoveEqual>& move_counts,
-    std::optional<Move> first_move=std::nullopt
-) {
+inline bool is_legal(const Board& board, const Move& last_move) {
+    if constexpr (T == MoveGenType::LEGAL) {
+        return true;
+    } else {
+        return board.is_legal(last_move);
+    }
+}
+
+template<MoveGenType T, bool CollectStats = false>
+inline uint64_t perft(Board& board, int depth, const std::vector<DepthStats>::iterator &stats) {
     if (depth == 0) {
-        move_counts.insert({*first_move, 0});
-        move_counts[*first_move]++;
         return 1;
     }
 
-    if (all_stats.size() < depth) {
-        all_stats.resize(depth);
-    }
-    auto& stats = all_stats[depth - 1];
-
-    MoveList moves;
-    if constexpr (T == MoveGenType::PSEUDO_LEGAL) {
-        moves = generate_pseudo_legal_moves(board);
-    } else {
-        moves = generate_legal_moves(board);
-    }
-
     uint64_t nodes = 0;
+    auto moves = generate_moves<T>(board);
+    if constexpr (T == MoveGenType::LEGAL && !CollectStats) {
+        if (depth == 1) {
+            return moves.size();
+        }
+    }
     for (const Move& move : moves) {
         UndoInfo undo = board.do_move(move);
-        bool legal = true;
-        if constexpr (T == MoveGenType::PSEUDO_LEGAL) {
-            legal = board.is_legal(move);
-        }
-        if (legal) {
-            stats.nodes++;
-            stats.captures += static_cast<int>(is_capture(move.move_type));
-            stats.eps += static_cast<int>(move.move_type == MoveType::EP_CAPTURE);
-            stats.castles += static_cast<int>(is_castle(move.move_type));
-            stats.promotions += static_cast<int>(is_promotion(move.move_type));
-            // stats.checks = static_cast<int>(board.is_in_check());
-            // stats.discovery_checks = static_cast<int>(board.is_discovery_check());
-            // stats.double_checks = static_cast<int>(board.is_double_check());
-            // stats.checkmates = static_cast<int>(board.is_checkmate());
-            
-            nodes += perft_dfs_stats<T>(board, depth - 1, all_stats, move_counts, first_move ? *first_move : move);
+        if (is_legal<T>(board, move)) {
+            if constexpr (CollectStats) {
+                stats->increment(board, move);
+            }
+            nodes += perft<T, CollectStats>(board, depth - 1, stats + 1);
         }
         board.undo_move(undo);
     }
@@ -107,72 +77,41 @@ uint64_t perft_dfs_stats(
     return nodes;
 }
 
-template<MoveGenType T=MoveGenType::PSEUDO_LEGAL>
-void perft_tree(const std::string& fen, int max_depth) {
+template<MoveGenType T, bool CollectStats = false>
+void run_perft(const std::string& fen, int max_depth) {
     Board board = load_fen(fen);
     println("======================== BEGIN PERFT TEST ================================");
     println("{}", board);
 
-    std::vector<DepthStats> perft_stats;
-    std::unordered_map<Move, uint64_t, MoveHash, MoveEqual> move_count; // Use unordered_map
-    
-    auto start = std::chrono::steady_clock::now();
-    uint64_t nodes = perft_dfs_stats<T>(board, max_depth, perft_stats, move_count);
-    auto end = std::chrono::steady_clock::now();
-
-    double elapsed = std::chrono::duration<double>(end - start).count();
-    println("Depth {}: {} nodes ({} sec, {:g} nps)", max_depth, nodes, elapsed, nodes/elapsed);
-    println("Move list:");
-    for (const auto& [move, count] : move_count) {
-        println("{:s}: {}", move, count);
-    }
-    println("");
-    println("{}", DepthStats::header_string());
-    for (int depth = 0; depth < max_depth; ++depth) {
-        auto& depth_stats = perft_stats[max_depth - depth - 1];
-        println("{}", depth_stats.to_string(depth + 1));
-    }
-    println("Depth {}: {} nodes", max_depth, nodes);
-}
-
-
-template<MoveGenType T>
-uint64_t perft_dfs(Board& board, int depth) {
-    if (depth == 0) return 1;
+    std::vector<DepthStats> perft_stats(max_depth);
+    auto stats_iter = perft_stats.begin();
     uint64_t nodes = 0;
-    if constexpr (T == MoveGenType::PSEUDO_LEGAL) {
-        MoveList moves = generate_pseudo_legal_moves(board);
-        for (const Move& move : moves) {
-            UndoInfo undo = board.do_move(move);
-            if (board.is_legal(move)) {
-                nodes += perft_dfs<T>(board, depth - 1);
+
+    auto start = std::chrono::steady_clock::now();
+    MoveList moves = generate_moves<T>(board);
+    for (auto move : moves) {
+        uint64_t move_nodes = 0;
+        UndoInfo undo = board.do_move(move);
+        if (is_legal<T>(board, move)) {
+            if constexpr (CollectStats) {
+                stats_iter->increment(board, move);
             }
-            board.undo_move(undo);
+            move_nodes += perft<T, CollectStats>(board, max_depth - 1, stats_iter + 1);
         }
-    } else { // LEGAL
-        MoveList moves = generate_legal_moves(board);
-        for (const Move& move : moves) {
-            UndoInfo undo = board.do_move(move);
-            nodes += perft_dfs<T>(board, depth - 1);
-            board.undo_move(undo);
-        }
+        board.undo_move(undo);
+        nodes += move_nodes;
+        println("{:s}: {}", move, move_nodes);
     }
-    return nodes;
-}
+    auto end = std::chrono::steady_clock::now();
+    double elapsed = std::chrono::duration<double>(end - start).count();
 
-template<MoveGenType T=MoveGenType::PSEUDO_LEGAL>
-void perft_speed(const std::string& fen, int max_depth) {
-    Board board = load_fen(fen);
-    println("======================== BEGIN PERFT TEST ================================");
-    println("{}", board);
+    println("Depth {}: {} nodes ({} sec, {:g} nps)", max_depth, nodes, elapsed, nodes / elapsed);
 
-    for (int depth = 1; depth <= max_depth; ++depth) {
-        auto start = std::chrono::steady_clock::now();
-        uint64_t nodes = perft_dfs<T>(board, depth);
-        auto end = std::chrono::steady_clock::now();
-
-        double elapsed = std::chrono::duration<double>(end - start).count();
-        println("Depth {}: {} nodes ({} sec, {:g} nps)", depth, nodes, elapsed, nodes/elapsed);
+    if constexpr (CollectStats) {
+        println("{}", DepthStats::header_string());
+        for (int depth = 0; depth < max_depth; ++depth) {
+            println("{}", perft_stats[depth].to_string(depth + 1));
+        }
     }
 }
 
@@ -311,14 +250,18 @@ int main()
     // test_do_undo(load_fen("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/P1N2Q2/1PPBBPpP/2KR3R b kq - 0 2"), 2);
     // test_do_undo(load_fen(PERFT_POSITION_2_FEN), 4);
 
-    perft_tree(PERFT_POSITION_2_FEN, 5);
+    // perft_tree(PERFT_POSITION_2_FEN, 5);
 
     // perft_speed(INITIAL_POSITION_FEN, 6);
-    perft_speed(PERFT_POSITION_2_FEN, 5);
+    // perft_speed(PERFT_POSITION_2_FEN, 5);
     // perft_speed(PERFT_POSITION_3_FEN, 6);
     // perft_speed(PERFT_POSITION_4_FEN, 6);
     // perft_speed(PERFT_POSITION_5_FEN, 5);
     // perft_speed(PERFT_POSITION_6_FEN, 5);
+
+    run_perft<MoveGenType::PSEUDO_LEGAL, false>(INITIAL_POSITION_FEN, 1);
+    run_perft<MoveGenType::PSEUDO_LEGAL, false>(INITIAL_POSITION_FEN, 6);
+    // run_perft<MoveGenType::PSEUDO_LEGAL, true>(PERFT_POSITION_2_FEN, 4);
 
     return 0;
 }
