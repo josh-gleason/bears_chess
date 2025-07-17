@@ -1,8 +1,10 @@
 set(SOURCES
     board.cpp
     board_utils.cpp
-    movegen.cpp
+    checkmate.cpp
     magics.cpp
+    legal_movegen.cpp
+    pseudolegal_movegen.cpp
 )
 
 add_library(bears_chess ${SOURCES})

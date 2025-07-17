@@ -16,9 +16,9 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mtune=native -msse2 -msse3 -mssse3 -mss
 # set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g -fno-inline")
 
 if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-    add_compile_options(-fconstexpr-ops-limit=1000000000 -fconstexpr-loop-limit=10000000)
+    add_compile_options(-fconstexpr-ops-limit=1000000000 -fconstexpr-loop-limit=10000000 -ffunction-sections -fdata-sections -flto)
 elseif (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-    add_compile_options(-fconstexpr-depth=1000000000 -fconstexpr-steps=1000000000)
+    add_compile_options(-fconstexpr-depth=1000000000 -fconstexpr-steps=1000000000 -ffunction-sections -fdata-sections)
 endif()
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")

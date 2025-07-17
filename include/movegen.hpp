@@ -1,3 +1,5 @@
+#pragma once
+
 #include "types.hpp"
 #include "board.hpp"
 
@@ -14,7 +16,5 @@ MoveList generate_moves(const Board& board) {
         return generate_pseudo_legal_moves(board);
     }
 }
-
-bool is_checkmate(const Board& board);
 
 } // namespace bears_chess
