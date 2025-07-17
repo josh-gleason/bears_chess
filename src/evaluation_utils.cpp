@@ -11,6 +11,7 @@ bool is_check(const Board& board) {
 
 bool is_discovered_check(const Board& board, const Move& last_move) {
     // a piece other than the last moved is checking the king
+    // TODO fix this, giving wrong results during perft
     return nonzero(calculate_checkers(board) & ~bb_square(last_move.to));
 }
 
