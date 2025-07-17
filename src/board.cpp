@@ -128,7 +128,9 @@ UndoInfo Board::do_move(const Move &move)
         } else if (from == CASTLE_ROOK_FROM_SQUARES<Piece::QUEEN>[idx(us)]) {
             castling_rights = clear_half_castling_rights<Piece::QUEEN>(castling_rights, us);
         }
-    } else if (undo.captured == Piece::ROOK) {
+    }
+    
+    if (undo.captured == Piece::ROOK) {
         if (to == CASTLE_ROOK_FROM_SQUARES<Piece::KING>[idx(them)]) {
             castling_rights = clear_half_castling_rights<Piece::KING>(castling_rights, them);
         } else if (to == CASTLE_ROOK_FROM_SQUARES<Piece::QUEEN>[idx(them)]) {

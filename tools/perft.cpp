@@ -40,10 +40,10 @@ struct DepthStats {
         eps += static_cast<int>(last_move.move_type == MoveType::EP_CAPTURE);
         castles += static_cast<int>(is_castle(last_move.move_type));
         promotions += static_cast<int>(is_promotion(last_move.move_type));
-        // checks += static_cast<int>(board.is_check());
-        // discovered_checks += static_cast<int>(board.is_discovered_check(last_move));
-        // double_checks += static_cast<int>(board.is_double_check());
-        // checkmates += static_cast<int>(board.is_checkmate());
+        checks += static_cast<int>(is_check(board));
+        discovered_checks += static_cast<int>(is_discovered_check(board, last_move));
+        double_checks += static_cast<int>(is_double_check(board));
+        checkmates += static_cast<int>(is_checkmate(board));
     }
 
     private:
@@ -257,9 +257,14 @@ void show_moves(const std::string &fen) {
 
 int main()
 {
-    show_moves(PERFT_POSITION_3_FEN);
+    // show_moves(PERFT_POSITION_3_FEN);
 
-    test_do_undo<PSEUDO_LEGAL>(load_fen(PERFT_POSITION_2_FEN), 4);
+    test_do_undo<PSEUDO_LEGAL>(load_fen(PERFT_POSITION_2_FEN), 5);
+
+    // Board b = load_fen("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/P1NB1Q2/1PPB1PpP/R3K2R b KQkq - 1 2");
+    // Move m{Square::G2, Square::H1, MoveType::ROOK_PROMOTION_CAPTURE};
+    // b.do_move(m);
+    // println("{}", b);
 
     run_perft(INITIAL_POSITION_FEN, 6);
     run_perft(PERFT_POSITION_2_FEN, 5);

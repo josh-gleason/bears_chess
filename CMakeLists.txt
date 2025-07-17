@@ -7,18 +7,62 @@ project(bears_chess
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# # Add optimization flags
-# set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -mtune=native")
-# set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mpopcnt -mavx2 -msse4.1 -mssse3 -msse3 -msse2")
-# set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mtune=native -msse2 -msse3 -mssse3 -msse4.1 -mpopcnt -mavx2")
-# set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -mtune=native -msse2 -msse3 -mssse3 -msse4.1 -mpopcnt -mavx")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mtune=native -msse2 -msse3 -mssse3 -msse4.1 -mpopcnt -mavx")
-# set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g -fno-inline")
+if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+    message(STATUS "Setting default build type to Release")
+    set(CMAKE_BUILD_TYPE Release CACHE STRING "" FORCE)
+endif()
 
 if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-    add_compile_options(-fconstexpr-ops-limit=1000000000 -fconstexpr-loop-limit=10000000 -ffunction-sections -fdata-sections -flto)
+    add_compile_options(-fconstexpr-ops-limit=1000000000 -fconstexpr-loop-limit=10000000)
 elseif (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-    add_compile_options(-fconstexpr-depth=1000000000 -fconstexpr-steps=1000000000 -ffunction-sections -fdata-sections)
+    set(BOLT_ARGS
+        -data=${CMAKE_BINARY_DIR}/perf.fdata
+        -reorder-blocks=ext-tsp
+        -split-functions
+        -split-all-cold
+        -dyno-stats
+    )
+
+    add_custom_command(
+        OUTPUT ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/perft-opt
+        COMMAND llvm-bolt
+                $<TARGET_FILE:perft>
+                -o ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/perft-opt
+                ${BOLT_ARGS}
+        DEPENDS perft
+        COMMENT "=> Running BOLT post-link optimization on perft"
+        VERBATIM
+    )
+
+    add_compile_options(
+        -fconstexpr-depth=1000000000
+        -fconstexpr-steps=1000000000
+        -march=native
+        -mtune=native
+    )
+
+    if (CMAKE_BUILD_TYPE STREQUAL "Release")
+        set(CMAKE_POSITION_INDEPENDENT_CODE OFF CACHE BOOL "" FORCE)
+
+        add_compile_options(
+            # Only in Release
+            -O3
+            -DNDEBUG
+            # -fomit-frame-pointer
+            # -ffunction-sections
+            # -fdata-sections
+            -fno-rtti
+            -flto=thin
+            -fno-pie
+        )
+        add_link_options(
+            -fuse-ld=lld
+            -no-pie
+            -Wl,--gc-sections
+            -Wl,--emit-relocs
+            -Wl,--thinlto-jobs=${CMAKE_JOB_POOL_COMPILE}
+        )
+    endif()
 endif()
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
