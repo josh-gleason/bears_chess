@@ -3,6 +3,10 @@
 #include <bit>
 
 #include "types.hpp"
+#if defined(__BMI2__) || defined(_MSC_VER)
+#include <immintrin.h>
+#define PEXT_SUPPORT
+#endif
 
 namespace bears_chess {
 
@@ -528,5 +532,11 @@ constexpr auto BB_CASTLE_PATHS = []() -> std::array<Bitboard, num_of<Color>> {
         };
     }
 }();
+
+#ifdef PEXT_SUPPORT
+inline size_t pext(Bitboard bb_occupied, Bitboard bb_attack_mask) {
+    return _pext_u64(idx(bb_occupied), idx(bb_attack_mask));
+}
+#endif
 
 } // namespace bears_chess

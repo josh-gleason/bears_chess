@@ -7,10 +7,7 @@
 #include <mutex>
 #include <thread>
 #include <future>
-#include "board_utils.hpp"
-#include "movegen.hpp"
-#include "evaluation_utils.hpp"
-#include "perft_utils.hpp"
+#include "bears_chess.hpp"
 
 using namespace std;
 using namespace bears_chess;
@@ -36,7 +33,9 @@ void show_do_undo_failures(const Board& board, int max_depth) {
 
 int main()
 {
-    show_do_undo_failures<PSEUDO_LEGAL>(load_fen(PERFT_POSITION_6_FEN), 6);
+    init();
+
+    // show_do_undo_failures<PSEUDO_LEGAL>(load_fen(PERFT_POSITION_6_FEN), 6);
 
     // show_moves<PSEUDO_LEGAL>(board);
     

@@ -26,6 +26,9 @@ constexpr bool is_slider = (P == Piece::ROOK || P == Piece::BISHOP || P == Piece
 template<Piece P>
 constexpr bool is_bishop_or_rook = (P == Piece::ROOK || P == Piece::BISHOP);
 
+template<Piece P>
+constexpr bool is_major_piece = ((idx(P) >= idx(Piece::KNIGHT)) && (idx(P) <= idx(Piece::KING)));
+
 template<> struct enum_traits<Piece> :
     preincrement_ops,
     inequality_ops,
@@ -333,13 +336,24 @@ template<> struct enum_traits<Direction> :
     hash_ops<Direction, detail::dir_hash_fun, 11>
 {};
 
-constexpr std::array<Direction, 4> CARDINAL_DIRECTIONS = {
+constexpr Direction CARDINAL_DIRECTIONS[] = {
     Direction::NORTH, Direction::EAST, Direction::SOUTH, Direction::WEST
 };
 
-constexpr std::array<Direction, 4> ORDINAL_DIRECTIONS = {
+constexpr Direction ORDINAL_DIRECTIONS[] = {
     Direction::NORTHEAST, Direction::SOUTHEAST, Direction::SOUTHWEST, Direction::NORTHWEST
 };
+
+template<Piece slider_piece> requires is_bishop_or_rook<slider_piece>
+constexpr std::array<Direction, 4> SLIDER_DIRECTIONS = []() {
+    std::array<Direction, 4> table;
+    if constexpr (slider_piece == Piece::ROOK) {
+        std::copy(CARDINAL_DIRECTIONS, CARDINAL_DIRECTIONS + 4, table.begin());
+    } else {
+        std::copy(ORDINAL_DIRECTIONS, ORDINAL_DIRECTIONS + 4, table.begin());
+    }
+    return table;
+}();
 
 template<int times = 1>
 constexpr Square sq_shift(Square sq, Direction dir) {
