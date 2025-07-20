@@ -109,6 +109,62 @@ constexpr Bitboard operator&(File file, Bitboard bb) noexcept { return (bb & fil
 constexpr Bitboard operator|(File file, Bitboard bb) noexcept { return (bb | file); }
 constexpr Bitboard operator^(File file, Bitboard bb) noexcept { return (bb ^ file); }
 
+constexpr std::array<Bitboard, hash_max<Direction>> BB_DIRECTION_PREMASK = []() {
+    static_assert([]{
+        constexpr std::array hashes = {
+            hash(Direction::NORTH), hash(Direction::EAST),
+            hash(Direction::SOUTH), hash(Direction::WEST),
+            hash(Direction::NORTHEAST), hash(Direction::NORTHWEST),
+            hash(Direction::SOUTHEAST), hash(Direction::SOUTHWEST)
+        };
+        if (!all_unique(hashes)) return false;
+        for (int h : hashes)
+            if (h < 0 || h >= hash_max<Direction>) return false;
+        return true;
+    }(), "Direction hash is invalid or out of range");
+
+    std::array<Bitboard, hash_max<Direction>> table{};
+    for (int i = 0; i < hash_max<Direction>; ++i) {
+        table[i] = Bitboard::FULL;    
+    }
+    table[hash<Direction>(Direction::EAST)] = ~bb_file(File::H);
+    table[hash<Direction>(Direction::NORTHEAST)] = ~bb_file(File::H);
+    table[hash<Direction>(Direction::SOUTHEAST)] = ~bb_file(File::H);
+    table[hash<Direction>(Direction::WEST)] = ~bb_file(File::A);
+    table[hash<Direction>(Direction::SOUTHWEST)] = ~bb_file(File::A);
+    table[hash<Direction>(Direction::NORTHWEST)] = ~bb_file(File::A);
+    return table;
+}();
+
+constexpr Bitboard bb_direction_premask(Direction dir) noexcept {
+    return BB_DIRECTION_PREMASK[hash<Direction>(dir)];
+}
+
+template<bool Safe = false>
+constexpr Bitboard bb_shift(Bitboard bb, Direction dir) noexcept {
+    if constexpr (Safe) {
+        bb &= bb_direction_premask(dir);
+    }
+    if (idx(dir) < 0) {
+        return bb >> -idx(dir);
+    } else {
+        return bb << idx(dir);
+    }
+}
+
+template<Direction dir, bool Safe=false>
+constexpr Bitboard bb_shift(Bitboard bb) noexcept {
+    if constexpr (Safe && (dir != Direction::SOUTH) && (dir != Direction::NORTH)) {
+        bb &= bb_direction_premask(dir);
+    }
+    if constexpr (idx(dir) < 0) {
+        return bb >> -idx(dir);
+    } else {
+        return bb << idx(dir);
+    }
+}
+
+// TODO replace with bb_shift
 template<bool Safe=false> constexpr Bitboard bb_n(Bitboard bb) noexcept {
     return bb << num_of<File>;
 }
@@ -244,6 +300,93 @@ template<bool Safe=false> constexpr Bitboard bb_sww(Bitboard bb) noexcept {
         bb &= ~(bb_file(File::A) | bb_file(File::B));
     return bb >> (num_of<File> + 2);
 }
+
+template<bool First = false, bool Last = false>
+constexpr Bitboard ray(Square from, Direction dir) noexcept {
+    Bitboard bb_bit = bb_square(from);
+    if constexpr (!First)
+        bb_bit = bb_shift<true>(bb_bit, dir);
+    Bitboard bb_prev_bit = bb_bit;
+    Bitboard mask = Bitboard::EMPTY;
+    while (nonzero(bb_bit)) {
+        mask |= bb_bit;
+        bb_prev_bit = bb_bit;
+        bb_bit = bb_shift<true>(bb_bit, dir);
+    }
+    if constexpr (!Last)
+        mask &= ~bb_prev_bit;
+    return mask;
+}
+
+template<Piece move_type = Piece::QUEEN, bool first = true, bool last = false>
+constexpr Bitboard ray_between(Square from, Square to) noexcept {
+    if (zero(bb_slider_attack_mask<move_type, true, true>(from) & bb_square(to))) {
+        return Bitboard::EMPTY;
+    }
+    Direction dir = dir_between<Direction>(from, to);
+    Bitboard bb_bit = bb_square(from);
+    if constexpr (!first) {
+        bb_bit = bb_shift<true>(bb_bit, dir) & ~bb_square(to);
+    }
+    Bitboard mask = Bitboard::EMPTY;
+    while (nonzero(bb_bit)) {
+        mask |= bb_bit;
+        bb_bit = bb_shift<true>(bb_bit, dir) & ~bb_square(to);
+    }
+    if constexpr (last) {
+        mask |= bb_square(to);
+    }
+    return mask;
+}
+
+template<Piece move_type = Piece::QUEEN>
+constexpr std::array<std::array<Bitboard, num_of<Square>>, num_of<Square>> BB_RAY = []() {
+    std::array<std::array<Bitboard, num_of<Square>>, num_of<Square>> table{};
+    for (Square from : iter<Square>) {
+        for (Square to : iter<Square>) {
+            table[idx(from)][idx(to)] = ray_between<move_type>(from, to);
+        }
+    }
+    return table;
+}();
+
+constexpr std::array<Bitboard, num_of<Square>> BB_FILE_OF = []() {
+    std::array<Bitboard, num_of<Square>> table{};
+    for (Square sq : iter<Square>) {
+        table[idx(sq)] = bb_file(file_of(sq));
+    }
+    return table;
+}();
+
+constexpr std::array<Bitboard, num_of<Square>> BB_RANK_OF = []() {
+    std::array<Bitboard, num_of<Square>> table{};
+    for (Square sq : iter<Square>) {
+        table[idx(sq)] = bb_rank(rank_of(sq));
+    }
+    return table;
+}();
+
+constexpr std::array<Bitboard, num_of<Square>> BB_DIAG45_OF = []() {
+    std::array<Bitboard, num_of<Square>> table{};
+    for (Square sq : iter<Square>) {
+        table[idx(sq)] = (
+            ray<true, true>(sq, Direction::NORTHEAST)
+            | ray<true, true>(sq, Direction::SOUTHWEST)
+        );
+    }
+    return table;
+}();
+
+constexpr std::array<Bitboard, num_of<Square>> BB_DIAG135_OF = []() {
+    std::array<Bitboard, num_of<Square>> table{};
+    for (Square sq : iter<Square>) {
+        table[idx(sq)] = (
+            ray<true, true>(sq, Direction::NORTHWEST)
+            | ray<true, true>(sq, Direction::SOUTHEAST)
+        );
+    }
+    return table;
+}();
 
 // index of the lsb that is set, undefined for bb=0
 constexpr Square bitscan_forward(Bitboard bb) noexcept { return static_cast<Square>(__builtin_ctzll(idx(bb))); }
@@ -391,66 +534,6 @@ constexpr std::array<std::array<Bitboard, num_of<Square>>, num_of<Color>> BB_PAW
 
 constexpr const Bitboard BB_PROMOTION_RANKS = bb_rank(Rank::_1) | bb_rank(Rank::_8);
 
-constexpr std::array<Bitboard, hash_max<Direction>> BB_DIRECTION_PREMASK = []() {
-    static_assert([]{
-        constexpr std::array hashes = {
-            hash(Direction::NORTH), hash(Direction::EAST),
-            hash(Direction::SOUTH), hash(Direction::WEST),
-            hash(Direction::NORTHEAST), hash(Direction::NORTHWEST),
-            hash(Direction::SOUTHEAST), hash(Direction::SOUTHWEST)
-        };
-        if (!all_unique(hashes)) return false;
-        for (int h : hashes)
-            if (h < 0 || h >= hash_max<Direction>) return false;
-        return true;
-    }(), "Direction hash is invalid or out of range");
-
-    std::array<Bitboard, hash_max<Direction>> table{};
-    for (int i = 0; i < hash_max<Direction>; ++i) {
-        table[i] = Bitboard::FULL;    
-    }
-    table[hash<Direction>(Direction::EAST)] = ~bb_file(File::H);
-    table[hash<Direction>(Direction::NORTHEAST)] = ~bb_file(File::H);
-    table[hash<Direction>(Direction::SOUTHEAST)] = ~bb_file(File::H);
-    table[hash<Direction>(Direction::WEST)] = ~bb_file(File::A);
-    table[hash<Direction>(Direction::SOUTHWEST)] = ~bb_file(File::A);
-    table[hash<Direction>(Direction::NORTHWEST)] = ~bb_file(File::A);
-    return table;
-}();
-
-constexpr Bitboard bb_direction_premask(Direction dir) noexcept {
-    return BB_DIRECTION_PREMASK[hash<Direction>(dir)];
-}
-
-template<bool Safe = false>
-constexpr Bitboard bb_shift(Bitboard bb, Direction dir) noexcept {
-    if constexpr (Safe) {
-        bb &= bb_direction_premask(dir);
-    }
-    if (idx(dir) < 0) {
-        return bb >> -idx(dir);
-    } else {
-        return bb << idx(dir);
-    }
-}
-
-template<bool First = false, bool Last = false>
-constexpr Bitboard ray(Square from, Direction dir) noexcept {
-    Bitboard bb_bit = bb_square(from);
-    if constexpr (!First)
-        bb_bit = bb_shift<true>(bb_bit, dir);
-    Bitboard bb_prev_bit = bb_bit;
-    Bitboard mask = Bitboard::EMPTY;
-    while (nonzero(bb_bit)) {
-        mask |= bb_bit;
-        bb_prev_bit = bb_bit;
-        bb_bit = bb_shift<true>(bb_bit, dir);
-    }
-    if constexpr (!Last)
-        mask &= ~bb_prev_bit;
-    return mask;
-}
-
 template<Piece slider_piece, bool first = false, bool last = false>
 constexpr Bitboard bb_slider_attack_mask(Square sq) {
     Bitboard attack = Bitboard::EMPTY;
@@ -475,40 +558,6 @@ constexpr std::array<Bitboard, num_of<Square>> BB_ATTACK_MASK = []() {
     std::array<Bitboard, num_of<Square>> table{};
     for (Square s : iter<Square>) {
         table[idx(s)] = bb_slider_attack_mask<slider_piece>(s);
-    }
-    return table;
-}();
-
-
-template<Piece move_type = Piece::QUEEN, bool first = true, bool last = false>
-constexpr Bitboard ray_between(Square from, Square to) noexcept {
-    if (zero(bb_slider_attack_mask<move_type, true, true>(from) & bb_square(to))) {
-        return Bitboard::EMPTY;
-    }
-    Direction dir = dir_between<Direction>(from, to);
-    Bitboard bb_bit = bb_square(from);
-    if constexpr (!first) {
-        bb_bit = bb_shift<true>(bb_bit, dir) & ~bb_square(to);
-    }
-    Bitboard mask = Bitboard::EMPTY;
-    while (nonzero(bb_bit)) {
-        mask |= bb_bit;
-        bb_bit = bb_shift<true>(bb_bit, dir) & ~bb_square(to);
-    }
-    if constexpr (last) {
-        mask |= bb_square(to);
-    }
-    return mask;
-}
-
-
-template<Piece move_type = Piece::QUEEN>
-constexpr std::array<std::array<Bitboard, num_of<Square>>, num_of<Square>> BB_RAY = []() {
-    std::array<std::array<Bitboard, num_of<Square>>, num_of<Square>> table{};
-    for (Square from : iter<Square>) {
-        for (Square to : iter<Square>) {
-            table[idx(from)][idx(to)] = ray_between<move_type>(from, to);
-        }
     }
     return table;
 }();
