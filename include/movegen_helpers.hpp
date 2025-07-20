@@ -200,6 +200,82 @@ inline void generate_legal_pawn_moves(const Board& board, MoveList& moves, const
 }
 
 template<>
+inline void generate_legal_pawn_moves<Color::BLACK>(const Board& board, MoveList& moves, const BoardCache& cache) {
+    constexpr Color color = Color::BLACK;
+    constexpr Color opponent_color = Color::WHITE;
+
+    Bitboard occupied = board.occupied;
+    Bitboard opponent_capturable = cache.block_mask & board.occupied_by_color[idx(opponent_color)];
+    Bitboard bb_pawns = board.pieces[idx(color)][idx(Piece::PAWN)];
+    Bitboard unoccupied = ~occupied;
+
+    Bitboard bb_pinned = cache.pinned_pieces;
+    Bitboard bb_unpinned = ~cache.pinned_pieces;
+
+    Square king_sq = board.king_sq[idx(color)];
+    Bitboard bb_allow_w = bb_unpinned | (bb_pinned & BB_DIAG45_OF[idx(king_sq)]);
+    Bitboard bb_allow_e = bb_unpinned | (bb_pinned & BB_DIAG135_OF[idx(king_sq)]);
+    Bitboard bb_allow_ns = bb_unpinned | (bb_pinned & BB_FILE_OF[idx(king_sq)]);
+
+    Bitboard bb_attack_east = opponent_capturable & cache.block_mask & bb_shift<Direction::SOUTHEAST>(bb_pawns & bb_allow_e) & ~bb_file(File::A);
+    Bitboard bb_attack_west = opponent_capturable & cache.block_mask & bb_shift<Direction::SOUTHWEST>(bb_pawns & bb_allow_w) & ~bb_file(File::H);
+
+    Bitboard bb_attack_east_cap = bb_attack_east & ~bb_rank(Rank::_1);
+    Bitboard bb_attack_east_cap_promote = bb_attack_east & bb_rank(Rank::_1);
+    
+    Bitboard bb_attack_west_cap = bb_attack_west & ~bb_rank(Rank::_1);
+    Bitboard bb_attack_west_cap_promote = bb_attack_west & bb_rank(Rank::_1);
+
+    Bitboard bb_single = unoccupied & bb_shift<Direction::SOUTH>(bb_pawns & bb_allow_ns);
+    Bitboard bb_push = cache.block_mask & bb_single;
+    Bitboard bb_push_quiet = bb_push & ~bb_rank(Rank::_1);
+    Bitboard bb_push_promote = bb_push & bb_rank(Rank::_1);
+    Bitboard bb_dbl_push = cache.block_mask & bb_rank(Rank::_5) & unoccupied & bb_shift<Direction::SOUTH>(bb_single);
+
+    for (Square to : BBSquareScan(bb_attack_east_cap)) {
+        Square from = static_cast<Square>(idx(to) + idx(Direction::NORTHWEST));
+        moves.emplace_back(from, to, MoveType::CAPTURE);
+    }
+    for (Square to : BBSquareScan(bb_attack_east_cap_promote)) {
+        Square from = static_cast<Square>(idx(to) + idx(Direction::NORTHWEST));
+        moves.emplace_back(from, to, MoveType::QUEEN_PROMOTION_CAPTURE);
+        moves.emplace_back(from, to, MoveType::ROOK_PROMOTION_CAPTURE);
+        moves.emplace_back(from, to, MoveType::KNIGHT_PROMOTION_CAPTURE);
+        moves.emplace_back(from, to, MoveType::BISHOP_PROMOTION_CAPTURE);
+    }
+    for (Square to : BBSquareScan(bb_attack_west_cap)) {
+        Square from = static_cast<Square>(idx(to) + idx(Direction::NORTHEAST));
+        moves.emplace_back(from, to, MoveType::CAPTURE);
+    }
+    for (Square to : BBSquareScan(bb_attack_west_cap_promote)) {
+        Square from = static_cast<Square>(idx(to) + idx(Direction::NORTHEAST));
+        moves.emplace_back(from, to, MoveType::QUEEN_PROMOTION_CAPTURE);
+        moves.emplace_back(from, to, MoveType::ROOK_PROMOTION_CAPTURE);
+        moves.emplace_back(from, to, MoveType::KNIGHT_PROMOTION_CAPTURE);
+        moves.emplace_back(from, to, MoveType::BISHOP_PROMOTION_CAPTURE);
+    }
+    for (Square to: BBSquareScan(bb_push_quiet)) {
+        Square from = static_cast<Square>(idx(to) + idx(Direction::NORTH));
+        moves.emplace_back(from, to, MoveType::QUIET);
+    }
+    for (Square to: BBSquareScan(bb_push_promote)) {
+        Square from = static_cast<Square>(idx(to) + idx(Direction::NORTH));
+        moves.emplace_back(from, to, MoveType::QUEEN_PROMOTION);
+        moves.emplace_back(from, to, MoveType::ROOK_PROMOTION);
+        moves.emplace_back(from, to, MoveType::KNIGHT_PROMOTION);
+        moves.emplace_back(from, to, MoveType::BISHOP_PROMOTION);
+    }
+    for (Square to: BBSquareScan(bb_dbl_push)) {
+        Square from = static_cast<Square>(idx(to) + idx(Direction::NORTHNORTH));
+        moves.emplace_back(from, to, MoveType::DOUBLE_PAWN_PUSH);
+    }
+
+    if (board.ep_square != Square::NONE) {
+        generate_legal_ep_moves<color>(board, moves, cache);
+    }
+}
+
+template<>
 inline void generate_legal_pawn_moves<Color::WHITE>(const Board& board, MoveList& moves, const BoardCache& cache) {
     constexpr Color color = Color::WHITE;
     constexpr Color opponent_color = Color::BLACK;
@@ -213,12 +289,12 @@ inline void generate_legal_pawn_moves<Color::WHITE>(const Board& board, MoveList
     Bitboard bb_unpinned = ~cache.pinned_pieces;
 
     Square king_sq = board.king_sq[idx(color)];
-    Bitboard bb_allow_ne = bb_unpinned | (bb_pinned & BB_DIAG45_OF[idx(king_sq)]);
-    Bitboard bb_allow_nw = bb_unpinned | (bb_pinned & BB_DIAG135_OF[idx(king_sq)]);
+    Bitboard bb_allow_e = bb_unpinned | (bb_pinned & BB_DIAG45_OF[idx(king_sq)]);
+    Bitboard bb_allow_w = bb_unpinned | (bb_pinned & BB_DIAG135_OF[idx(king_sq)]);
     Bitboard bb_allow_ns = bb_unpinned | (bb_pinned & BB_FILE_OF[idx(king_sq)]);
 
-    Bitboard bb_attack_east = opponent_capturable & cache.block_mask & bb_shift(bb_pawns & bb_allow_ne, Direction::NORTHEAST) & ~bb_file(File::A);
-    Bitboard bb_attack_west = opponent_capturable & cache.block_mask & bb_shift(bb_pawns & bb_allow_nw, Direction::NORTHWEST) & ~bb_file(File::H);
+    Bitboard bb_attack_east = opponent_capturable & cache.block_mask & bb_shift<Direction::NORTHEAST>(bb_pawns & bb_allow_e) & ~bb_file(File::A);
+    Bitboard bb_attack_west = opponent_capturable & cache.block_mask & bb_shift<Direction::NORTHWEST>(bb_pawns & bb_allow_w) & ~bb_file(File::H);
 
     Bitboard bb_attack_east_cap = bb_attack_east & ~bb_rank(Rank::_8);
     Bitboard bb_attack_east_cap_promote = bb_attack_east & bb_rank(Rank::_8);
@@ -226,11 +302,11 @@ inline void generate_legal_pawn_moves<Color::WHITE>(const Board& board, MoveList
     Bitboard bb_attack_west_cap = bb_attack_west & ~bb_rank(Rank::_8);
     Bitboard bb_attack_west_cap_promote = bb_attack_west & bb_rank(Rank::_8);
 
-    Bitboard bb_single = unoccupied & bb_shift(bb_pawns & bb_allow_ns, Direction::NORTH);
+    Bitboard bb_single = unoccupied & bb_shift<Direction::NORTH>(bb_pawns & bb_allow_ns);
     Bitboard bb_push = cache.block_mask & bb_single;
     Bitboard bb_push_quiet = bb_push & ~bb_rank(Rank::_8);
     Bitboard bb_push_promote = bb_push & bb_rank(Rank::_8);
-    Bitboard bb_dbl_push = cache.block_mask & bb_rank(Rank::_4) & unoccupied & bb_shift(bb_single, Direction::NORTH);
+    Bitboard bb_dbl_push = cache.block_mask & bb_rank(Rank::_4) & unoccupied & bb_shift<Direction::NORTH>(bb_single);
 
     for (Square to : BBSquareScan(bb_attack_east_cap)) {
         Square from = static_cast<Square>(idx(to) + idx(Direction::SOUTHWEST));
