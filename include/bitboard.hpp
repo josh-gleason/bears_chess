@@ -599,9 +599,15 @@ inline Bitboard bb_attacks(Square from, Bitboard bb_occupied) {
     return Bitboard::EMPTY;
 }
 
+template<Color color, Piece piece_type> requires (piece_type == Piece::PAWN)
+inline Bitboard bb_attacks(Square from) {
+    return BB_PAWN_ATTACKS[idx(color)][idx(from)];
+}
+
 template<Piece piece_type> requires (piece_type == Piece::PAWN)
 inline Bitboard bb_attacks(Color color, Square from) {
     return BB_PAWN_ATTACKS[idx(color)][idx(from)];
 }
+
 
 } // namespace bears_chess

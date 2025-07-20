@@ -32,6 +32,10 @@ constexpr bool is_major_piece = ((idx(P) >= idx(Piece::KNIGHT)) && (idx(P) <= id
 template<Piece P>
 constexpr bool is_knight_or_king = (P == Piece::KNIGHT || P == Piece::KING);
 
+template<Piece P>
+constexpr bool is_king_or_queen = (P == Piece::QUEEN || P == Piece::KING);
+
+
 template<> struct enum_traits<Piece> :
     preincrement_ops,
     inequality_ops,
@@ -170,8 +174,8 @@ constexpr CastlingRights clear_half_castling_rights(CastlingRights r, Color c) {
     
 }
 
-template<Piece side>
-constexpr bool castling_allowed(CastlingRights castling_rights, Color color) {
+template<Color color, Piece side> requires is_king_or_queen<side>
+constexpr bool castling_allowed(CastlingRights castling_rights) {
     static_assert(side == Piece::KING || side == Piece::QUEEN, "only king or queen side castling possible");
     if constexpr (side == Piece::KING) {
         return check_flag(castling_rights & CastlingRights::KINGS, CastlingRights::WHITE << (idx(color) * 2));
@@ -229,6 +233,10 @@ struct Move {
     Square from;
     Square to;
     MoveType move_type;
+
+    bool operator==(const Move& other) const noexcept {
+        return from == other.from && to == other.to && move_type == other.move_type;
+    }
 };
 
 template<Piece castle_side>
@@ -302,7 +310,6 @@ template<> struct enum_traits<IndexDirection> :
 template<typename DirType>
 requires (std::is_same_v<DirType, IndexDirection> || std::is_same_v<DirType, Direction>)
 constexpr DirType dir_between(Square from, Square to) {
-    DirType dir;
     auto dr = idx(rank_of(from)) - idx(rank_of(to));
     auto df = idx(file_of(from)) - idx(file_of(to));
     

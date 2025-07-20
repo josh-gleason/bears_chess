@@ -150,7 +150,6 @@ void Board::undo_move(const UndoInfo &undo_info)
     const Square to = move.to;
     const Color us = ~side_to_move;
     const Color them = side_to_move;
-    const Piece captured = undo_info.captured;
 
     fullmove_number -= idx(us);
     side_to_move = us;

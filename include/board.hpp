@@ -60,7 +60,6 @@ class Board {
                 if (!is_occupied(s))
                     return;
             }
-            Piece piece = last_piece_sq[idx(s)];
             remove(c, last_piece_sq[idx(s)], s);
         }
 

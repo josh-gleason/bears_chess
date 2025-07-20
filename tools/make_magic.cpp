@@ -35,7 +35,6 @@ class MagicHash {
         }
 
         Stats check_magic(const std::vector<MagicEntry>& attack_sets) const {
-            const size_t size = attack_sets.size();
             std::unordered_map<std::size_t, Bitboard> hash_to_moves;
 
             Stats result{false, 0, false};

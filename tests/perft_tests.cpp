@@ -12,26 +12,26 @@ protected:
 };
 
 TEST_F(PerftTest, StartPosDepth6) {
-    EXPECT_EQ(run_perft(load_fen(INITIAL_POSITION_FEN), 6), 119060324);
+    EXPECT_EQ(run_perft(load_fen(INITIAL_POSITION_FEN), 6).nodes, 119060324);
 }
 
 TEST_F(PerftTest, KiwiPeteDepth5) {
-    EXPECT_EQ(run_perft(load_fen(PERFT_POSITION_2_FEN), 5), 193690690);
+    EXPECT_EQ(run_perft(load_fen(PERFT_POSITION_2_FEN), 5).nodes, 193690690);
 }
 
 TEST_F(PerftTest, Pos3Depth7) {
-    EXPECT_EQ(run_perft(load_fen(PERFT_POSITION_3_FEN), 7), 178633661);
+    EXPECT_EQ(run_perft(load_fen(PERFT_POSITION_3_FEN), 7).nodes, 178633661);
 }
 
 TEST_F(PerftTest, Pos4Depth6) {
-    EXPECT_EQ(run_perft(load_fen(PERFT_POSITION_4_FEN), 6), 706045033);
+    EXPECT_EQ(run_perft(load_fen(PERFT_POSITION_4_FEN), 6).nodes, 706045033);
 }
 
 TEST_F(PerftTest, Pos5Depth5) {
-    EXPECT_EQ(run_perft(load_fen(PERFT_POSITION_5_FEN), 5), 89941194);
+    EXPECT_EQ(run_perft(load_fen(PERFT_POSITION_5_FEN), 5).nodes, 89941194);
 }
 
 TEST_F(PerftTest, Pos6Depth5) {
-    EXPECT_EQ(run_perft(load_fen(PERFT_POSITION_6_FEN), 5), 164075551);
+    EXPECT_EQ(run_perft(load_fen(PERFT_POSITION_6_FEN), 5).nodes, 164075551);
 }
 

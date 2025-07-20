@@ -247,20 +247,27 @@ struct std::formatter<T>
 template <>
 struct std::formatter<bears_chess::Move>
 {
+    enum NotationType {
+        VERBOSE,
+        FULL,
+        // ALGEBRAIC, // not implemented yet
+    };
+
     bears_chess::detail::BoardFormatFlags fmt;
-    bool simple;
+    NotationType notation = VERBOSE;
 
     template<typename ParseContext>
     constexpr ParseContext::iterator parse(ParseContext& ctx) {
         using namespace bears_chess;
         auto it = ctx.begin();
-        simple = false;
         fmt.flags = BoardFormat::NONE;
         for (;it != ctx.end() && *it != '}'; ++it) {
             switch (*it) {
                 case 'a': fmt.flags |= BoardFormat::NO_UNICODE; break;    // ASCII only
                 case 'c': fmt.flags |= BoardFormat::NO_COLOR; break;      // no ansi color sequences
-                case 's': simple = true; break;
+                // case 's': notation = ALGEBRAIC; break;
+                case 'f': notation = FULL; break;
+                case 'v': notation = VERBOSE; break;
                 default:
                     throw std::format_error(string("Invalid format specifier: '") + *it + "'");
             }
@@ -271,7 +278,7 @@ struct std::formatter<bears_chess::Move>
     template<typename FormatContext>
     FormatContext::iterator format(const bears_chess::Move &m, FormatContext& ctx) const {
         ostringstream sout;
-        if (simple) {
+        if (notation == FULL) {
             sout << fmt << m.from << m.to;
             if (is_promotion(m.move_type)) {
                 sout << promote_to(m.move_type);

@@ -415,7 +415,7 @@ static std::vector<File> get_file_order(BoardFormat fmt) {
     return files;
 }
 
-static std::string files_string(BoardFormat fmt) {
+static std::string get_files_string(BoardFormat fmt) {
     if (check_flag(fmt, BoardFormat::HIDE_LABELS)) {
         return "";
     }
@@ -424,7 +424,6 @@ static std::string files_string(BoardFormat fmt) {
     for (File file : get_file_order(fmt)) {
         file_labels += std::string(" ") + file_to_str(file);
     }
-    file_labels += "\n";
     return file_labels;
 }
 
@@ -583,6 +582,8 @@ namespace detail {
         constexpr int HALF_MOVE_LINE = 5;
         constexpr int EP_SQUARE_LINE = 6;
         
+        bool first_line = true;
+
         const Board& board = highlighted_board.obj;
         Bitboard highlights = highlighted_board.highlights;
 
@@ -594,7 +595,8 @@ namespace detail {
         }
 
         if (!check_flag(fmt, BoardFormat::HIDE_FEN)) {
-            out << get_fen(board) << "\n";
+            out << get_fen(board);
+            first_line = false;
         }
 
         auto ranks = get_rank_order(fmt);
@@ -614,11 +616,14 @@ namespace detail {
                     info = ep_square_string(board, fmt);
                 }
                 if (info.size() > 0) {
-                    out << info << "\n";
+                    out << (first_line ? "" : "\n") << info;
+                    first_line = false;
                 }
             }
         } else {
             for (size_t rank_idx = 0; rank_idx < ranks.size(); ++rank_idx) {
+                out << (first_line ? "" : "\n");
+                first_line = false;
                 out << board_rank_string(board, ranks[rank_idx], fmt, highlights);
 
                 if (rank_idx == FULL_MOVE_LINE) {
@@ -632,10 +637,8 @@ namespace detail {
                 } else if (rank_idx == EP_SQUARE_LINE) {
                     out << "    " << ep_square_string(board, fmt);
                 }
-
-                out << "\n";
             }
-            out << files_string(fmt);
+            out << "\n" << get_files_string(fmt);
         }
 
         return out;
@@ -698,7 +701,7 @@ std::ostream& operator<<(std::ostream& out, File file) {
 }
 
 std::ostream& operator<<(std::ostream& out, Piece piece) {
-    return out << piece_to_str(Color::WHITE, piece);
+    return out << piece_to_str(Color::BLACK, piece);
 }
 
 std::ostream& operator<<(std::ostream& out, Color color) {

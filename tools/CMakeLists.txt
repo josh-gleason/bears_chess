@@ -25,6 +25,18 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND CMAKE_BUILD_TYPE STREQUAL "Release
     )
 endif()
 
+if (CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
+    set(CALLGRIND_ARGS
+        --callgrind-out-file=${CMAKE_BINARY_DIR}/perft.callgrind.out
+    )
+
+    add_custom_target(perft-callgrind ALL
+        COMMAND valgrind --tool=callgrind ${CALLGRIND_ARGS} $<TARGET_FILE:perft>
+        COMMENT "running perft with callgrind, call `kcachegrind ${CMAKE_BINARY_DIR}/perft.callgrind.out` to view results"
+        DEPENDS perft
+    )
+endif()
+
 add_executable(make_magic
     make_magic.cpp
 )

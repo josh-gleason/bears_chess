@@ -1,14 +1,28 @@
 #pragma once
 
-#include <format>
 #include <print>
+#include <format>
 #include <iostream>
 #include <chrono>
 #include <unordered_map>
 #include <functional>
+#include <optional>
 #include "board_utils.hpp"
 #include "movegen.hpp"
 #include "evaluation_utils.hpp"
+
+
+template <>
+struct std::hash<bears_chess::Move> {
+    size_t operator()(const bears_chess::Move& move) const noexcept {
+        size_t seed = 0;
+        // Combine the hashes of the individual components of the Move
+        seed ^= std::hash<int>()(static_cast<int>(move.from)) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+        seed ^= std::hash<int>()(static_cast<int>(move.to)) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+        seed ^= std::hash<int>()(static_cast<int>(move.move_type)) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+        return seed;
+    }
+};
 
 namespace bears_chess {
 
@@ -50,6 +64,55 @@ struct DepthStats {
         static constexpr const char* FMT_STR = "{:<7}{:<14}{:<14}{:<14}{:<14}{:<14}{:<14}{:<14}{:<14}{:<14}";
 };
 
+struct PerftResults {
+    int depth = 0;
+    std::string fen = "";
+    uint64_t nodes = 0;
+    double time = 0.0;
+    std::optional<std::vector<DepthStats>> depth_stats;
+    std::optional<std::unordered_map<Move, uint64_t>> move_nodes;
+
+    const std::string to_string() const {
+        std::string result = "Perft Results:\n";
+        result += std::format("  FEN: {}\n", fen);
+        if (depth_stats) {
+            result += "  Depth Stats:\n";
+            result += std::format("    {}\n", DepthStats::header_string());
+            for (int depth = 0; depth < depth_stats->size(); ++depth) {
+                result += std::format("    {}\n", (*depth_stats)[depth].to_string(depth + 1));
+            }
+        }
+
+        if (move_nodes) {
+            result += "  Move Nodes:\n";
+            for (const auto& [move, count] : *move_nodes) {
+                result += std::format("    {:f}: {}\n", move, count);
+            }
+        }
+
+        double nps = time > 0 ? nodes / time : 0.0;
+        result += std::format("  Depth {}: {} nodes ({:f} sec, {:g} nps)\n", depth, nodes, time, nps);
+
+        return result;
+    }
+};
+
+} // namespace bears_chess
+
+template<>
+struct std::formatter<bears_chess::PerftResults> {
+    constexpr auto parse(format_parse_context& ctx) -> decltype(ctx.begin()) {
+        return ctx.begin();
+    }
+
+    template <typename FormatContext>
+    auto format(const bears_chess::PerftResults& results, FormatContext& ctx) const {
+        return std::format_to(ctx.out(), "{}", results.to_string());
+    }
+};
+
+namespace bears_chess {
+
 template<MoveGenType move_gen_type>
 bool is_legal(Board& board, const Move& last_move) {
     if constexpr (move_gen_type == LEGAL)
@@ -85,44 +148,43 @@ inline uint64_t perft(Board& board, int depth, const std::vector<DepthStats>::it
 }
 
 template<MoveGenType move_gen_type=LEGAL, bool collect_stats=false, bool show_moves=false>
-int run_perft(const Board& board_orig, int max_depth) {
+PerftResults run_perft(const Board& board_orig, int max_depth) {
     Board board = board_orig;
-    print("{:F}", board);
 
     std::vector<DepthStats> perft_stats(max_depth);
-    auto stats_iter = perft_stats.begin();
+    std::unordered_map<Move, uint64_t> move_nodes;
     uint64_t nodes = 0;
+
+    auto stats_iter = perft_stats.begin();
 
     auto start = std::chrono::steady_clock::now();
     MoveList moves = generate_moves<move_gen_type>(board);
     for (auto move : moves) {
-        uint64_t move_nodes = 0;
+        uint64_t m_nodes = 0;
         UndoInfo undo = board.do_move(move);
         if (is_legal<move_gen_type>(board, move)) {
             if constexpr (collect_stats) {
                 stats_iter->increment(board, move);
             }
-            move_nodes += perft<move_gen_type, collect_stats>(board, max_depth - 1, stats_iter + 1);
+            m_nodes += perft<move_gen_type, collect_stats>(board, max_depth - 1, stats_iter + 1);
         }
         board.undo_move(undo);
-        nodes += move_nodes;
+        nodes += m_nodes;
         if constexpr (show_moves) {
-            println("{:s}: {}", move, move_nodes);
+            move_nodes[move] = m_nodes;
         }
     }
     auto end = std::chrono::steady_clock::now();
     double elapsed = std::chrono::duration<double>(end - start).count();
 
-    println("Depth {}: {} nodes ({} sec, {:g} nps)", max_depth, nodes, elapsed, nodes / elapsed);
-
-    if constexpr (collect_stats) {
-        println("{}", DepthStats::header_string());
-        for (int depth = 0; depth < max_depth; ++depth) {
-            println("{}", perft_stats[depth].to_string(depth + 1));
-        }
-    }
-
-    return nodes;
+    return PerftResults{
+        max_depth,
+        std::format("{:F}", board),
+        nodes,
+        elapsed,
+        collect_stats ? std::optional<std::vector<DepthStats>>(std::move(perft_stats)) : std::nullopt,
+        show_moves ? std::optional<std::unordered_map<Move, uint64_t>>(std::move(move_nodes)) : std::nullopt
+    };
 }
 
 

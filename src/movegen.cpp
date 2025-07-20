@@ -110,14 +110,14 @@ void generate_slider_moves(const Board& board, MoveList& moves) {
     }
 }
 
+template<Color color>
 inline void generate_castle_moves(const Board& board, MoveList& moves) {
-    Color color = board.side_to_move;
     Bitboard occupied = board.occupied;
     CastlingRights castling_rights = board.castling_rights;
-    if (castling_allowed<Piece::KING>(castling_rights, color) && !(occupied & BB_CASTLE_PATHS<Piece::KING>[idx(color)])) {
+    if (castling_allowed<color, Piece::KING>(castling_rights) && !(occupied & BB_CASTLE_PATHS<Piece::KING>[idx(color)])) {
         moves.emplace_back(CASTLE_MOVES<Piece::KING>[idx(color)]);
     }
-    if (castling_allowed<Piece::QUEEN>(castling_rights, color) && !(occupied & BB_CASTLE_PATHS<Piece::QUEEN>[idx(color)])) {
+    if (castling_allowed<color, Piece::QUEEN>(castling_rights) && !(occupied & BB_CASTLE_PATHS<Piece::QUEEN>[idx(color)])) {
         moves.emplace_back(CASTLE_MOVES<Piece::QUEEN>[idx(color)]);
     }
 }
@@ -131,39 +131,52 @@ MoveList generate_pseudo_legal_moves(const Board& board) {
     generate_pawn_moves(board, moves);
     generate_slider_moves<Piece::ROOK>(board, moves);
     generate_slider_moves<Piece::BISHOP>(board, moves);
-    generate_castle_moves(board, moves);
+    if (board.side_to_move == Color::WHITE)
+        generate_castle_moves<Color::WHITE>(board, moves);
+    else
+        generate_castle_moves<Color::BLACK>(board, moves);
+
+    return moves;
+}
+
+template<Color color>
+MoveList generate_legal_moves_(const Board& board) {
+    BoardCache cache;
+    MoveList moves;
+    moves.reserve(218);
+
+    cache.opponent_attacks = calculate_opponent_attacks<color, true>(board);
+    cache.checkers = calculate_checkers<color, true>(board, cache.opponent_attacks);
+    int num_checkers = popcount(cache.checkers);
+
+    if (num_checkers == 2) {
+        generate_legal_king_moves<color>(board, moves, cache);
+    } else {
+        // hold mask of squares we can move pieces to to block check
+        cache.block_mask = num_checkers == 0 ? Bitboard::FULL : cache.checkers;
+        cache.pinned_pieces = (
+            calculate_pinned_pieces<color, Piece::ROOK>(board, cache.pin_masks, cache.block_mask)
+            | calculate_pinned_pieces<color, Piece::BISHOP>(board, cache.pin_masks, cache.block_mask)
+        );
+
+        generate_legal_king_moves<color>(board, moves, cache);
+        generate_legal_knight_moves<color>(board, moves, cache);
+        generate_legal_slider_moves<color, Piece::ROOK>(board, moves, cache);
+        generate_legal_slider_moves<color, Piece::BISHOP>(board, moves, cache);
+        generate_legal_pawn_moves<color>(board, moves, cache);
+        if (num_checkers == 0) {
+            generate_legal_castle_moves<color>(board, moves, cache);
+        }
+    }
 
     return moves;
 }
 
 MoveList generate_legal_moves(const Board& board) {
-    BoardCache cache;
-    MoveList moves;
-    moves.reserve(218);
-
-    cache.opponent_attacks = calculate_opponent_attacks<true>(board);
-    Bitboard checkers = calculate_checkers<true>(board, cache.opponent_attacks);
-    int num_checkers = popcount(checkers);
-
-    if (num_checkers == 2) {
-        generate_legal_king_moves(board, moves, cache);
-    } else {
-        // hold mask of squares we can move pieces to to block check
-        cache.block_mask = num_checkers == 0 ? Bitboard::FULL : checkers;
-        cache.pinned_pieces = (
-            calculate_pinned_pieces<Piece::ROOK>(board, cache.pin_masks, cache.block_mask)
-            | calculate_pinned_pieces<Piece::BISHOP>(board, cache.pin_masks, cache.block_mask)
-        );
-
-        generate_legal_king_moves(board, moves, cache);
-        generate_legal_knight_moves(board, moves, cache);
-        generate_legal_pawn_moves(board, moves, cache);
-        generate_legal_slider_moves<Piece::ROOK>(board, moves, cache);
-        generate_legal_slider_moves<Piece::BISHOP>(board, moves, cache);
-        generate_legal_castle_moves(board, moves, cache);
+    if (board.side_to_move == Color::WHITE) {
+        return generate_legal_moves_<Color::WHITE>(board);
     }
-
-    return moves;
+    return generate_legal_moves_<Color::BLACK>(board);
 }
 
 } // namespace bears_chess

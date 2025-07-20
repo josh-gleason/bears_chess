@@ -46,12 +46,19 @@ int main()
     // b.do_move(m);
     // println("{}", b);
 
-    run_perft(load_fen(INITIAL_POSITION_FEN), 6);
-    run_perft(load_fen(PERFT_POSITION_2_FEN), 5);
-    run_perft(load_fen(PERFT_POSITION_3_FEN), 6);
-    run_perft(load_fen(PERFT_POSITION_4_FEN), 6);
-    run_perft(load_fen(PERFT_POSITION_5_FEN), 5);
-    run_perft(load_fen(PERFT_POSITION_6_FEN), 5);
+    print("{}", run_perft(load_fen(INITIAL_POSITION_FEN), 6));
+    print("{}", run_perft(load_fen(PERFT_POSITION_2_FEN), 5));
+    print("{}", run_perft(load_fen(PERFT_POSITION_3_FEN), 6));
+    print("{}", run_perft(load_fen(PERFT_POSITION_4_FEN), 6));
+    print("{}", run_perft(load_fen(PERFT_POSITION_5_FEN), 5));
+    print("{}", run_perft(load_fen(PERFT_POSITION_6_FEN), 5));
+
+    // run_perft(load_fen(INITIAL_POSITION_FEN), 5);
+    // run_perft(load_fen(PERFT_POSITION_2_FEN), 4);
+    // run_perft(load_fen(PERFT_POSITION_3_FEN), 5);
+    // run_perft(load_fen(PERFT_POSITION_4_FEN), 5);
+    // run_perft(load_fen(PERFT_POSITION_5_FEN), 4);
+    // run_perft(load_fen(PERFT_POSITION_6_FEN), 4);
 
     return 0;
 }
