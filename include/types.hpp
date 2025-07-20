@@ -357,6 +357,14 @@ constexpr Direction ORDINAL_DIRECTIONS[] = {
     Direction::NORTHEAST, Direction::SOUTHEAST, Direction::SOUTHWEST, Direction::NORTHWEST
 };
 
+template<Direction dir>
+constexpr bool is_ordinal = (
+    dir == Direction::NORTHEAST
+    || dir == Direction::SOUTHEAST
+    || dir == Direction::SOUTHWEST
+    || dir == Direction::NORTHWEST
+);
+
 template<Piece slider_piece> requires is_bishop_or_rook<slider_piece>
 constexpr std::array<Direction, 4> SLIDER_DIRECTIONS = []() {
     std::array<Direction, 4> table;

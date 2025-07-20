@@ -154,6 +154,15 @@ inline void emplace_pawn_moves(MoveList& moves, Bitboard bb_to) {
     }
 }
 
+template<Direction dir> requires is_ordinal<dir>
+inline Bitboard king_pin_diag(Square king_sq) {
+    if constexpr (dir == Direction::NORTHEAST || dir == Direction::SOUTHWEST) {
+        return BB_DIAG45_OF[idx(king_sq)];
+    } else {
+        return BB_DIAG135_OF[idx(king_sq)];
+    }
+}
+
 template<Color color>
 inline void generate_legal_pawn_moves(const Board& board, MoveList& moves, const BoardCache& cache) {
     constexpr Color opponent_color = ~color;
@@ -164,9 +173,6 @@ inline void generate_legal_pawn_moves(const Board& board, MoveList& moves, const
     constexpr Direction attack_dir_west = (color == Color::WHITE ? Direction::NORTHWEST : Direction::SOUTHWEST);
     constexpr Bitboard bb_dbl_rank = (color == Color::WHITE ? bb_rank(Rank::_4) : bb_rank(Rank::_5));
 
-    constexpr auto diag_of_e = (color == Color::WHITE ? BB_DIAG45_OF : BB_DIAG135_OF);
-    constexpr auto diag_of_w = (color == Color::WHITE ? BB_DIAG135_OF : BB_DIAG45_OF);
-
     Bitboard occupied = board.occupied;
     Bitboard unoccupied = ~occupied;
     
@@ -174,8 +180,8 @@ inline void generate_legal_pawn_moves(const Board& board, MoveList& moves, const
     Bitboard bb_unpinned = ~bb_pinned;
     
     Square king_sq = board.king_sq[idx(color)];
-    Bitboard bb_allow_e = bb_unpinned | (bb_pinned & diag_of_e[idx(king_sq)]);
-    Bitboard bb_allow_w = bb_unpinned | (bb_pinned & diag_of_w[idx(king_sq)]);
+    Bitboard bb_allow_e = bb_unpinned | (bb_pinned & king_pin_diag<attack_dir_east>(king_sq));
+    Bitboard bb_allow_w = bb_unpinned | (bb_pinned & king_pin_diag<attack_dir_west>(king_sq));
     Bitboard bb_allow_ns = bb_unpinned | (bb_pinned & BB_FILE_OF[idx(king_sq)]);
 
     Bitboard bb_pawns = board.pieces[idx(color)][idx(Piece::PAWN)];
