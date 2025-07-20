@@ -292,10 +292,7 @@ enum class Direction : int8_t {
     SOUTHEAST = SOUTH + EAST,
     SOUTHWEST = SOUTH + WEST,
     NORTHWEST = NORTH + WEST,
-    NONE = 0,
-
-    NORTHNORTH = NORTH + NORTH,
-    SOUTHSOUTH = SOUTH + SOUTH,
+    NONE = 0
 };
 
 enum class IndexDirection : int8_t {
@@ -376,7 +373,7 @@ constexpr std::array<Direction, 4> SLIDER_DIRECTIONS = []() {
     return table;
 }();
 
-template<int times = 1>
+template<int times=1>
 constexpr Square sq_shift(Square sq, Direction dir) {
     // no bounds checking
     if constexpr (times == 1) {
@@ -384,6 +381,13 @@ constexpr Square sq_shift(Square sq, Direction dir) {
     } else {
         return static_cast<Square>(idx(sq) + (idx(dir) * times));
     }
+}
+
+template<Direction dir, int times=1>
+constexpr Square sq_shift(Square sq) {
+    // no bounds checking
+    constexpr auto offset = idx(dir) * times;
+    return static_cast<Square>(idx(sq) + offset);
 }
 
 constexpr Square captured_ep_square(Color capturing_side, Square ep_square) {
