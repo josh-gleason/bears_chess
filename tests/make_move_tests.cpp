@@ -1,8 +1,5 @@
-#include "board.hpp"
-#include "movegen.hpp"
-#include "board_utils.hpp"
-#include "perft_utils.hpp"
-#include <print>
+#include "bears_chess.hpp"
+
 #include <gtest/gtest.h>
 
 using namespace bears_chess;

@@ -87,7 +87,6 @@ inline uint64_t perft(Board& board, int depth, const std::vector<DepthStats>::it
 template<MoveGenType move_gen_type=LEGAL, bool collect_stats=false, bool show_moves=false>
 int run_perft(const Board& board_orig, int max_depth) {
     Board board = board_orig;
-    println("======================== BEGIN PERFT TEST ================================");
     print("{:F}", board);
 
     std::vector<DepthStats> perft_stats(max_depth);
