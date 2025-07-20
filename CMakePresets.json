@@ -55,5 +55,13 @@
                 "BUILD_TESTING": "YES"
             }
         }
+    ],
+    "testPresets": [
+        {
+            "name": "test_all",
+            "description": "",
+            "displayName": "",
+            "configurePreset": "testing-release"
+        }
     ]
 }

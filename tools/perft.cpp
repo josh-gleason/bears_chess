@@ -46,12 +46,21 @@ int main()
     // b.do_move(m);
     // println("{}", b);
 
-    print("{}", run_perft(load_fen(INITIAL_POSITION_FEN), 6));
-    print("{}", run_perft(load_fen(PERFT_POSITION_2_FEN), 5));
-    print("{}", run_perft(load_fen(PERFT_POSITION_3_FEN), 6));
-    print("{}", run_perft(load_fen(PERFT_POSITION_4_FEN), 6));
-    print("{}", run_perft(load_fen(PERFT_POSITION_5_FEN), 5));
-    print("{}", run_perft(load_fen(PERFT_POSITION_6_FEN), 5));
+    print("{}", run_perft(load_fen(INITIAL_POSITION_FEN), 7));
+    print("{}", run_perft(load_fen(PERFT_POSITION_2_FEN), 6));
+    print("{}", run_perft(load_fen(PERFT_POSITION_3_FEN), 7));
+    // print("{}", run_perft(load_fen(PERFT_POSITION_4_FEN), 6));
+    // print("{}", run_perft(load_fen(PERFT_POSITION_5_FEN), 5));
+    // print("{}", run_perft(load_fen(PERFT_POSITION_6_FEN), 5));
+
+    // print("{}", run_perft<LEGAL, false, true>(load_fen("r3k2r/p1ppqpb1/1n2pnp1/1b1PN3/1p2P3/P1N2Q1p/1PPBBPPP/R3K2R w KQkq - 1 2"), 1));
+
+    // print("{}", run_perft(load_fen(INITIAL_POSITION_FEN), 5));
+    // print("{}", run_perft<LEGAL, true, true>(load_fen(PERFT_POSITION_2_FEN), 4));
+    // print("{}", run_perft<LEGAL, true, true>(load_fen(PERFT_POSITION_3_FEN), 5));
+    // print("{}", run_perft(load_fen(PERFT_POSITION_4_FEN), 5));
+    // print("{}", run_perft(load_fen(PERFT_POSITION_5_FEN), 4));
+    // print("{}", run_perft(load_fen(PERFT_POSITION_6_FEN), 4));
 
     return 0;
 }

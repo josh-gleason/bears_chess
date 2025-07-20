@@ -292,7 +292,10 @@ enum class Direction : int8_t {
     SOUTHEAST = SOUTH + EAST,
     SOUTHWEST = SOUTH + WEST,
     NORTHWEST = NORTH + WEST,
-    NONE = 0
+    NONE = 0,
+
+    NORTHNORTH = NORTH + NORTH,
+    SOUTHSOUTH = SOUTH + SOUTH,
 };
 
 enum class IndexDirection : int8_t {

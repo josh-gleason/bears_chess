@@ -164,9 +164,7 @@ MoveList generate_legal_moves_(const Board& board) {
         generate_legal_slider_moves<color, Piece::ROOK>(board, moves, cache);
         generate_legal_slider_moves<color, Piece::BISHOP>(board, moves, cache);
         generate_legal_pawn_moves<color>(board, moves, cache);
-        if (num_checkers == 0) {
-            generate_legal_castle_moves<color>(board, moves, cache);
-        }
+        generate_legal_castle_moves<color>(board, moves, cache);
     }
 
     return moves;
