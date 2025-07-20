@@ -126,6 +126,9 @@ inline void generate_legal_ep_moves(const Board& board, MoveList& moves, const B
     constexpr Bitboard bb_pawns_rank = bb_rank(pawns_rank);
 
     Square to = board.ep_square;
+    if (to == Square::NONE)
+        return;
+
     Bitboard bb_to = bb_square(to);
     Bitboard bb_opponent_pawn = bb_shift<dir_from>(bb_to);
     if (zero((bb_to | bb_opponent_pawn) & cache.block_mask))
@@ -171,9 +174,9 @@ template<Color color>
 inline void generate_legal_pawn_moves(const Board& board, MoveList& moves, const BoardCache& cache) {
     constexpr Color opponent_color = ~color;
 
-    constexpr Direction push_dir = (color == Color::WHITE ? Direction::NORTH : Direction::SOUTH);
-    constexpr Direction attack_dir_east = (color == Color::WHITE ? Direction::NORTHEAST : Direction::SOUTHEAST);
-    constexpr Direction attack_dir_west = (color == Color::WHITE ? Direction::NORTHWEST : Direction::SOUTHWEST);
+    constexpr Direction dir_push = (color == Color::WHITE ? Direction::NORTH : Direction::SOUTH);
+    constexpr Direction dir_attack_east = (color == Color::WHITE ? Direction::NORTHEAST : Direction::SOUTHEAST);
+    constexpr Direction dir_attack_west = (color == Color::WHITE ? Direction::NORTHWEST : Direction::SOUTHWEST);
     constexpr Bitboard bb_dbl_rank = (color == Color::WHITE ? bb_rank(Rank::_4) : bb_rank(Rank::_5));
         
     Bitboard bb_pawns = board.pieces[idx(color)][idx(Piece::PAWN)];
@@ -181,29 +184,27 @@ inline void generate_legal_pawn_moves(const Board& board, MoveList& moves, const
     Bitboard bb_unpinned = ~bb_pinned;
 
     Square king_sq = board.king_sq[idx(color)];
-    Bitboard bb_allow_east = bb_unpinned | (bb_pinned & get_square_diag<attack_dir_east>(king_sq));
-    Bitboard bb_allow_west = bb_unpinned | (bb_pinned & get_square_diag<attack_dir_west>(king_sq));
+    Bitboard bb_allow_east = bb_unpinned | (bb_pinned & get_square_diag<dir_attack_east>(king_sq));
+    Bitboard bb_allow_west = bb_unpinned | (bb_pinned & get_square_diag<dir_attack_west>(king_sq));
 
     Bitboard opponent_capturable = cache.block_mask & board.occupied_by_color[idx(opponent_color)];
-    Bitboard bb_attack_east = opponent_capturable & bb_shift<attack_dir_east, true>(bb_pawns & bb_allow_east);
-    Bitboard bb_attack_west = opponent_capturable & bb_shift<attack_dir_west, true>(bb_pawns & bb_allow_west);
+    Bitboard bb_attack_east = opponent_capturable & bb_shift<dir_attack_east, true>(bb_pawns & bb_allow_east);
+    Bitboard bb_attack_west = opponent_capturable & bb_shift<dir_attack_west, true>(bb_pawns & bb_allow_west);
     
     Bitboard unoccupied = ~board.occupied;
     Bitboard bb_allow_push = bb_unpinned | (bb_pinned & BB_FILE_OF[idx(king_sq)]);
-    Bitboard bb_single = unoccupied & bb_shift<push_dir>(bb_pawns & bb_allow_push);
+    Bitboard bb_single = unoccupied & bb_shift<dir_push>(bb_pawns & bb_allow_push);
     Bitboard bb_push = cache.block_mask & bb_single;
-    Bitboard bb_dbl_push = bb_dbl_rank & cache.block_mask & unoccupied & bb_shift<push_dir>(bb_single);
+    Bitboard bb_dbl_push = bb_dbl_rank & cache.block_mask & unoccupied & bb_shift<dir_push>(bb_single);
 
-    emplace_pawn_moves<attack_dir_east, MoveType::CAPTURE, color>(moves, bb_attack_east);
-    emplace_pawn_moves<attack_dir_west, MoveType::CAPTURE, color>(moves, bb_attack_west);
-    emplace_pawn_moves<push_dir, MoveType::QUIET, color>(moves, bb_push);
+    emplace_pawn_moves<dir_attack_east, MoveType::CAPTURE, color>(moves, bb_attack_east);
+    emplace_pawn_moves<dir_attack_west, MoveType::CAPTURE, color>(moves, bb_attack_west);
+    emplace_pawn_moves<dir_push, MoveType::QUIET, color>(moves, bb_push);
 
     for (Square to: BBSquareScan(bb_dbl_push))
-        moves.emplace_back(sq_shift<push_dir, -2>(to), to, MoveType::DOUBLE_PAWN_PUSH);
+        moves.emplace_back(sq_shift<dir_push, -2>(to), to, MoveType::DOUBLE_PAWN_PUSH);
 
-    if (board.ep_square != Square::NONE) {
-        generate_legal_ep_moves<color>(board, moves, cache);
-    }
+    generate_legal_ep_moves<color>(board, moves, cache);
 }
 
 template<Color color>
@@ -310,7 +311,7 @@ inline Bitboard calculate_checkers(const Board& board, Bitboard opponent_attacks
 
 template<Color color, Piece move_type>
 requires is_bishop_or_rook<move_type>
-Bitboard calculate_pinned_pieces(const Board& board, Bitboard pin_masks[num_of<IndexDirection>], Bitboard& block_check) {
+inline Bitboard calculate_pinned_pieces(const Board& board, Bitboard pin_masks[num_of<IndexDirection>], Bitboard& block_check) {
     Bitboard pinned = Bitboard::EMPTY;
 
     Square king_square = board.king_sq[idx(board.side_to_move)];
