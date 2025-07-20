@@ -131,218 +131,69 @@ inline void generate_legal_ep_moves(const Board& board, MoveList& moves, const B
     }
 }
 
+template<Direction move_dir, MoveType type, Color color>
+inline void emplace_pawn_moves(MoveList& moves, Bitboard bb_to) {
+    constexpr Bitboard bb_promote = (color == Color::WHITE ? bb_rank(Rank::_8) : bb_rank(Rank::_1));
+    constexpr Bitboard bb_nopromote = ~bb_promote;
+    constexpr Direction dir_reverse = static_cast<Direction>(-idx(move_dir));
+    constexpr MoveType type_promote_queen = type | MoveType::QUEEN_PROMOTION;
+    constexpr MoveType type_promote_rook = type | MoveType::ROOK_PROMOTION;
+    constexpr MoveType type_promote_knight = type | MoveType::KNIGHT_PROMOTION;
+    constexpr MoveType type_promote_bishop = type | MoveType::BISHOP_PROMOTION;
+    
+    for (Square to : BBSquareScan(bb_to & bb_nopromote)) {
+        Square from = static_cast<Square>(idx(to) + idx(dir_reverse));
+        moves.emplace_back(from, to, type);
+    }
+    for (Square to : BBSquareScan(bb_to & bb_promote)) {
+        Square from = static_cast<Square>(idx(to) + idx(dir_reverse));
+        moves.emplace_back(from, to, type_promote_queen);
+        moves.emplace_back(from, to, type_promote_rook);
+        moves.emplace_back(from, to, type_promote_knight);
+        moves.emplace_back(from, to, type_promote_bishop);
+    }
+}
+
 template<Color color>
 inline void generate_legal_pawn_moves(const Board& board, MoveList& moves, const BoardCache& cache) {
     constexpr Color opponent_color = ~color;
 
-    Bitboard occupied = board.occupied;
-    Bitboard opponent_occupied = board.occupied_by_color[idx(opponent_color)];
-    Bitboard bb_pawns = board.pieces[idx(color)][idx(Piece::PAWN)];
-    Bitboard unoccupied = ~occupied;
+    constexpr Direction push_dir = (color == Color::WHITE ? Direction::NORTH : Direction::SOUTH);
+    constexpr Direction dbl_push_dir = (color == Color::WHITE ? Direction::NORTHNORTH : Direction::SOUTHSOUTH);
+    constexpr Direction attack_dir_east = (color == Color::WHITE ? Direction::NORTHEAST : Direction::SOUTHEAST);
+    constexpr Direction attack_dir_west = (color == Color::WHITE ? Direction::NORTHWEST : Direction::SOUTHWEST);
+    constexpr Bitboard bb_dbl_rank = (color == Color::WHITE ? bb_rank(Rank::_4) : bb_rank(Rank::_5));
 
-    Bitboard legal_quiet = unoccupied & cache.block_mask;
-    Bitboard legal_capture = opponent_occupied & cache.block_mask;
-
-    Square king_sq = board.king_sq[idx(color)];
-
-    for (Square from : BBSquareScan(bb_pawns)) {
-        Bitboard bb_from = bb_square(from);
-        Bitboard legal_mask = Bitboard::FULL;
-        if (nonzero(cache.pinned_pieces & bb_from)) {
-            IndexDirection pin_dir = DIR_BETWEEN<IndexDirection>[idx(king_sq)][idx(from)];
-            legal_mask &= cache.pin_masks[idx(pin_dir)];
-        }
-        Bitboard legal_quiet_pawn = legal_quiet & legal_mask;
-        Bitboard legal_capture_pawn = legal_capture & legal_mask;
-
-        // single push
-        Bitboard bb_single_unoccupied = BB_SINGLE_PAWN_MOVES[idx(color)][idx(from)] & unoccupied;
-        Bitboard bb_single = bb_single_unoccupied & legal_quiet_pawn;
-        Bitboard bb_quiet = bb_single & ~BB_PROMOTION_RANKS;
-        Bitboard bb_promotion = bb_single & BB_PROMOTION_RANKS;
-        if (nonzero(bb_quiet)) {
-            Square to = bitscan_forward(bb_quiet);
-            moves.emplace_back(from, to, MoveType::QUIET);
-        }
-        if (nonzero(bb_promotion)) {
-            Square to = bitscan_forward(bb_promotion);
-            moves.emplace_back(from, to, MoveType::KNIGHT_PROMOTION);
-            moves.emplace_back(from, to, MoveType::BISHOP_PROMOTION);
-            moves.emplace_back(from, to, MoveType::ROOK_PROMOTION);
-            moves.emplace_back(from, to, MoveType::QUEEN_PROMOTION);
-        }
-
-        // double pawn push
-        if (nonzero(bb_single_unoccupied)) {
-            Bitboard bb_double = BB_DOUBLE_PAWN_MOVES[idx(color)][idx(from)] & legal_quiet_pawn;
-            if (nonzero(bb_double)) {
-                Square to = bitscan_forward(bb_double);
-                moves.emplace_back(from, to, MoveType::DOUBLE_PAWN_PUSH);
-            }
-        }
-
-        // captures
-        Bitboard bb_capture = bb_attacks<color, Piece::PAWN>(from) & legal_capture_pawn;
-        Bitboard bb_capture_only = (bb_capture & ~BB_PROMOTION_RANKS);
-        Bitboard bb_capture_promote = (bb_capture & BB_PROMOTION_RANKS);
-        append_moves(moves, from, bb_capture_only, MoveType::CAPTURE);
-        for (Square to : BBSquareScan(bb_capture_promote)) {
-            moves.emplace_back(from, to, MoveType::KNIGHT_PROMOTION_CAPTURE);
-            moves.emplace_back(from, to, MoveType::BISHOP_PROMOTION_CAPTURE);
-            moves.emplace_back(from, to, MoveType::ROOK_PROMOTION_CAPTURE);
-            moves.emplace_back(from, to, MoveType::QUEEN_PROMOTION_CAPTURE);
-        }
-    }
-
-    if (board.ep_square != Square::NONE) {
-        generate_legal_ep_moves<color>(board, moves, cache);
-    }
-}
-
-template<>
-inline void generate_legal_pawn_moves<Color::BLACK>(const Board& board, MoveList& moves, const BoardCache& cache) {
-    constexpr Color color = Color::BLACK;
-    constexpr Color opponent_color = Color::WHITE;
+    constexpr auto diag_of_e = (color == Color::WHITE ? BB_DIAG45_OF : BB_DIAG135_OF);
+    constexpr auto diag_of_w = (color == Color::WHITE ? BB_DIAG135_OF : BB_DIAG45_OF);
 
     Bitboard occupied = board.occupied;
-    Bitboard opponent_capturable = cache.block_mask & board.occupied_by_color[idx(opponent_color)];
-    Bitboard bb_pawns = board.pieces[idx(color)][idx(Piece::PAWN)];
     Bitboard unoccupied = ~occupied;
-
+    
     Bitboard bb_pinned = cache.pinned_pieces;
-    Bitboard bb_unpinned = ~cache.pinned_pieces;
-
+    Bitboard bb_unpinned = ~bb_pinned;
+    
     Square king_sq = board.king_sq[idx(color)];
-    Bitboard bb_allow_w = bb_unpinned | (bb_pinned & BB_DIAG45_OF[idx(king_sq)]);
-    Bitboard bb_allow_e = bb_unpinned | (bb_pinned & BB_DIAG135_OF[idx(king_sq)]);
+    Bitboard bb_allow_e = bb_unpinned | (bb_pinned & diag_of_e[idx(king_sq)]);
+    Bitboard bb_allow_w = bb_unpinned | (bb_pinned & diag_of_w[idx(king_sq)]);
     Bitboard bb_allow_ns = bb_unpinned | (bb_pinned & BB_FILE_OF[idx(king_sq)]);
 
-    Bitboard bb_attack_east = opponent_capturable & cache.block_mask & bb_shift<Direction::SOUTHEAST>(bb_pawns & bb_allow_e) & ~bb_file(File::A);
-    Bitboard bb_attack_west = opponent_capturable & cache.block_mask & bb_shift<Direction::SOUTHWEST>(bb_pawns & bb_allow_w) & ~bb_file(File::H);
-
-    Bitboard bb_attack_east_cap = bb_attack_east & ~bb_rank(Rank::_1);
-    Bitboard bb_attack_east_cap_promote = bb_attack_east & bb_rank(Rank::_1);
-    
-    Bitboard bb_attack_west_cap = bb_attack_west & ~bb_rank(Rank::_1);
-    Bitboard bb_attack_west_cap_promote = bb_attack_west & bb_rank(Rank::_1);
-
-    Bitboard bb_single = unoccupied & bb_shift<Direction::SOUTH>(bb_pawns & bb_allow_ns);
-    Bitboard bb_push = cache.block_mask & bb_single;
-    Bitboard bb_push_quiet = bb_push & ~bb_rank(Rank::_1);
-    Bitboard bb_push_promote = bb_push & bb_rank(Rank::_1);
-    Bitboard bb_dbl_push = cache.block_mask & bb_rank(Rank::_5) & unoccupied & bb_shift<Direction::SOUTH>(bb_single);
-
-    for (Square to : BBSquareScan(bb_attack_east_cap)) {
-        Square from = static_cast<Square>(idx(to) + idx(Direction::NORTHWEST));
-        moves.emplace_back(from, to, MoveType::CAPTURE);
-    }
-    for (Square to : BBSquareScan(bb_attack_east_cap_promote)) {
-        Square from = static_cast<Square>(idx(to) + idx(Direction::NORTHWEST));
-        moves.emplace_back(from, to, MoveType::QUEEN_PROMOTION_CAPTURE);
-        moves.emplace_back(from, to, MoveType::ROOK_PROMOTION_CAPTURE);
-        moves.emplace_back(from, to, MoveType::KNIGHT_PROMOTION_CAPTURE);
-        moves.emplace_back(from, to, MoveType::BISHOP_PROMOTION_CAPTURE);
-    }
-    for (Square to : BBSquareScan(bb_attack_west_cap)) {
-        Square from = static_cast<Square>(idx(to) + idx(Direction::NORTHEAST));
-        moves.emplace_back(from, to, MoveType::CAPTURE);
-    }
-    for (Square to : BBSquareScan(bb_attack_west_cap_promote)) {
-        Square from = static_cast<Square>(idx(to) + idx(Direction::NORTHEAST));
-        moves.emplace_back(from, to, MoveType::QUEEN_PROMOTION_CAPTURE);
-        moves.emplace_back(from, to, MoveType::ROOK_PROMOTION_CAPTURE);
-        moves.emplace_back(from, to, MoveType::KNIGHT_PROMOTION_CAPTURE);
-        moves.emplace_back(from, to, MoveType::BISHOP_PROMOTION_CAPTURE);
-    }
-    for (Square to: BBSquareScan(bb_push_quiet)) {
-        Square from = static_cast<Square>(idx(to) + idx(Direction::NORTH));
-        moves.emplace_back(from, to, MoveType::QUIET);
-    }
-    for (Square to: BBSquareScan(bb_push_promote)) {
-        Square from = static_cast<Square>(idx(to) + idx(Direction::NORTH));
-        moves.emplace_back(from, to, MoveType::QUEEN_PROMOTION);
-        moves.emplace_back(from, to, MoveType::ROOK_PROMOTION);
-        moves.emplace_back(from, to, MoveType::KNIGHT_PROMOTION);
-        moves.emplace_back(from, to, MoveType::BISHOP_PROMOTION);
-    }
-    for (Square to: BBSquareScan(bb_dbl_push)) {
-        Square from = static_cast<Square>(idx(to) + idx(Direction::NORTHNORTH));
-        moves.emplace_back(from, to, MoveType::DOUBLE_PAWN_PUSH);
-    }
-
-    if (board.ep_square != Square::NONE) {
-        generate_legal_ep_moves<color>(board, moves, cache);
-    }
-}
-
-template<>
-inline void generate_legal_pawn_moves<Color::WHITE>(const Board& board, MoveList& moves, const BoardCache& cache) {
-    constexpr Color color = Color::WHITE;
-    constexpr Color opponent_color = Color::BLACK;
-
-    Bitboard occupied = board.occupied;
-    Bitboard opponent_capturable = cache.block_mask & board.occupied_by_color[idx(opponent_color)];
     Bitboard bb_pawns = board.pieces[idx(color)][idx(Piece::PAWN)];
-    Bitboard unoccupied = ~occupied;
 
-    Bitboard bb_pinned = cache.pinned_pieces;
-    Bitboard bb_unpinned = ~cache.pinned_pieces;
-
-    Square king_sq = board.king_sq[idx(color)];
-    Bitboard bb_allow_e = bb_unpinned | (bb_pinned & BB_DIAG45_OF[idx(king_sq)]);
-    Bitboard bb_allow_w = bb_unpinned | (bb_pinned & BB_DIAG135_OF[idx(king_sq)]);
-    Bitboard bb_allow_ns = bb_unpinned | (bb_pinned & BB_FILE_OF[idx(king_sq)]);
-
-    Bitboard bb_attack_east = opponent_capturable & cache.block_mask & bb_shift<Direction::NORTHEAST>(bb_pawns & bb_allow_e) & ~bb_file(File::A);
-    Bitboard bb_attack_west = opponent_capturable & cache.block_mask & bb_shift<Direction::NORTHWEST>(bb_pawns & bb_allow_w) & ~bb_file(File::H);
-
-    Bitboard bb_attack_east_cap = bb_attack_east & ~bb_rank(Rank::_8);
-    Bitboard bb_attack_east_cap_promote = bb_attack_east & bb_rank(Rank::_8);
+    Bitboard opponent_capturable = cache.block_mask & board.occupied_by_color[idx(opponent_color)];
+    Bitboard bb_attack_east = opponent_capturable & bb_shift<attack_dir_east, true>(bb_pawns & bb_allow_e);
+    Bitboard bb_attack_west = opponent_capturable & bb_shift<attack_dir_west, true>(bb_pawns & bb_allow_w);
     
-    Bitboard bb_attack_west_cap = bb_attack_west & ~bb_rank(Rank::_8);
-    Bitboard bb_attack_west_cap_promote = bb_attack_west & bb_rank(Rank::_8);
-
-    Bitboard bb_single = unoccupied & bb_shift<Direction::NORTH>(bb_pawns & bb_allow_ns);
+    Bitboard bb_single = unoccupied & bb_shift<push_dir>(bb_pawns & bb_allow_ns);
     Bitboard bb_push = cache.block_mask & bb_single;
-    Bitboard bb_push_quiet = bb_push & ~bb_rank(Rank::_8);
-    Bitboard bb_push_promote = bb_push & bb_rank(Rank::_8);
-    Bitboard bb_dbl_push = cache.block_mask & bb_rank(Rank::_4) & unoccupied & bb_shift<Direction::NORTH>(bb_single);
+    Bitboard bb_dbl_push = bb_dbl_rank & cache.block_mask & unoccupied & bb_shift<push_dir>(bb_single);
 
-    for (Square to : BBSquareScan(bb_attack_east_cap)) {
-        Square from = static_cast<Square>(idx(to) + idx(Direction::SOUTHWEST));
-        moves.emplace_back(from, to, MoveType::CAPTURE);
-    }
-    for (Square to : BBSquareScan(bb_attack_east_cap_promote)) {
-        Square from = static_cast<Square>(idx(to) + idx(Direction::SOUTHWEST));
-        moves.emplace_back(from, to, MoveType::QUEEN_PROMOTION_CAPTURE);
-        moves.emplace_back(from, to, MoveType::ROOK_PROMOTION_CAPTURE);
-        moves.emplace_back(from, to, MoveType::KNIGHT_PROMOTION_CAPTURE);
-        moves.emplace_back(from, to, MoveType::BISHOP_PROMOTION_CAPTURE);
-    }
-    for (Square to : BBSquareScan(bb_attack_west_cap)) {
-        Square from = static_cast<Square>(idx(to) + idx(Direction::SOUTHEAST));
-        moves.emplace_back(from, to, MoveType::CAPTURE);
-    }
-    for (Square to : BBSquareScan(bb_attack_west_cap_promote)) {
-        Square from = static_cast<Square>(idx(to) + idx(Direction::SOUTHEAST));
-        moves.emplace_back(from, to, MoveType::QUEEN_PROMOTION_CAPTURE);
-        moves.emplace_back(from, to, MoveType::ROOK_PROMOTION_CAPTURE);
-        moves.emplace_back(from, to, MoveType::KNIGHT_PROMOTION_CAPTURE);
-        moves.emplace_back(from, to, MoveType::BISHOP_PROMOTION_CAPTURE);
-    }
-    for (Square to: BBSquareScan(bb_push_quiet)) {
-        Square from = static_cast<Square>(idx(to) + idx(Direction::SOUTH));
-        moves.emplace_back(from, to, MoveType::QUIET);
-    }
-    for (Square to: BBSquareScan(bb_push_promote)) {
-        Square from = static_cast<Square>(idx(to) + idx(Direction::SOUTH));
-        moves.emplace_back(from, to, MoveType::QUEEN_PROMOTION);
-        moves.emplace_back(from, to, MoveType::ROOK_PROMOTION);
-        moves.emplace_back(from, to, MoveType::KNIGHT_PROMOTION);
-        moves.emplace_back(from, to, MoveType::BISHOP_PROMOTION);
-    }
+    emplace_pawn_moves<attack_dir_east, MoveType::CAPTURE, color>(moves, bb_attack_east);
+    emplace_pawn_moves<attack_dir_west, MoveType::CAPTURE, color>(moves, bb_attack_west);
+    emplace_pawn_moves<push_dir, MoveType::QUIET, color>(moves, bb_push);
+
     for (Square to: BBSquareScan(bb_dbl_push)) {
-        Square from = static_cast<Square>(idx(to) + idx(Direction::SOUTHSOUTH));
+        Square from = static_cast<Square>(idx(to) - idx(dbl_push_dir));
         moves.emplace_back(from, to, MoveType::DOUBLE_PAWN_PUSH);
     }
 
