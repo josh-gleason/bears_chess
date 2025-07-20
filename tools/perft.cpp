@@ -36,31 +36,15 @@ int main()
     init();
 
     // show_do_undo_failures<PSEUDO_LEGAL>(load_fen(PERFT_POSITION_6_FEN), 6);
-
     // show_moves<PSEUDO_LEGAL>(board);
-    
     // test_do_undo<PSEUDO_LEGAL>(load_fen(PERFT_POSITION_2_FEN), 5);
-
-    // Board b = load_fen("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/P1NB1Q2/1PPB1PpP/R3K2R b KQkq - 1 2");
-    // Move m{Square::G2, Square::H1, MoveType::ROOK_PROMOTION_CAPTURE};
-    // b.do_move(m);
-    // println("{}", b);
 
     print("{}", run_perft(load_fen(INITIAL_POSITION_FEN), 7));
     print("{}", run_perft(load_fen(PERFT_POSITION_2_FEN), 6));
-    print("{}", run_perft(load_fen(PERFT_POSITION_3_FEN), 7));
-    // print("{}", run_perft(load_fen(PERFT_POSITION_4_FEN), 6));
-    // print("{}", run_perft(load_fen(PERFT_POSITION_5_FEN), 5));
-    // print("{}", run_perft(load_fen(PERFT_POSITION_6_FEN), 5));
-
-    // print("{}", run_perft<LEGAL, false, true>(load_fen("r3k2r/p1ppqpb1/1n2pnp1/1b1PN3/1p2P3/P1N2Q1p/1PPBBPPP/R3K2R w KQkq - 1 2"), 1));
-
-    // print("{}", run_perft(load_fen(INITIAL_POSITION_FEN), 5));
-    // print("{}", run_perft<LEGAL, true, true>(load_fen(PERFT_POSITION_2_FEN), 4));
-    // print("{}", run_perft<LEGAL, true, true>(load_fen(PERFT_POSITION_3_FEN), 5));
-    // print("{}", run_perft(load_fen(PERFT_POSITION_4_FEN), 5));
-    // print("{}", run_perft(load_fen(PERFT_POSITION_5_FEN), 4));
-    // print("{}", run_perft(load_fen(PERFT_POSITION_6_FEN), 4));
+    print("{}", run_perft(load_fen(PERFT_POSITION_3_FEN), 8));
+    print("{}", run_perft(load_fen(PERFT_POSITION_4_FEN), 6));
+    print("{}", run_perft(load_fen(PERFT_POSITION_5_FEN), 5));
+    print("{}", run_perft(load_fen(PERFT_POSITION_6_FEN), 6));
 
     return 0;
 }
