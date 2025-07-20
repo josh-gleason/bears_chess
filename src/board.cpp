@@ -1,6 +1,5 @@
 #include "board.hpp"
 #include "bitboard.hpp"
-#include "magics.hpp"
 
 namespace bears_chess {
 

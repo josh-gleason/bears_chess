@@ -2,7 +2,6 @@
 
 #include "types.hpp"
 #include "bitboard.hpp"
-#include "magics.hpp"
 #include "board.hpp"
 
 namespace bears_chess {
@@ -28,7 +27,7 @@ inline void generate_legal_king_moves(const Board& board, MoveList& moves, const
     Bitboard opponent_occupied = board.occupied_by_color[idx(opponent_color)];
 
     Square from = board.king_sq[idx(color)];
-    Bitboard bb_moves = BB_KING_MOVES[idx(from)];
+    Bitboard bb_moves = bb_attacks<Piece::KING>(from);
     Bitboard bb_quiet = (bb_moves & unoccupied & ~cache.opponent_attacks);
     Bitboard bb_capture = (bb_moves & opponent_occupied & ~cache.opponent_attacks);
     append_moves(moves, from, bb_quiet, MoveType::QUIET);
@@ -43,7 +42,7 @@ inline void generate_legal_knight_moves(const Board& board, MoveList& moves, con
     Bitboard legal_capture = board.occupied_by_color[idx(~color)] & cache.block_mask;
 
     for (Square from : BBSquareScan(bb_knights)) {
-        Bitboard bb_moves = BB_KNIGHT_MOVES[idx(from)];
+        Bitboard bb_moves = bb_attacks<Piece::KNIGHT>(from);
         Bitboard bb_quiet = (bb_moves & legal_quiet);
         Bitboard bb_capture = (bb_moves & legal_capture);
         append_moves(moves, from, bb_quiet, MoveType::QUIET);
@@ -69,7 +68,7 @@ inline void generate_legal_slider_moves(const Board& board, MoveList& moves, con
 
     for (Square from : BBSquareScan(pinned_sliders)) {
         IndexDirection pin_dir = DIR_BETWEEN<IndexDirection>[idx(king_square)][idx(from)];
-        Bitboard bb_moves = magic_lookup<move_type>(from, occupied) & cache.pin_masks[idx(pin_dir)];
+        Bitboard bb_moves = bb_attacks<move_type>(from, occupied) & cache.pin_masks[idx(pin_dir)];
         Bitboard bb_quiet = bb_moves & legal_quiet;
         Bitboard bb_capture = bb_moves & legal_capture;
         append_moves(moves, from, bb_quiet, MoveType::QUIET);
@@ -77,7 +76,7 @@ inline void generate_legal_slider_moves(const Board& board, MoveList& moves, con
     }
 
     for (Square from : BBSquareScan(unpinned_sliders)) {
-        Bitboard bb_moves = magic_lookup<move_type>(from, occupied);
+        Bitboard bb_moves = bb_attacks<move_type>(from, occupied);
         Bitboard bb_quiet = bb_moves & legal_quiet;
         Bitboard bb_capture = bb_moves & legal_capture;
         append_moves(moves, from, bb_quiet, MoveType::QUIET);
@@ -96,7 +95,7 @@ inline void generate_legal_ep_moves(const Board& board, MoveList& moves, const B
     Bitboard bb_opponent_pawn = BB_SINGLE_PAWN_MOVES[idx(~color)][idx(to)];
     if (nonzero(cache.block_mask & bb_opponent_pawn)) {
         // pawn is allowed to be captured
-        Bitboard bb_ep_pawn_mask = BB_CAPTURE_PAWN_MOVES[idx(~color)][idx(to)];
+        Bitboard bb_ep_pawn_mask = bb_attacks<Piece::PAWN>(~color, to);
         Bitboard bb_capture_ep = bb_ep_pawn_mask & board.pieces[idx(color)][idx(Piece::PAWN)];
 
         for (Square from : BBSquareScan(bb_capture_ep)) {
@@ -116,7 +115,7 @@ inline void generate_legal_ep_moves(const Board& board, MoveList& moves, const B
                     );
                     if (nonzero(opponent_sliders)) {
                         // check if after removing pawns if king is in check
-                        Bitboard attack = magic_lookup<Piece::ROOK>(king_sq, board.occupied & ~(bb_opponent_pawn | bb_from));
+                        Bitboard attack = bb_attacks<Piece::ROOK>(king_sq, board.occupied & ~(bb_opponent_pawn | bb_from));
                         exposing = nonzero(opponent_sliders & attack);
                     } else {
                         exposing = false;
@@ -182,7 +181,7 @@ inline void generate_legal_pawn_moves(const Board& board, MoveList& moves, const
         }
 
         // captures
-        Bitboard bb_capture = BB_CAPTURE_PAWN_MOVES[idx(color)][idx(from)] & legal_capture_pawn;
+        Bitboard bb_capture = bb_attacks<Piece::PAWN>(color, from) & legal_capture_pawn;
         Bitboard bb_capture_only = (bb_capture & ~BB_PROMOTION_RANKS);
         Bitboard bb_capture_promote = (bb_capture & BB_PROMOTION_RANKS);
         append_moves(moves, from, bb_capture_only, MoveType::CAPTURE);
@@ -224,7 +223,7 @@ inline Bitboard generate_knight_attacks(const Board& board, Color color) {
     Bitboard bb_knights = board.pieces[idx(color)][idx(Piece::KNIGHT)];
     Bitboard bb_knight_attacks = Bitboard::EMPTY;
     for (Square from : BBSquareScan(bb_knights)) {
-        bb_knight_attacks |= BB_KNIGHT_MOVES[idx(from)];
+        bb_knight_attacks |= bb_attacks<Piece::KNIGHT>(from);
     }
     return bb_knight_attacks;
 }
@@ -234,7 +233,7 @@ inline Bitboard generate_slider_attacks(const Board& board, Color color, Bitboar
     Bitboard bb_pieces = (board.pieces[idx(color)][idx(move_type)] | board.pieces[idx(color)][idx(Piece::QUEEN)]);
     Bitboard bb_slider_attacks = Bitboard::EMPTY;
     for (Square from : BBSquareScan(bb_pieces)) {
-        bb_slider_attacks |= magic_lookup<move_type>(from, bb_occupied);
+        bb_slider_attacks |= bb_attacks<move_type>(from, bb_occupied);
     }
     return bb_slider_attacks;
 }
@@ -243,13 +242,13 @@ inline Bitboard generate_pawn_attacks(const Board& board, Color color) {
     Bitboard bb_pawns = board.pieces[idx(color)][idx(Piece::PAWN)];
     Bitboard bb_pawn_attacks = Bitboard::EMPTY;
     for (Square from : BBSquareScan(bb_pawns)) {
-        bb_pawn_attacks |= BB_CAPTURE_PAWN_MOVES[idx(color)][idx(from)];
+        bb_pawn_attacks |= bb_attacks<Piece::PAWN>(color, from);
     }
     return bb_pawn_attacks;
 }
 
 inline Bitboard generate_king_attacks(const Board& board, Color color) {
-    return BB_KING_MOVES[idx(board.king_sq[idx(color)])];
+    return bb_attacks<Piece::KING>(board.king_sq[idx(color)]);
 }
 
 template <bool omit_king=false>
@@ -287,14 +286,16 @@ inline Bitboard calculate_checkers(const Board& board, Bitboard opponent_attacks
         }
     }
 
+    Bitboard opponent_pawns = board.pieces[idx(opponent_color)][idx(Piece::PAWN)];
+    Bitboard opponent_knights = board.pieces[idx(opponent_color)][idx(Piece::KNIGHT)];
     Bitboard opponent_queens = board.pieces[idx(opponent_color)][idx(Piece::QUEEN)];
     Bitboard opponent_rooks = board.pieces[idx(opponent_color)][idx(Piece::ROOK)];
     Bitboard opponent_bishops = board.pieces[idx(opponent_color)][idx(Piece::BISHOP)];
 
-    Bitboard knight_checkers = BB_KNIGHT_MOVES[idx(king_square)] & board.pieces[idx(opponent_color)][idx(Piece::KNIGHT)];
-    Bitboard pawn_checkers = BB_CAPTURE_PAWN_MOVES[idx(color)][idx(king_square)] & board.pieces[idx(opponent_color)][idx(Piece::PAWN)];
-    Bitboard rook_checkers = magic_lookup<Piece::ROOK>(king_square, board.occupied) & (opponent_rooks | opponent_queens);
-    Bitboard bishop_checkers = magic_lookup<Piece::BISHOP>(king_square, board.occupied) & (opponent_bishops | opponent_queens);
+    Bitboard knight_checkers = bb_attacks<Piece::KNIGHT>(king_square) & opponent_knights;
+    Bitboard pawn_checkers = bb_attacks<Piece::PAWN>(color, king_square) & opponent_pawns;
+    Bitboard rook_checkers = bb_attacks<Piece::ROOK>(king_square, board.occupied) & (opponent_rooks | opponent_queens);
+    Bitboard bishop_checkers = bb_attacks<Piece::BISHOP>(king_square, board.occupied) & (opponent_bishops | opponent_queens);
 
     return knight_checkers | pawn_checkers | rook_checkers | bishop_checkers;
 }

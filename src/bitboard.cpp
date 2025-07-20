@@ -1,6 +1,7 @@
-#include "magics.hpp"
+#include <stdexcept>
+#include "bitboard.hpp"
 #ifndef PEXT_SUPPORT
-#include "magic_defs.hpp"
+#include "magics.hpp"
 #endif
 
 namespace bears_chess {
@@ -41,12 +42,12 @@ static Bitboard generate_slider_attacks(Bitboard bb_from, Bitboard bb_blocks, Pi
     }
 }
 
-static Bitboard bb_slider_attack(Square from, Piece slider_type) {
+static Bitboard bb_slider_attack_mask(Square from, Piece slider_type) {
     switch (slider_type) {
         case Piece::ROOK:
-            return bb_slider_attack<Piece::ROOK, false, false>(from);
+            return bb_slider_attack_mask<Piece::ROOK>(from);
         case Piece::BISHOP:
-            return bb_slider_attack<Piece::BISHOP, false, false>(from);
+            return bb_slider_attack_mask<Piece::BISHOP>(from);
         default:
             throw std::invalid_argument("Invalid piece type");
     }
@@ -66,7 +67,7 @@ static uint64_t get_magic(Square from, Piece slider_type) {
 #endif
 
 SliderAttacks::SliderAttacks(Square from, Piece slider_type) {
-    bb_attack_mask = bb_slider_attack(from, slider_type);
+    bb_attack_mask = bb_slider_attack_mask(from, slider_type);
     size_t table_size = (1ULL << popcount(bb_attack_mask));
     #ifndef PEXT_SUPPORT
     magic = get_magic(from, slider_type);

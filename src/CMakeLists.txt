@@ -1,7 +1,7 @@
 set(SOURCES
     board.cpp
     board_utils.cpp
-    magics.cpp
+    bitboard.cpp
     movegen.cpp
     evaluation_utils.cpp
 )

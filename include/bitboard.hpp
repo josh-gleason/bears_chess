@@ -304,7 +304,7 @@ class BBBitScan {
         Bitboard bb;
 };
 
-constexpr std::array<Bitboard, num_of<Square>> BB_KNIGHT_MOVES = []() {
+constexpr std::array<Bitboard, num_of<Square>> BB_KNIGHT_ATTACKS = []() {
     std::array<Bitboard, num_of<Square>> masks{};
     for (Square sq : iter<Square>) {
         Bitboard center = BB_SQUARE[idx(sq)];
@@ -322,7 +322,7 @@ constexpr std::array<Bitboard, num_of<Square>> BB_KNIGHT_MOVES = []() {
     return masks;
 }();
 
-constexpr std::array<Bitboard, num_of<Square>> BB_KING_MOVES = []() {
+constexpr std::array<Bitboard, num_of<Square>> BB_KING_ATTACKS = []() {
     std::array<Bitboard, num_of<Square>> masks{};
     for (Square sq : iter<Square>) {
         Bitboard center = BB_SQUARE[idx(sq)];
@@ -372,7 +372,7 @@ constexpr std::array<std::array<Bitboard, num_of<Square>>, num_of<Color>> BB_DOU
     return masks;
 }();
 
-constexpr std::array<std::array<Bitboard, num_of<Square>>, num_of<Color>> BB_CAPTURE_PAWN_MOVES = []() {
+constexpr std::array<std::array<Bitboard, num_of<Square>>, num_of<Color>> BB_PAWN_ATTACKS = []() {
     std::array<std::array<Bitboard, num_of<Square>>, num_of<Color>> masks{};
     for (Color c : iter<Color>) {
         for (Square sq : iter<Square>) {
@@ -449,8 +449,8 @@ constexpr Bitboard ray(Square from, Direction dir) noexcept {
     return mask;
 }
 
-template<Piece slider_piece, bool first = false, bool last = true>
-constexpr Bitboard bb_slider_attack(Square sq) {
+template<Piece slider_piece, bool first = false, bool last = false>
+constexpr Bitboard bb_slider_attack_mask(Square sq) {
     Bitboard attack = Bitboard::EMPTY;
     if constexpr (slider_piece == Piece::ROOK || slider_piece == Piece::QUEEN) {
         attack |= (
@@ -472,7 +472,7 @@ template<Piece slider_piece>
 constexpr std::array<Bitboard, num_of<Square>> BB_ATTACK_MASK = []() {
     std::array<Bitboard, num_of<Square>> table{};
     for (Square s : iter<Square>) {
-        table[idx(s)] = bb_slider_attack<slider_piece, false, false>(s);
+        table[idx(s)] = bb_slider_attack_mask<slider_piece>(s);
     }
     return table;
 }();
@@ -480,7 +480,7 @@ constexpr std::array<Bitboard, num_of<Square>> BB_ATTACK_MASK = []() {
 
 template<Piece move_type = Piece::QUEEN, bool first = true, bool last = false>
 constexpr Bitboard ray_between(Square from, Square to) noexcept {
-    if (zero(bb_slider_attack<move_type, true>(from) & bb_square(to))) {
+    if (zero(bb_slider_attack_mask<move_type, true, true>(from) & bb_square(to))) {
         return Bitboard::EMPTY;
     }
     Direction dir = dir_between<Direction>(from, to);
@@ -538,5 +538,71 @@ inline size_t pext(Bitboard bb_occupied, Bitboard bb_attack_mask) {
     return _pext_u64(idx(bb_occupied), idx(bb_attack_mask));
 }
 #endif
+
+
+void init();
+
+class SliderAttacks {
+    public:
+        SliderAttacks() {};
+        SliderAttacks(Square from, Piece slider_type);
+
+        inline Bitboard bb_attacks(Bitboard bb_occupied) const {
+            return bb_attacks_table[gen_hash(bb_occupied)];
+        }
+
+    private:
+        inline size_t gen_hash(Bitboard bb_occupied) const {
+            #ifndef PEXT_SUPPORT
+                return idx(bb_occupied & bb_attack_mask) * magic >> shift;
+            #else
+                return pext(bb_occupied, bb_attack_mask);
+            #endif
+        }
+
+        Bitboard bb_attack_mask;
+        std::vector<Bitboard> bb_attacks_table;
+        #ifndef PEXT_SUPPORT
+        uint64_t magic;
+        uint64_t shift;
+        #endif
+};
+
+extern SliderAttacks ROOK_ATTACKS[num_of<Square>];
+extern SliderAttacks BISHOP_ATTACKS[num_of<Square>];
+
+template<Piece piece_type> requires is_knight_or_king<piece_type>
+inline Bitboard bb_attacks(Square from) {
+    if constexpr (piece_type == Piece::KNIGHT)
+        return BB_KNIGHT_ATTACKS[idx(from)];
+    if constexpr (piece_type == Piece::KING)
+        return BB_KING_ATTACKS[idx(from)];
+
+    return Bitboard::EMPTY;
+}
+
+template<Piece piece_type> requires is_major_piece<piece_type>
+inline Bitboard bb_attacks(Square from, Bitboard bb_occupied) {
+    if constexpr (piece_type == Piece::BISHOP)
+        return BISHOP_ATTACKS[idx(from)].bb_attacks(bb_occupied);
+    if constexpr (piece_type == Piece::ROOK)
+        return ROOK_ATTACKS[idx(from)].bb_attacks(bb_occupied);
+    if constexpr (piece_type == Piece::QUEEN)
+        return (
+            ROOK_ATTACKS[idx(from)].bb_attacks(bb_occupied)
+            | ROOK_ATTACKS[idx(from)].bb_attacks(bb_occupied)
+        );
+    if constexpr (piece_type == Piece::KNIGHT)
+        return bb_attacks<Piece::KNIGHT>(from);
+    if constexpr (piece_type == Piece::KING)
+        return bb_attacks<Piece::KING>(from);
+
+    return Bitboard::EMPTY;
+}
+
+template<Piece piece_type> requires (piece_type == Piece::PAWN)
+inline Bitboard bb_attacks(Color color, Square from) {
+    return BB_PAWN_ATTACKS[idx(color)][idx(from)];
+}
 
 } // namespace bears_chess

@@ -12,7 +12,7 @@ inline void generate_knight_moves(const Board& board, MoveList& moves) {
 
     Bitboard bb_knights = board.pieces[idx(color)][idx(Piece::KNIGHT)];
     for (Square from : BBSquareScan(bb_knights)) {
-        Bitboard bb_moves = BB_KNIGHT_MOVES[idx(from)];
+        Bitboard bb_moves = bb_attacks<Piece::KNIGHT>(from);
         Bitboard bb_quiet = (bb_moves & unoccupied);
         Bitboard bb_capture = (bb_moves & opponent_occupied);
         append_moves(moves, from, bb_quiet, MoveType::QUIET);
@@ -27,7 +27,7 @@ inline void generate_king_moves(const Board& board, MoveList& moves) {
     Bitboard opponent_occupied = board.occupied_by_color[idx(~color)];
 
     Square from = board.king_sq[idx(color)];
-    Bitboard bb_moves = BB_KING_MOVES[idx(from)];
+    Bitboard bb_moves = bb_attacks<Piece::KING>(from);
     Bitboard bb_quiet = (bb_moves & unoccupied);
     Bitboard bb_capture = (bb_moves & opponent_occupied);
     append_moves(moves, from, bb_quiet, MoveType::QUIET);
@@ -70,7 +70,7 @@ inline void generate_pawn_moves(const Board& board, MoveList& moves) {
         }
 
         // captures
-        Bitboard bb_capture_pattern = BB_CAPTURE_PAWN_MOVES[idx(color)][idx(from)];
+        Bitboard bb_capture_pattern = bb_attacks<Piece::PAWN>(color, from);
         Bitboard bb_capture = (bb_capture_pattern & opponent_occupied);
         Bitboard bb_capture_only = (bb_capture & ~BB_PROMOTION_RANKS);
         Bitboard bb_capture_promote = (bb_capture & BB_PROMOTION_RANKS);
@@ -85,7 +85,7 @@ inline void generate_pawn_moves(const Board& board, MoveList& moves) {
 
     if (board.ep_square != Square::NONE) {
         Square to = board.ep_square;
-        Bitboard bb_ep_pawn_mask = BB_CAPTURE_PAWN_MOVES[idx(~color)][idx(to)];
+        Bitboard bb_ep_pawn_mask = bb_attacks<Piece::PAWN>(~color, to);
         Bitboard bb_capture_ep = bb_ep_pawn_mask & board.pieces[idx(color)][idx(Piece::PAWN)];
         for (Square from : BBSquareScan(bb_capture_ep)) {
             moves.emplace_back(from, to, MoveType::EP_CAPTURE);
@@ -102,7 +102,7 @@ void generate_slider_moves(const Board& board, MoveList& moves) {
 
     Bitboard bb_pieces = board.pieces[idx(color)][idx(move_type)] | board.pieces[idx(color)][idx(Piece::QUEEN)];
     for (Square from : BBSquareScan(bb_pieces)) {
-        Bitboard bb_moves = magic_lookup<move_type>(from, occupied);
+        Bitboard bb_moves = bb_attacks<move_type>(from, occupied);
         Bitboard bb_quiet = bb_moves & ~occupied;
         Bitboard bb_capture = bb_moves & opponent_occupied;
         append_moves(moves, from, bb_quiet, MoveType::QUIET);

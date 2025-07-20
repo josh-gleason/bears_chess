@@ -4,4 +4,3 @@
 #include "evaluation_utils.hpp"
 #include "perft_utils.hpp"
 #include "board_utils.hpp"
-#include "magics.hpp"

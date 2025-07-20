@@ -1,7 +1,6 @@
 #include "movegen_helpers.hpp"
 #include "bitboard.hpp"
 #include "types.hpp"
-#include "magics.hpp"
 
 namespace bears_chess {
 

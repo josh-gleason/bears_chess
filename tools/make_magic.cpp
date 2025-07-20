@@ -8,7 +8,6 @@
 
 #include "bitboard.hpp"
 #include "board_utils.hpp"
-#include "magics.hpp"
 
 using namespace bears_chess;
 
@@ -96,6 +95,28 @@ MagicHash find_magic(const std::vector<MagicEntry>& attack_sets) {
     }
 }
 
+static Bitboard assign_bits(Bitboard bb, uint64_t bits) {
+    Bitboard bb_pattern = Bitboard::EMPTY;
+    for (Square sq : BBSquareScan(bb)) {
+        bb_pattern |= static_cast<Bitboard>((bits & 1) << idx(sq));
+        bits >>= 1;
+    }
+    return bb_pattern;
+}
+
+template<Piece slider_type> requires is_bishop_or_rook<slider_type>
+static Bitboard generate_slider_attacks(Bitboard bb_from, Bitboard bb_blockers) {
+    Bitboard bb_attacks = Bitboard::EMPTY;
+    for (Direction dir : SLIDER_DIRECTIONS<slider_type>) {
+        Bitboard bb_bit = bb_shift<true>(bb_from, dir);
+        while (nonzero(bb_bit)) {
+            bb_attacks |= bb_bit;
+            bb_bit = bb_shift<true>(bb_bit & ~bb_blockers, dir);
+        }
+    }
+    return bb_attacks;
+}
+
 template<Piece slider_piece>
 void find_magics(std::ostream& out) {
     static_assert(
@@ -103,8 +124,12 @@ void find_magics(std::ostream& out) {
         "magics only available for rook and bishop"
     );
     for (Square sq : iter<Square>) {
-        auto attack_set_view = attack_view<slider_piece>(sq);
-        const std::vector<MagicEntry> attack_sets(attack_set_view.begin(), attack_set_view.end());
+        Bitboard bb_attack_mask = bb_slider_attack_mask<slider_piece>(sq);
+        size_t table_size = (1ULL << popcount(bb_attack_mask));
+        std::vector<MagicEntry> attack_sets;
+        for (size_t bits = 0; bits < table_size; ++bits) {
+            attack_sets.emplace_back(assign_bits(bb_attack_mask, bits), bb_attack_mask);
+        }
         MagicHash magic = find_magic(attack_sets);
         auto stats = magic.check_magic(attack_sets);
         assert(stats.valid);
@@ -144,7 +169,7 @@ const char* PART_THREE = R"(        };
 )";
 
 int main() {
-    std::ofstream fout("../../include/magic_defs.hpp");
+    std::ofstream fout("../../include/magics.hpp");
     // auto& fout = std::cout;
 
     fout << PART_ONE;

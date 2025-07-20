@@ -29,6 +29,9 @@ constexpr bool is_bishop_or_rook = (P == Piece::ROOK || P == Piece::BISHOP);
 template<Piece P>
 constexpr bool is_major_piece = ((idx(P) >= idx(Piece::KNIGHT)) && (idx(P) <= idx(Piece::KING)));
 
+template<Piece P>
+constexpr bool is_knight_or_king = (P == Piece::KNIGHT || P == Piece::KING);
+
 template<> struct enum_traits<Piece> :
     preincrement_ops,
     inequality_ops,
