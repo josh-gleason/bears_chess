@@ -10,6 +10,8 @@
 
 namespace bears_chess {
 
+void init_bitboards();
+
 enum class Bitboard : uint64_t {
     EMPTY = 0ULL,
     FULL = 0xffffffffffffffffULL,
@@ -538,9 +540,6 @@ inline size_t pext(Bitboard bb_occupied, Bitboard bb_attack_mask) {
     return _pext_u64(idx(bb_occupied), idx(bb_attack_mask));
 }
 #endif
-
-
-void init();
 
 class SliderAttacks {
     public:

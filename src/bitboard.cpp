@@ -88,7 +88,7 @@ void init_attack_table(SliderAttacks attacks[num_of<Square>]) {
     }
 }
 
-void init() {
+void init_bitboards() {
     init_attack_table<Piece::ROOK>(ROOK_ATTACKS);
     init_attack_table<Piece::BISHOP>(BISHOP_ATTACKS);
 }
