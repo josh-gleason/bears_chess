@@ -12,7 +12,8 @@
             "cacheVariables": {
                 "CMAKE_EXPORT_COMPILE_COMMANDS": "YES",
                 "CMAKE_CXX_COMPILER": "/usr/bin/clang++",
-                "CMAKE_CXX_FLAGS": "-Wunused-variable"
+                "CMAKE_CXX_FLAGS": "-Wunused-variable",
+                "BUILD_TESTING": "YES"
             }
         },
         {
@@ -38,30 +39,6 @@
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Debug"
             }
-        },
-        {
-            "name": "testing-debug",
-            "inherits": "debug",
-            "binaryDir": "${sourceDir}/build/${presetName}",
-            "cacheVariables": {
-                "BUILD_TESTING": "YES"
-            }
-        },
-        {
-            "name": "testing-release",
-            "inherits": "release",
-            "binaryDir": "${sourceDir}/build/${presetName}",
-            "cacheVariables": {
-                "BUILD_TESTING": "YES"
-            }
-        }
-    ],
-    "testPresets": [
-        {
-            "name": "test_all",
-            "description": "",
-            "displayName": "",
-            "configurePreset": "testing-release"
         }
     ]
 }
