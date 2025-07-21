@@ -176,13 +176,27 @@ constexpr CastlingRights clear_half_castling_rights(CastlingRights r, Color c) {
 
 template<Color color, Piece side> requires is_king_or_queen<side>
 constexpr bool castling_allowed(CastlingRights castling_rights) {
-    static_assert(side == Piece::KING || side == Piece::QUEEN, "only king or queen side castling possible");
     if constexpr (side == Piece::KING) {
-        return check_flag(castling_rights & CastlingRights::KINGS, CastlingRights::WHITE << (idx(color) * 2));
+        if constexpr (color == Color::WHITE) {
+            return check_flag(castling_rights, CastlingRights::WHITE_KING);
+        }
+        return check_flag(castling_rights, CastlingRights::BLACK_KING);
     } else {
-        return check_flag(castling_rights & CastlingRights::QUEENS, CastlingRights::WHITE << (idx(color) * 2));
+        if constexpr (color == Color::BLACK) {
+            return check_flag(castling_rights, CastlingRights::BLACK_QUEEN);
+        }
+        return check_flag(castling_rights, CastlingRights::WHITE_QUEEN);
     }
 }
+
+template<Color color>
+constexpr bool castling_allowed(CastlingRights castling_rights) {
+    if constexpr (color == Color::WHITE) {
+        return check_flag(castling_rights, CastlingRights::WHITE);
+    }
+    return check_flag(castling_rights, CastlingRights::BLACK);
+}
+
 
 enum class MoveType : int8_t {
     QUIET = 0b0000,

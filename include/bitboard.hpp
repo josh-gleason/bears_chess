@@ -388,6 +388,15 @@ constexpr std::array<Bitboard, num_of<Square>> BB_DIAG135_OF = []() {
     return table;
 }();
 
+template<Direction dir> requires is_ordinal<dir>
+inline Bitboard get_diag_of(Square sq) {
+    if constexpr (dir == Direction::NORTHEAST || dir == Direction::SOUTHWEST) {
+        return BB_DIAG45_OF[idx(sq)];
+    } else {
+        return BB_DIAG135_OF[idx(sq)];
+    }
+}
+
 // index of the lsb that is set, undefined for bb=0
 constexpr Square bitscan_forward(Bitboard bb) noexcept { return static_cast<Square>(__builtin_ctzll(idx(bb))); }
 // index of the msb that is set, undefined for bb=0

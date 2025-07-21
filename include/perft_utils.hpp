@@ -160,11 +160,9 @@ inline uint64_t perft(Board& board, int depth, const std::vector<DepthStats>::it
     }
 
     uint64_t nodes = 0;
-    auto moves = generate_moves<move_gen_type>(board);
-    if constexpr (move_gen_type == LEGAL && !collect_stats) {
-        if (depth == 1) {
-            return moves.size();
-        }
+    auto moves = depth > 1 ? generate_moves<move_gen_type>(board) : generate_moves<LEGAL>(board);
+    if (depth == 1) {
+        return moves.size();
     }
     for (const Move& move : moves) {
         UndoInfo undo = board.do_move(move);
@@ -194,7 +192,7 @@ PerftResults run_perft(const Board& board_orig, int max_depth) {
     auto single_move_stats_iter = single_move_stats.begin();
 
     auto start = std::chrono::steady_clock::now();
-    MoveList moves = generate_moves<move_gen_type>(board);
+    MoveList moves = max_depth > 1 ? generate_moves<move_gen_type>(board) : generate_moves<LEGAL>(board);
     for (auto move : moves) {
         uint64_t m_nodes = 0;
         UndoInfo undo = board.do_move(move);
@@ -236,7 +234,7 @@ PerftResults run_perft(const Board& board_orig, int max_depth) {
 
 
 template<MoveGenType move_gen_type=PSEUDO_LEGAL>
-std::vector<Move> test_do_undo(const Board& original, int depth) {
+std::vector<Move> test_do_undo_(const Board& original, int depth) {
     Board original_copy = Board(original);
     MoveList moves = generate_moves<move_gen_type>(original_copy);
 
@@ -331,7 +329,7 @@ std::vector<Move> test_do_undo(const Board& original, int depth) {
             undo = board.do_move(move);
             if (is_legal<move_gen_type>(board, move)) {
                 // recurse only for legal moves, not designed to undo two illegal moves in a row
-                auto movelist = test_do_undo<move_gen_type>(board, depth - 1);
+                auto movelist = test_do_undo_<move_gen_type>(board, depth - 1);
                 if (movelist.size() > 0) {
                     movelist.push_back(move);
                     return movelist;
@@ -341,6 +339,25 @@ std::vector<Move> test_do_undo(const Board& original, int depth) {
         }
     }
     return {};
+}
+
+template<MoveGenType move_gen_type=PSEUDO_LEGAL>
+std::vector<Move> test_do_undo(const Board& board, int max_depth) {
+    auto failure_moves = test_do_undo_<move_gen_type>(board, max_depth);
+    
+    if (!failure_moves.empty()) {
+        Board temp_board = board;
+        println("Failure");
+        println("Starting fen: {:F}", board);
+        for (auto it = failure_moves.rbegin(); it != failure_moves.rend(); ++it) {
+            Move move = *it;
+            println("    {}. {}", std::distance(failure_moves.rbegin(), it) + 1, move);
+            println("{}", show_highlights(temp_board, bb_square(move.from) | bb_square(move.to)));
+            temp_board.do_move(move);
+        }
+    }
+
+    return failure_moves;
 }
 
 inline void show_move_list(const Board& board, const MoveList& moves_in) {
