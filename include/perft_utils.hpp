@@ -7,6 +7,8 @@
 #include <unordered_map>
 #include <functional>
 #include <optional>
+#include <algorithm>
+#include <numeric>
 #include "board_utils.hpp"
 #include "movegen.hpp"
 #include "evaluation_utils.hpp"
@@ -30,22 +32,22 @@ using std::print, std::println;
 using MoveGenType::LEGAL, MoveGenType::PSEUDO_LEGAL;
 
 struct DepthStats {
-    uint64_t nodes{};
-    uint64_t captures{};
-    uint64_t eps{};
-    uint64_t castles{};
-    uint64_t promotions{};
-    uint64_t checks{};
-    uint64_t discovered_checks{};
-    uint64_t double_checks{};
-    uint64_t checkmates{};
+    uint64_t nodes = 0;
+    uint64_t captures = 0;
+    uint64_t eps = 0;
+    uint64_t castles = 0;
+    uint64_t promotions = 0;
+    uint64_t checks = 0;
+    uint64_t discovered_checks = 0;
+    uint64_t double_checks = 0;
+    uint64_t checkmates = 0;
 
-    std::string to_string(int depth) const {
-        return std::format(FMT_STR, depth, nodes, captures, eps, castles, promotions, checks, discovered_checks, double_checks, checkmates);
+    std::string to_string() const {
+        return std::format(FMT_STR, nodes, captures, eps, castles, promotions, checks, discovered_checks, double_checks, checkmates);
     }
 
     static std::string header_string() {
-        return std::format(DepthStats::FMT_STR, "depth", "nodes", "capture", "e.p.", "castle", "promotion", "check", "disc-check", "dbl-check", "checkmate");
+        return std::format(DepthStats::FMT_STR, "Nodes", "Captures", "En-Passants", "Castles", "Promotions", "Checks", "Discovery C.", "Double C.", "Checkmates");
     }
 
     inline void increment(const Board& board, const Move& last_move) {
@@ -60,8 +62,22 @@ struct DepthStats {
         checkmates += static_cast<int>(is_checkmate(board));
     }
 
+    const DepthStats operator+(const DepthStats& rhs) const {
+        return {
+            nodes + rhs.nodes,
+            captures + rhs.captures,
+            eps + rhs.eps,
+            castles + rhs.castles,
+            promotions + rhs.promotions,
+            checks + rhs.checks,
+            discovered_checks + rhs.discovered_checks,
+            double_checks + rhs.double_checks,
+            checkmates + rhs.checkmates
+        };
+    }
+
     private:
-        static constexpr const char* FMT_STR = "{:<7}{:<14}{:<14}{:<14}{:<14}{:<14}{:<14}{:<14}{:<14}{:<14}";
+        static constexpr const char* FMT_STR = "{:>14}{:>14}{:>14}{:>14}{:>14}{:>14}{:>14}{:>14}{:>14}";
 };
 
 struct PerftResults {
@@ -71,23 +87,40 @@ struct PerftResults {
     double time = 0.0;
     std::optional<std::vector<DepthStats>> depth_stats;
     std::optional<std::unordered_map<Move, uint64_t>> move_nodes;
+    std::optional<std::unordered_map<Move, DepthStats>> per_move_stats;
 
     const std::string to_string() const {
         std::string result = "Perft Results:\n";
         result += std::format("  FEN: {}\n", fen);
         if (depth_stats) {
             result += "  Depth Stats:\n";
-            result += std::format("    {}\n", DepthStats::header_string());
+            result += std::format("    {:>6}{}\n", "Depth", DepthStats::header_string());
             for (int depth = 0; depth < depth_stats->size(); ++depth) {
-                result += std::format("    {}\n", (*depth_stats)[depth].to_string(depth + 1));
+                result += std::format("    {:>6}{}\n", depth + 1, (*depth_stats)[depth].to_string());
             }
+            result += '\n';
         }
 
         if (move_nodes) {
-            result += "  Move Nodes:\n";
-            for (const auto& [move, count] : *move_nodes) {
-                result += std::format("    {:f}: {}\n", move, count);
+            result += "  Per-move:\n";
+            result += std::format("    {:>6}", "Move");
+            if (per_move_stats) {
+                result += DepthStats::header_string();
+            } else {
+                result += std::format("{:>14}", "Nodes");
             }
+            result += '\n';
+            for (const auto& [move, count] : *move_nodes) {
+                auto move_str = std::format("{:f}", move);
+                result += std::format("    {:>6}", move_str);
+                if (per_move_stats) {
+                    result += per_move_stats->at(move).to_string();
+                } else {
+                    result += std::format("{:>14}", count);
+                }
+                result += "\n";
+            }
+            result += '\n';
         }
 
         double nps = time > 0 ? nodes / time : 0.0;
@@ -152,10 +185,13 @@ PerftResults run_perft(const Board& board_orig, int max_depth) {
     Board board = board_orig;
 
     std::vector<DepthStats> perft_stats(max_depth);
+    std::vector<DepthStats> single_move_stats(max_depth - 1);
     std::unordered_map<Move, uint64_t> move_nodes;
+    std::unordered_map<Move, DepthStats> per_move_stats;
     uint64_t nodes = 0;
 
     auto stats_iter = perft_stats.begin();
+    auto single_move_stats_iter = single_move_stats.begin();
 
     auto start = std::chrono::steady_clock::now();
     MoveList moves = generate_moves<move_gen_type>(board);
@@ -165,8 +201,18 @@ PerftResults run_perft(const Board& board_orig, int max_depth) {
         if (is_legal<move_gen_type>(board, move)) {
             if constexpr (collect_stats) {
                 stats_iter->increment(board, move);
+                std::fill(single_move_stats.begin(), single_move_stats.end(), DepthStats());
             }
-            m_nodes += perft<move_gen_type, collect_stats>(board, max_depth - 1, stats_iter + 1);
+            m_nodes += perft<move_gen_type, collect_stats>(board, max_depth - 1, single_move_stats_iter);
+
+            if constexpr (collect_stats) {
+                for (int d = 1; d < max_depth; ++d) {
+                    perft_stats[d] = perft_stats[d] + single_move_stats[d - 1];
+                }
+            }
+            if constexpr (collect_stats && show_moves) {
+                per_move_stats[move] = max_depth > 1 ? single_move_stats.back() : DepthStats();
+            }
         }
         board.undo_move(undo);
         nodes += m_nodes;
@@ -183,7 +229,8 @@ PerftResults run_perft(const Board& board_orig, int max_depth) {
         nodes,
         elapsed,
         collect_stats ? std::optional<std::vector<DepthStats>>(std::move(perft_stats)) : std::nullopt,
-        show_moves ? std::optional<std::unordered_map<Move, uint64_t>>(std::move(move_nodes)) : std::nullopt
+        show_moves ? std::optional<std::unordered_map<Move, uint64_t>>(std::move(move_nodes)) : std::nullopt,
+        (collect_stats && show_moves) ? std::optional<std::unordered_map<Move, DepthStats>>(std::move(per_move_stats)) : std::nullopt,
     };
 }
 

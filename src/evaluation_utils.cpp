@@ -14,23 +14,23 @@ bool is_check(const Board& board) {
 }
 
 bool is_discovered_check(const Board& board, const Move& last_move) {
-    // a piece other than the last moved is checking the king
-    // TODO fix this, giving wrong results during perft
+    if (is_castle(last_move.move_type))
+        return false;
     Bitboard bb_checkers = (
         board.side_to_move == Color::WHITE
         ? calculate_checkers<Color::WHITE>(board)
         : calculate_checkers<Color::BLACK>(board)
     );
-    return nonzero(bb_checkers & ~bb_square(last_move.to));
+    return (popcount(bb_checkers) == 1) && nonzero(bb_checkers & ~bb_square(last_move.to));
+}
+
+template<Color color>
+bool is_double_check_(const Board& board) {
+    return popcount(calculate_checkers<color>(board)) == 2 && !is_checkmate_<color>(board);
 }
 
 bool is_double_check(const Board& board) {
-    Bitboard bb_checkers = (
-        board.side_to_move == Color::WHITE
-        ? calculate_checkers<Color::WHITE>(board)
-        : calculate_checkers<Color::BLACK>(board)
-    );
-    return popcount(bb_checkers) == 2;
+    return (board.side_to_move == Color::WHITE ? is_double_check_<Color::WHITE>(board) : is_double_check_<Color::BLACK>(board));
 }
 
 template<Color color>
