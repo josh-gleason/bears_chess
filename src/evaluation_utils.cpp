@@ -37,8 +37,8 @@ template<Color color>
 bool is_checkmate_(const Board& board) {
     LegalPolicy policy;
 
-    policy.cache.opponent_attacks = calculate_opponent_attacks<color, true>(board);
-    policy.cache.checkers = calculate_checkers<color, true>(board, policy.cache.opponent_attacks);
+    policy.cache.king_unallowed = calculate_opponent_attacks<color, true>(board);
+    policy.cache.checkers = calculate_checkers<color, true>(board, policy.cache.king_unallowed);
     const int num_checkers = popcount(policy.cache.checkers);
 
     MoveList moves;
@@ -52,9 +52,9 @@ bool is_checkmate_(const Board& board) {
         generate_castle_moves<LegalPolicy, color>(board, moves, policy);
         if (!moves.empty()) return false;
         policy.cache.block_mask = num_checkers == 0 ? Bitboard::FULL : policy.cache.checkers;
-        policy.cache.pinned_pieces = (
-            calculate_pinned_pieces<color, Piece::ROOK>(board, policy.cache.pin_masks, policy.cache.block_mask) |
-            calculate_pinned_pieces<color, Piece::BISHOP>(board, policy.cache.pin_masks, policy.cache.block_mask)
+        policy.cache.pinned = (
+            calculate_pinned_pieces<color, Piece::ROOK>(board, policy.cache.pin_rays, policy.cache.block_mask) |
+            calculate_pinned_pieces<color, Piece::BISHOP>(board, policy.cache.pin_rays, policy.cache.block_mask)
         );
         generate_knight_moves<LegalPolicy, color>(board, moves, policy);
         if (!moves.empty()) return false;
