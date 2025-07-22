@@ -7,7 +7,11 @@ constexpr int MAX_MOVES = 218;
 
 class MoveList {
 public:
-    MoveList() : cur(moves) {};
+    typedef std::array<Move, MAX_MOVES> ListType;
+    typedef ListType::iterator iterator;
+    typedef ListType::const_iterator const_iterator;
+
+    MoveList() : cur(moves.begin()) {};
 
     inline void emplace_back(Move move) {
         *(cur++) = move;
@@ -17,17 +21,17 @@ public:
         *(cur++) = {from, to, move_type};
     }
     
-    inline bool empty() const { return cur == moves; }
-    inline size_t size() const { return cur - moves; }
+    inline bool empty() const { return cur == moves.begin(); }
+    inline size_t size() const { return cur - moves.begin(); }
 
-    const Move* cbegin() const { return moves; }
-    const Move* cend() const { return cur; }
+    const_iterator cbegin() const { return const_cast<const_iterator>(cur); }
+    const_iterator cend() const { return cur; }
 
-    Move* begin() { return moves; }
-    Move* end() { return cur; }
+    iterator begin() { return moves.begin(); }
+    iterator end() { return cur; }
 private:
-    Move* cur;
-    Move moves[MAX_MOVES];
+    iterator cur;
+    ListType moves;
 };
 
 } // namespace bears_chess
