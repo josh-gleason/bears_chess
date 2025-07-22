@@ -11,12 +11,14 @@ MoveList generate_pseudo_legal_moves_(const Board& board) {
     MoveList moves;
     moves.reserve(MAX_MOVES);
 
-    generate_knight_moves<color>(board, moves);
-    generate_king_moves<color>(board, moves);
-    generate_pawn_moves<color>(board, moves);
-    generate_slider_moves<color, Piece::ROOK>(board, moves);
-    generate_slider_moves<color, Piece::BISHOP>(board, moves);
-    generate_castle_moves<color>(board, moves);
+    PseudoLegalPolicy policy;
+
+    generate_knight_moves<PseudoLegalPolicy, color>(board, moves, policy);
+    generate_king_moves<PseudoLegalPolicy, color>(board, moves, policy);
+    generate_pawn_moves<PseudoLegalPolicy, color>(board, moves, policy);
+    generate_slider_moves<PseudoLegalPolicy, color, Piece::ROOK>(board, moves, policy);
+    generate_slider_moves<PseudoLegalPolicy, color, Piece::BISHOP>(board, moves, policy);
+    generate_castle_moves<PseudoLegalPolicy, color>(board, moves, policy);
 
     return moves;
 }
@@ -30,30 +32,29 @@ MoveList generate_pseudo_legal_moves(const Board& board) {
 
 template<Color color>
 MoveList generate_legal_moves_(const Board& board) {
-    BoardCache cache;
     MoveList moves;
     moves.reserve(MAX_MOVES);
 
-    cache.opponent_attacks = calculate_opponent_attacks<color, true>(board);
-    cache.checkers = calculate_checkers<color, true>(board, cache.opponent_attacks);
-    int num_checkers = popcount(cache.checkers);
+    LegalPolicy policy;
+
+    policy.cache.opponent_attacks = calculate_opponent_attacks<color, true>(board);
+    policy.cache.checkers = calculate_checkers<color, true>(board, policy.cache.opponent_attacks);
+    int num_checkers = popcount(policy.cache.checkers);
 
     if (num_checkers == 2) {
-        generate_legal_king_moves<color>(board, moves, cache);
+        generate_king_moves<LegalPolicy, color>(board, moves, policy);
     } else {
-        // hold mask of squares we can move pieces to to block check
-        cache.block_mask = num_checkers == 0 ? Bitboard::FULL : cache.checkers;
-        cache.pinned_pieces = (
-            calculate_pinned_pieces<color, Piece::ROOK>(board, cache.pin_masks, cache.block_mask)
-            | calculate_pinned_pieces<color, Piece::BISHOP>(board, cache.pin_masks, cache.block_mask)
-        );
+        policy.cache.block_mask = num_checkers == 0 ? Bitboard::FULL : policy.cache.checkers;
+        policy.cache.pinned_pieces =
+            calculate_pinned_pieces<color, Piece::ROOK>(board, policy.cache.pin_masks, policy.cache.block_mask)
+            | calculate_pinned_pieces<color, Piece::BISHOP>(board, policy.cache.pin_masks, policy.cache.block_mask);
 
-        generate_legal_king_moves<color>(board, moves, cache);
-        generate_legal_knight_moves<color>(board, moves, cache);
-        generate_legal_slider_moves<color, Piece::ROOK>(board, moves, cache);
-        generate_legal_slider_moves<color, Piece::BISHOP>(board, moves, cache);
-        generate_legal_pawn_moves<color>(board, moves, cache);
-        generate_legal_castle_moves<color>(board, moves, cache);
+        generate_king_moves<LegalPolicy, color>(board, moves, policy);
+        generate_knight_moves<LegalPolicy, color>(board, moves, policy);
+        generate_slider_moves<LegalPolicy, color, Piece::ROOK>(board, moves, policy);
+        generate_slider_moves<LegalPolicy, color, Piece::BISHOP>(board, moves, policy);
+        generate_pawn_moves<LegalPolicy, color>(board, moves, policy);
+        generate_castle_moves<LegalPolicy, color>(board, moves, policy);
     }
 
     return moves;

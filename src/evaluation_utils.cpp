@@ -35,32 +35,35 @@ bool is_double_check(const Board& board) {
 
 template<Color color>
 bool is_checkmate_(const Board& board) {
+    LegalPolicy policy;
+
+    policy.cache.opponent_attacks = calculate_opponent_attacks<color, true>(board);
+    policy.cache.checkers = calculate_checkers<color, true>(board, policy.cache.opponent_attacks);
+    const int num_checkers = popcount(policy.cache.checkers);
+
     MoveList moves;
-    BoardCache cache;
-    cache.opponent_attacks = calculate_opponent_attacks<color, true>(board);
-    Bitboard checkers = calculate_checkers<color, true>(board, cache.opponent_attacks);
-    int num_checkers = popcount(checkers);
+    moves.reserve(16);
 
     if (num_checkers == 2) {
-        generate_legal_king_moves<color>(board, moves, cache);
+        generate_king_moves<LegalPolicy, color>(board, moves, policy);
         return moves.empty();
     } else if (num_checkers == 1) {
-        generate_legal_king_moves<color>(board, moves, cache);
+        generate_king_moves<LegalPolicy, color>(board, moves, policy);
         if (!moves.empty()) return false;
-        generate_legal_castle_moves<color>(board, moves, cache);
+        generate_castle_moves<LegalPolicy, color>(board, moves, policy);
         if (!moves.empty()) return false;
-        cache.block_mask = checkers;
-        cache.pinned_pieces = (
-            calculate_pinned_pieces<color, Piece::ROOK>(board, cache.pin_masks, cache.block_mask)
-            | calculate_pinned_pieces<color, Piece::BISHOP>(board, cache.pin_masks, cache.block_mask)
+        policy.cache.block_mask = num_checkers == 0 ? Bitboard::FULL : policy.cache.checkers;
+        policy.cache.pinned_pieces = (
+            calculate_pinned_pieces<color, Piece::ROOK>(board, policy.cache.pin_masks, policy.cache.block_mask) |
+            calculate_pinned_pieces<color, Piece::BISHOP>(board, policy.cache.pin_masks, policy.cache.block_mask)
         );
-        generate_legal_knight_moves<color>(board, moves, cache);
+        generate_knight_moves<LegalPolicy, color>(board, moves, policy);
         if (!moves.empty()) return false;
-        generate_legal_slider_moves<color, Piece::ROOK>(board, moves, cache);
+        generate_slider_moves<LegalPolicy, color, Piece::ROOK>(board, moves, policy);
         if (!moves.empty()) return false;
-        generate_legal_slider_moves<color, Piece::BISHOP>(board, moves, cache);
+        generate_slider_moves<LegalPolicy, color, Piece::BISHOP>(board, moves, policy);
         if (!moves.empty()) return false;
-        generate_legal_pawn_moves<color>(board, moves, cache);
+        generate_pawn_moves<LegalPolicy, color>(board, moves, policy);
         return moves.empty();
     }
     return false;
