@@ -382,26 +382,24 @@ template<Color color, Piece move_type> requires is_bishop_or_rook<move_type>
 inline Bitboard calculate_pinned_pieces(
     const Board& board, Bitboard pin_masks[num_of<IndexDirection>], Bitboard& block_check
 ) {
+    constexpr Color opponent_color = ~color;
     Bitboard pinned = Bitboard::EMPTY;
 
     Square king_square = board.king_sq[idx(board.side_to_move)];
-    constexpr Color opponent_color = ~color;
 
     Bitboard enemy_sliders = (
-        board.pieces[idx(opponent_color)][idx(move_type)]
-        | board.pieces[idx(opponent_color)][idx(Piece::QUEEN)]
+        board.pieces[idx(opponent_color)][idx(move_type)] |
+        board.pieces[idx(opponent_color)][idx(Piece::QUEEN)]
     );
 
     for (Square pinner_sq : BBSquareScan(enemy_sliders)) {
         Bitboard between = BB_RAY<move_type>[idx(pinner_sq)][idx(king_square)];
 
-        Bitboard my_pieces_between = between & board.occupied_by_color[idx(color)];
         Bitboard opponent_pieces_between = between & board.occupied_by_color[idx(opponent_color)];
-
-        int my_piece_count = popcount(my_pieces_between);
         int opponent_piece_count = popcount(opponent_pieces_between);
-
         if (opponent_piece_count == 1) {
+            Bitboard my_pieces_between = between & board.occupied_by_color[idx(color)];
+            int my_piece_count = popcount(my_pieces_between);
             if (my_piece_count == 0) {
                 // king is checked by a slider
                 block_check |= between;
