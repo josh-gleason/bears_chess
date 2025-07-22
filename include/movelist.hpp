@@ -11,7 +11,13 @@ public:
     typedef ListType::iterator iterator;
     typedef ListType::const_iterator const_iterator;
 
-    MoveList() : cur(moves.begin()) {};
+#pragma gcc diagnostic push
+#pragma clang diagnostic push
+#pragma gcc diagnostic ignored "-Wuninitialized"
+#pragma clang diagnostic ignored "-Wuninitialized"
+    MoveList() : cur(moves.begin()) {}
+#pragma gcc diagnostic pop
+#pragma clang diagnostic pop
 
     inline void emplace_back(Move move) {
         *(cur++) = move;
