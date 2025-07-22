@@ -364,13 +364,21 @@ inline Bitboard calculate_checkers(const Board& board) {
     Bitboard bb_opponent_pawns = board.pieces[idx(opponent_color)][idx(Piece::PAWN)];
     Bitboard bb_opponent_knights = board.pieces[idx(opponent_color)][idx(Piece::KNIGHT)];
     Bitboard bb_opponent_queens = board.pieces[idx(opponent_color)][idx(Piece::QUEEN)];
-    Bitboard bb_opponent_rooks = board.pieces[idx(opponent_color)][idx(Piece::ROOK)];
-    Bitboard bb_opponent_bishops = board.pieces[idx(opponent_color)][idx(Piece::BISHOP)];
+    Bitboard bb_opponent_rooklike = (
+        board.pieces[idx(opponent_color)][idx(Piece::ROOK)] | bb_opponent_queens
+    );
+    Bitboard bb_opponent_bishoplike = (
+        board.pieces[idx(opponent_color)][idx(Piece::BISHOP)] | bb_opponent_queens
+    );
 
     Bitboard bb_knight_checkers = bb_attacks<Piece::KNIGHT>(king_square) & bb_opponent_knights;
     Bitboard bb_pawn_checkers = bb_attacks<color, Piece::PAWN>(king_square) & bb_opponent_pawns;
-    Bitboard bb_rook_checkers = bb_attacks<Piece::ROOK>(king_square, board.occupied) & (bb_opponent_rooks | bb_opponent_queens);
-    Bitboard bb_bishop_checkers = bb_attacks<Piece::BISHOP>(king_square, board.occupied) & (bb_opponent_bishops | bb_opponent_queens);
+    Bitboard bb_rook_checkers = bb_attacks<Piece::ROOK>(king_square, board.occupied) & bb_opponent_rooklike;
+    Bitboard bb_bishop_checkers = bb_attacks<Piece::BISHOP>(king_square, board.occupied) & bb_opponent_bishoplike;
+
+    for (Square sq : BBSquareScan(bb_rook_checkers)) {
+        bb_block_mask |= 
+    }
 
     return bb_knight_checkers | bb_pawn_checkers | bb_rook_checkers | bb_bishop_checkers;
 }
@@ -385,9 +393,8 @@ inline Bitboard calculate_checkers(const Board& board, Bitboard bb_king_unallowe
 }
 
 template<Color color, Piece move_type> requires is_bishop_or_rook<move_type>
-inline Bitboard calculate_pinned_pieces(
-    const Board& board, Bitboard bb_pin_rays[num_of<IndexDirection>], Bitboard& bb_block_check
-) {
+inline Bitboard calculate_pinned_pieces(const Board& board, Bitboard bb_pin_rays[num_of<IndexDirection>])
+{
     constexpr Color opponent_color = ~color;
 
     Bitboard bb_pinned = Bitboard::EMPTY;
@@ -405,10 +412,7 @@ inline Bitboard calculate_pinned_pieces(
         if (opponent_piece_count == 1) {
             Bitboard bb_my_pieces_between = bb_between & board.occupied_by_color[idx(color)];
             int my_piece_count = popcount(bb_my_pieces_between);
-            if (my_piece_count == 0) {
-                // king is checked by a slider
-                bb_block_check |= bb_between;
-            } else if (my_piece_count == 1) {
+            if (my_piece_count == 1) {
                 IndexDirection pinner_dir = DIR_BETWEEN<IndexDirection>[idx(king_square)][idx(pinner_sq)];
                 bb_pin_rays[idx(pinner_dir)] = bb_between;
                 bb_pinned |= bb_my_pieces_between;
@@ -417,6 +421,20 @@ inline Bitboard calculate_pinned_pieces(
     }
 
     return bb_pinned;
+}
+
+template<Color color>
+inline Bitboard calculate_block_mask(const Board& board, Bitboard bb_checkers) {
+    if zero(bb_checkers) {
+        return Bitboard::FULL;
+    }
+
+    Square king_sq = board.king_sq[idx(board.side_to_move)];
+    Bitboard bb_occupied = board.occupied;
+
+    Bitboard bb_rook_attack = bb_attacks<Piece::ROOK>(king_sq, bb_occupied);
+    Bitboard bb_bishop_attack = bb_attacks<Piece::BISHOP>(king_sq, bb_occupied);
+
 }
 
 } // namespace bears_chess
