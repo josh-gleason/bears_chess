@@ -4,12 +4,9 @@
 
 namespace bears_chess {
 
-constexpr size_t MAX_MOVES = 218;
-
 template <Color color>
 MoveList generate_pseudo_legal_moves_(const Board& board) {
     MoveList moves;
-    moves.reserve(MAX_MOVES);
 
     PseudoLegalPolicy policy;
 
@@ -32,10 +29,8 @@ MoveList generate_pseudo_legal_moves(const Board& board) {
 
 template<Color color>
 MoveList generate_legal_moves_(const Board& board) {
-    MoveList moves;
-    moves.reserve(MAX_MOVES);
-
     LegalPolicy policy;
+    MoveList moves;
 
     policy.cache.opponent_attacks = calculate_opponent_attacks<color, true>(board);
     policy.cache.checkers = calculate_checkers<color, true>(board, policy.cache.opponent_attacks);

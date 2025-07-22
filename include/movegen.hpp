@@ -2,6 +2,7 @@
 
 #include "types.hpp"
 #include "board.hpp"
+#include "movelist.hpp"
 
 namespace bears_chess {
 

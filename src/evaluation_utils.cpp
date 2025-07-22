@@ -42,7 +42,6 @@ bool is_checkmate_(const Board& board) {
     const int num_checkers = popcount(policy.cache.checkers);
 
     MoveList moves;
-    moves.reserve(16);
 
     if (num_checkers == 2) {
         generate_king_moves<LegalPolicy, color>(board, moves, policy);

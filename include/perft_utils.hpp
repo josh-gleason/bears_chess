@@ -362,7 +362,7 @@ std::vector<Move> test_do_undo(const Board& board, int max_depth) {
 
 inline void show_move_list(const Board& board, const MoveList& moves_in) {
     println("# Moves: {}", moves_in.size());
-    MoveList moves(moves_in.cbegin(), moves_in.cend());
+    std::vector<Move> moves(moves_in.cbegin(), moves_in.cend());
     for (Square from : BBSquareScan(board.occupied_by_color[idx(board.side_to_move)])) {
         Bitboard highlights = bb_square(from);
         for (int i = moves.size() - 1; i >= 0; --i) {

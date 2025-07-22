@@ -3,6 +3,7 @@
 #include "types.hpp"
 #include "bitboard.hpp"
 #include "board.hpp"
+#include "movelist.hpp"
 
 namespace bears_chess {
 

@@ -414,9 +414,6 @@ constexpr Square double_push_ep_square(Color side_to_move, Square to) {
     return sq_shift(to, static_cast<Direction>((idx(side_to_move) << 4) - 8));
 }
 
-
-using MoveList = std::vector<Move>;
-
 template<typename T, size_t N>
 constexpr bool all_unique(const std::array<T, N>& arr) {
     for (size_t i = 0; i < N; ++i)
