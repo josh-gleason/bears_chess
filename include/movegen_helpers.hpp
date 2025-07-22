@@ -391,7 +391,7 @@ inline Bitboard calculate_pinned_pieces(
         | board.pieces[idx(opponent_color)][idx(Piece::QUEEN)]
     );
 
-    for (auto pinner_sq : BBSquareScan(enemy_sliders)) {
+    for (Square pinner_sq : BBSquareScan(enemy_sliders)) {
         Bitboard between = BB_RAY<move_type>[idx(pinner_sq)][idx(king_square)];
 
         Bitboard my_pieces_between = between & board.occupied_by_color[idx(color)];

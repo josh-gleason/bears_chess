@@ -25,7 +25,7 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND CMAKE_BUILD_TYPE STREQUAL "Release
     )
 endif()
 
-if (CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
+if (CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo" OR CMAKE_BUILD_TYPE STREQUAL "Debug")
     set(CALLGRIND_ARGS
         --callgrind-out-file=${CMAKE_BINARY_DIR}/perft.callgrind.out
     )
