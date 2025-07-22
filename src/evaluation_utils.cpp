@@ -37,32 +37,32 @@ template<Color color>
 bool is_checkmate_(const Board& board) {
     LegalPolicy policy;
 
-    policy.cache.king_unallowed = calculate_opponent_attacks<color, true>(board);
-    policy.cache.checkers = calculate_checkers<color, true>(board, policy.cache.king_unallowed);
-    const int num_checkers = popcount(policy.cache.checkers);
+    policy.king_unallowed = calculate_opponent_attacks<color, true>(board);
+    policy.checkers = calculate_checkers<color>(board, policy.king_unallowed);
+    int num_checkers = popcount(policy.checkers);
 
     MoveList moves;
 
     if (num_checkers == 2) {
-        generate_king_moves<LegalPolicy, color>(board, moves, policy);
+        generate_king_moves<color>(board, moves, policy);
         return moves.empty();
     } else if (num_checkers == 1) {
-        generate_king_moves<LegalPolicy, color>(board, moves, policy);
+        generate_king_moves<color>(board, moves, policy);
         if (!moves.empty()) return false;
-        generate_castle_moves<LegalPolicy, color>(board, moves, policy);
+        generate_castle_moves<color>(board, moves, policy);
         if (!moves.empty()) return false;
-        policy.cache.block_mask = num_checkers == 0 ? Bitboard::FULL : policy.cache.checkers;
-        policy.cache.pinned = (
-            calculate_pinned_pieces<color, Piece::ROOK>(board, policy.cache.pin_rays, policy.cache.block_mask) |
-            calculate_pinned_pieces<color, Piece::BISHOP>(board, policy.cache.pin_rays, policy.cache.block_mask)
+        policy.evasion_mask = num_checkers == 0 ? Bitboard::FULL : policy.checkers;
+        policy.pinned = (
+            calculate_pinned_pieces<color, Piece::ROOK>(board, policy.pin_rays, policy.evasion_mask) |
+            calculate_pinned_pieces<color, Piece::BISHOP>(board, policy.pin_rays, policy.evasion_mask)
         );
-        generate_knight_moves<LegalPolicy, color>(board, moves, policy);
+        generate_knight_moves<color>(board, moves, policy);
         if (!moves.empty()) return false;
-        generate_slider_moves<LegalPolicy, color, Piece::ROOK>(board, moves, policy);
+        generate_slider_moves<color, Piece::ROOK>(board, moves, policy);
         if (!moves.empty()) return false;
-        generate_slider_moves<LegalPolicy, color, Piece::BISHOP>(board, moves, policy);
+        generate_slider_moves<color, Piece::BISHOP>(board, moves, policy);
         if (!moves.empty()) return false;
-        generate_pawn_moves<LegalPolicy, color>(board, moves, policy);
+        generate_pawn_moves<color>(board, moves, policy);
         return moves.empty();
     }
     return false;
