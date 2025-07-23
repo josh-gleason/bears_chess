@@ -4,10 +4,10 @@
 #include "board.hpp"
 #include "movegen/policy.hpp"
 #include "movegen/init_policy.hpp"
-#include "movegen/kings.hpp"
-#include "movegen/knights.hpp"
-#include "movegen/sliders.hpp"
-#include "movegen/pawns.hpp"
+#include "movegen/king_moves.hpp"
+#include "movegen/knight_moves.hpp"
+#include "movegen/slider_moves.hpp"
+#include "movegen/pawn_moves.hpp"
 
 namespace bears_chess {
 
@@ -31,7 +31,7 @@ struct LegalPolicy {
 
 
 template<Color color, MoveGenPolicy Policy>
-MoveList generate_moves(const Board& board) {
+inline MoveList generate_moves(const Board& board) {
     Policy policy;
     MoveList moves;
 
@@ -50,7 +50,7 @@ MoveList generate_moves(const Board& board) {
 }
 
 template <MoveGenPolicy Policy>
-MoveList generate_moves(const Board& board) {
+inline MoveList generate_moves(const Board& board) {
     if (board.side_to_move == Color::WHITE)
         return generate_moves<Color::WHITE, Policy>(board);
     return generate_moves<Color::BLACK, Policy>(board);

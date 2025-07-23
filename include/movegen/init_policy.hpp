@@ -3,7 +3,7 @@
 #include "bitboard.hpp"
 #include "board.hpp"
 #include "movegen/policy.hpp"
-#include "movegen/attacks.hpp"
+#include "movegen/attack_masks.hpp"
 
 namespace bears_chess {
 
