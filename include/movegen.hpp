@@ -50,7 +50,7 @@ inline MoveList generate_moves(const Board& board) {
 }
 
 template <MoveGenPolicy Policy>
-inline MoveList generate_moves(const Board& board) {
+MoveList generate_moves(const Board& board) {
     if (board.side_to_move == Color::WHITE)
         return generate_moves<Color::WHITE, Policy>(board);
     return generate_moves<Color::BLACK, Policy>(board);
