@@ -15,12 +15,11 @@ concept MoveGenPolicy = requires(const T& policy) {
 
     requires (!T::enforce_king_safety) || requires {
         { T::king_unallowed } -> std::same_as<Bitboard&>;
+    };
+    requires (!T::enforce_evasions) || requires {
+        { T::evasion_mask } -> std::same_as<Bitboard&>;
         { T::checkers } -> std::same_as<Bitboard&>;
     };
-    requires (!T::enforce_evasions) || (
-        T::enforce_king_safety && // must enforce king_safety if enforcing evasions
-        requires { { T::evasion_mask } -> std::same_as<Bitboard&>; }
-    );
     requires (!T::enforce_pins) || requires {
         { T::pinned } -> std::same_as<Bitboard&>;
         { T::pin_rays } -> std::same_as<Bitboard(&)[num_of<IndexDirection>]>;
@@ -289,7 +288,7 @@ inline void generate_castle_moves(const Board& board, MoveList& moves, const Pol
         return;
     }
 
-    if constexpr (Policy::enforce_king_safety) {
+    if constexpr (Policy::enforce_evasions) {
         if (nonzero(policy.checkers)) {
             return;
         }
@@ -394,17 +393,19 @@ inline int calculate_checkers(const Board& board, Policy& policy) {
     return 0;
 }
 
-template<Color color, MoveGenPolicy Policy>
-    requires (Policy::enforce_king_safety && Policy::enforce_evasions)
+template<Color color, MoveGenPolicy Policy> requires Policy::enforce_evasions
 inline int calculate_checkers(const Board& board, Policy& policy) {
     constexpr Color opponent_color = ~color;
 
     Square king_sq = board.king_sq[idx(color)];
 
-    if (zero(policy.king_unallowed & bb_square(king_sq))) {
-        policy.checkers = Bitboard::EMPTY;
-        policy.evasion_mask = Bitboard::FULL;
-        return 0;
+    if constexpr (Policy::enforce_king_safety) {
+        // exit early if we are in check
+        if (zero(policy.king_unallowed & bb_square(king_sq))) {
+            policy.checkers = Bitboard::EMPTY;
+            policy.evasion_mask = Bitboard::FULL;
+            return 0;
+        }
     }
 
     Bitboard bb_opponent_pawns = board.pieces[idx(opponent_color)][idx(Piece::PAWN)];
@@ -425,15 +426,18 @@ inline int calculate_checkers(const Board& board, Policy& policy) {
     policy.checkers = bb_knight_checkers | bb_pawn_checkers | bb_rook_checkers | bb_bishop_checkers;
     int num_checkers = popcount(policy.checkers);
 
-    if (num_checkers == 1) {
-        policy.evasion_mask = policy.checkers;
-        for (Square checker_sq : BBSquareScan(bb_rook_checkers | bb_bishop_checkers)) {
-            policy.evasion_mask |= BB_RAY<Piece::QUEEN>[idx(checker_sq)][idx(king_sq)];
-        }
-    } else if (num_checkers == 2) {
-        policy.evasion_mask = Bitboard::EMPTY;
-    } else {
-        policy.evasion_mask = Bitboard::FULL;
+    switch (num_checkers) {
+        case 1:
+            policy.evasion_mask = policy.checkers;
+            for (Square checker_sq : BBSquareScan(bb_rook_checkers | bb_bishop_checkers)) {
+                policy.evasion_mask |= BB_RAY<Piece::QUEEN>[idx(checker_sq)][idx(king_sq)];
+            }
+            break;
+        case 2:
+            policy.evasion_mask = Bitboard::EMPTY;
+            break;
+        default:
+            policy.evasion_mask = Bitboard::FULL;
     }
 
     return num_checkers;
