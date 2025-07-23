@@ -357,9 +357,9 @@ inline Bitboard calculate_opponent_attacks(const Board& board) {
 }
 
 template<Color color>
-inline Bitboard calculate_checkers(const Board& board) {
+inline Bitboard calculate_checkers(const Board& board, Bitboard& bb_block_mask) {
     constexpr Color opponent_color = ~color;
-    Square king_square = board.king_sq[idx(color)];
+    Square king_sq = board.king_sq[idx(color)];
 
     Bitboard bb_opponent_pawns = board.pieces[idx(opponent_color)][idx(Piece::PAWN)];
     Bitboard bb_opponent_knights = board.pieces[idx(opponent_color)][idx(Piece::KNIGHT)];
@@ -371,16 +371,19 @@ inline Bitboard calculate_checkers(const Board& board) {
         board.pieces[idx(opponent_color)][idx(Piece::BISHOP)] | bb_opponent_queens
     );
 
-    Bitboard bb_knight_checkers = bb_attacks<Piece::KNIGHT>(king_square) & bb_opponent_knights;
-    Bitboard bb_pawn_checkers = bb_attacks<color, Piece::PAWN>(king_square) & bb_opponent_pawns;
-    Bitboard bb_rook_checkers = bb_attacks<Piece::ROOK>(king_square, board.occupied) & bb_opponent_rooklike;
-    Bitboard bb_bishop_checkers = bb_attacks<Piece::BISHOP>(king_square, board.occupied) & bb_opponent_bishoplike;
+    Bitboard bb_knight_checkers = bb_attacks<Piece::KNIGHT>(king_sq) & bb_opponent_knights;
+    Bitboard bb_pawn_checkers = bb_attacks<color, Piece::PAWN>(king_sq) & bb_opponent_pawns;
+    Bitboard bb_rook_checkers = bb_attacks<Piece::ROOK>(king_sq, board.occupied) & bb_opponent_rooklike;
+    Bitboard bb_bishop_checkers = bb_attacks<Piece::BISHOP>(king_sq, board.occupied) & bb_opponent_bishoplike;
 
-    for (Square sq : BBSquareScan(bb_rook_checkers)) {
-        bb_block_mask |= 
+    Bitboard bb_checkers = bb_knight_checkers | bb_pawn_checkers | bb_rook_checkers | bb_bishop_checkers;
+
+    bb_block_mask |= bb_checkers;
+    for (Square checker_sq : BBSquareScan(bb_rook_checkers | bb_bishop_checkers)) {
+        bb_block_mask |= BB_RAY<move_type>[idx(checker_sq)][idx(king_sq)];
     }
 
-    return bb_knight_checkers | bb_pawn_checkers | bb_rook_checkers | bb_bishop_checkers;
+    return bb_checkers;
 }
 
 template<Color color>
