@@ -47,10 +47,11 @@ inline int init_evasions(const Board& board, Policy& policy) {
         board.pieces[idx(opponent_color)][idx(Piece::BISHOP)] | bb_opponent_queens
     );
 
-    Bitboard bb_knight_checkers = bb_attacks<Piece::KNIGHT>(king_sq) & bb_opponent_knights;
-    Bitboard bb_pawn_checkers = bb_attacks<color, Piece::PAWN>(king_sq) & bb_opponent_pawns;
-    Bitboard bb_rook_checkers = bb_attacks<Piece::ROOK>(king_sq, board.occupied) & bb_opponent_rooklike;
-    Bitboard bb_bishop_checkers = bb_attacks<Piece::BISHOP>(king_sq, board.occupied) & bb_opponent_bishoplike;
+    Bitboard occupied = board.occupied;
+    Bitboard bb_knight_checkers = bb_opponent_knights & bb_attacks<Piece::KNIGHT>(king_sq);
+    Bitboard bb_pawn_checkers = bb_opponent_pawns & bb_attacks<color, Piece::PAWN>(king_sq);
+    Bitboard bb_rook_checkers = bb_opponent_rooklike & bb_attacks<Piece::ROOK>(king_sq, occupied);
+    Bitboard bb_bishop_checkers = bb_opponent_bishoplike & bb_attacks<Piece::BISHOP>(king_sq, occupied);
 
     policy.checkers = bb_knight_checkers | bb_pawn_checkers | bb_rook_checkers | bb_bishop_checkers;
     int num_checkers = popcount(policy.checkers);
