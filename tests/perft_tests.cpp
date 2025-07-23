@@ -3,7 +3,6 @@
 #include <gtest/gtest.h>
 
 using namespace bears_chess;
-using MoveGenType::LEGAL, MoveGenType::PSEUDO_LEGAL;
 
 class PerftTest : public ::testing::Test {
 protected:
@@ -13,49 +12,49 @@ protected:
 };
 
 TEST_F(PerftTest, StartPosDepth6) {
-    EXPECT_EQ(run_perft<LEGAL>(load_fen(INITIAL_POSITION_FEN), 6).nodes, 119060324);
+    EXPECT_EQ(run_perft<LegalPolicy>(load_fen(INITIAL_POSITION_FEN), 6).nodes, 119060324);
 }
 
 TEST_F(PerftTest, KiwiPeteDepth5) {
-    EXPECT_EQ(run_perft<LEGAL>(load_fen(PERFT_POSITION_2_FEN), 5).nodes, 193690690);
+    EXPECT_EQ(run_perft<LegalPolicy>(load_fen(PERFT_POSITION_2_FEN), 5).nodes, 193690690);
 }
 
 TEST_F(PerftTest, Pos3Depth7) {
-    EXPECT_EQ(run_perft<LEGAL>(load_fen(PERFT_POSITION_3_FEN), 7).nodes, 178633661);
+    EXPECT_EQ(run_perft<LegalPolicy>(load_fen(PERFT_POSITION_3_FEN), 7).nodes, 178633661);
 }
 
 TEST_F(PerftTest, Pos4Depth6) {
-    EXPECT_EQ(run_perft<LEGAL>(load_fen(PERFT_POSITION_4_FEN), 6).nodes, 706045033);
+    EXPECT_EQ(run_perft<LegalPolicy>(load_fen(PERFT_POSITION_4_FEN), 6).nodes, 706045033);
 }
 
 TEST_F(PerftTest, Pos5Depth5) {
-    EXPECT_EQ(run_perft<LEGAL>(load_fen(PERFT_POSITION_5_FEN), 5).nodes, 89941194);
+    EXPECT_EQ(run_perft<LegalPolicy>(load_fen(PERFT_POSITION_5_FEN), 5).nodes, 89941194);
 }
 
 TEST_F(PerftTest, Pos6Depth5) {
-    EXPECT_EQ(run_perft<LEGAL>(load_fen(PERFT_POSITION_6_FEN), 5).nodes, 164075551);
+    EXPECT_EQ(run_perft<LegalPolicy>(load_fen(PERFT_POSITION_6_FEN), 5).nodes, 164075551);
 }
 
 TEST_F(PerftTest, PLStartPosDepth6) {
-    EXPECT_EQ(run_perft<PSEUDO_LEGAL>(load_fen(INITIAL_POSITION_FEN), 6).nodes, 119060324);
+    EXPECT_EQ(run_perft<PseudoLegalPolicy>(load_fen(INITIAL_POSITION_FEN), 6).nodes, 119060324);
 }
 
 TEST_F(PerftTest, PLKiwiPeteDepth5) {
-    EXPECT_EQ(run_perft<PSEUDO_LEGAL>(load_fen(PERFT_POSITION_2_FEN), 5).nodes, 193690690);
+    EXPECT_EQ(run_perft<PseudoLegalPolicy>(load_fen(PERFT_POSITION_2_FEN), 5).nodes, 193690690);
 }
 
 TEST_F(PerftTest, PLPos3Depth7) {
-    EXPECT_EQ(run_perft<PSEUDO_LEGAL>(load_fen(PERFT_POSITION_3_FEN), 7).nodes, 178633661);
+    EXPECT_EQ(run_perft<PseudoLegalPolicy>(load_fen(PERFT_POSITION_3_FEN), 7).nodes, 178633661);
 }
 
 TEST_F(PerftTest, PLPos4Depth6) {
-    EXPECT_EQ(run_perft<PSEUDO_LEGAL>(load_fen(PERFT_POSITION_4_FEN), 6).nodes, 706045033);
+    EXPECT_EQ(run_perft<PseudoLegalPolicy>(load_fen(PERFT_POSITION_4_FEN), 6).nodes, 706045033);
 }
 
 TEST_F(PerftTest, PLPos5Depth5) {
-    EXPECT_EQ(run_perft<PSEUDO_LEGAL>(load_fen(PERFT_POSITION_5_FEN), 5).nodes, 89941194);
+    EXPECT_EQ(run_perft<PseudoLegalPolicy>(load_fen(PERFT_POSITION_5_FEN), 5).nodes, 89941194);
 }
 
 TEST_F(PerftTest, PLPos6Depth5) {
-    EXPECT_EQ(run_perft<PSEUDO_LEGAL>(load_fen(PERFT_POSITION_6_FEN), 5).nodes, 164075551);
+    EXPECT_EQ(run_perft<PseudoLegalPolicy>(load_fen(PERFT_POSITION_6_FEN), 5).nodes, 164075551);
 }

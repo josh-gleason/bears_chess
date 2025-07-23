@@ -1,26 +1,45 @@
 #pragma once
-
 #include "types.hpp"
+#include "bitboard.hpp"
 #include "board.hpp"
-#include "movelist.hpp"
-#include "movegen_helpers.hpp"
+#include "movegen/policy.hpp"
+#include "movegen/init_policy.hpp"
+#include "movegen/kings.hpp"
+#include "movegen/knights.hpp"
+#include "movegen/sliders.hpp"
+#include "movegen/pawns.hpp"
 
 namespace bears_chess {
 
-    
+struct PseudoLegalPolicy {
+    static constexpr bool enforce_king_safety = false;
+    static constexpr bool enforce_evasions = false;
+    static constexpr bool enforce_pins = false;
+};
+
+struct LegalPolicy {
+    static constexpr bool enforce_king_safety = true;
+    static constexpr bool enforce_evasions = true;
+    static constexpr bool enforce_pins = true;
+
+    Bitboard king_unallowed;                    // enemy attacks as if our king were not present
+    Bitboard checkers;                          // mask of all pieces attacking the king
+    Bitboard evasion_mask;                      // non-king moves are restricted to these squares to block checkers if present
+    Bitboard pinned;                            // all pieces that are pinned
+    Bitboard pin_rays[num_of<IndexDirection>];  // legal move mask for pinned piece, indexed by direction from king
+};
+
+
 template<Color color, MoveGenPolicy Policy>
 MoveList generate_moves(const Board& board) {
     Policy policy;
     MoveList moves;
 
-    calculate_king_unallowed<color>(board, policy);
-    int num_checkers = calculate_checkers<color>(board, policy);
+    int num_checkers = init_policy<color>(board, policy);
 
-    if (num_checkers == 2) {
-        generate_king_moves<color>(board, moves, policy);
-    } else {
-        calculate_pinned_pieces<color>(board, policy);
-        generate_king_moves<color>(board, moves, policy);
+    generate_king_moves<color>(board, moves, policy);
+
+    if (num_checkers < 2) {
         generate_knight_moves<color>(board, moves, policy);
         generate_slider_moves<color>(board, moves, policy);
         generate_pawn_moves<color>(board, moves, policy);
@@ -30,18 +49,11 @@ MoveList generate_moves(const Board& board) {
     return moves;
 }
 
-
-template <MoveGenType T>
+template <MoveGenPolicy Policy>
 MoveList generate_moves(const Board& board) {
-    if constexpr (T == MoveGenType::LEGAL) {
-        if (board.side_to_move == Color::WHITE)
-            return generate_moves<Color::WHITE, LegalPolicy>(board);
-        return generate_moves<Color::BLACK, LegalPolicy>(board);
-    } else {
-        if (board.side_to_move == Color::WHITE)
-            return generate_moves<Color::WHITE, PseudoLegalPolicy>(board);
-        return generate_moves<Color::BLACK, PseudoLegalPolicy>(board);
-    }
+    if (board.side_to_move == Color::WHITE)
+        return generate_moves<Color::WHITE, Policy>(board);
+    return generate_moves<Color::BLACK, Policy>(board);
 }
 
 } // namespace bears_chess

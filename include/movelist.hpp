@@ -35,6 +35,19 @@ public:
 
     iterator begin() { return moves.begin(); }
     iterator end() { return cur; }
+
+    inline void append_bb(Square from, Bitboard bb_to, MoveType move_type) {
+        for (Square to : BBSquareScan(bb_to)) {
+            emplace_back(from, to, move_type);
+        }
+    }
+
+    inline void append_bb(Bitboard bb_from, Square to, MoveType move_type) {
+        for (Square from : BBSquareScan(bb_from)) {
+            emplace_back(from, to, move_type);
+        }
+    }
+
 private:
     iterator cur;
     ListType moves;

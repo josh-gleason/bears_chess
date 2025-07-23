@@ -29,7 +29,6 @@ struct std::hash<bears_chess::Move> {
 namespace bears_chess {
 
 using std::print, std::println;
-using MoveGenType::LEGAL, MoveGenType::PSEUDO_LEGAL;
 
 struct DepthStats {
     uint64_t nodes = 0;
@@ -146,31 +145,34 @@ struct std::formatter<bears_chess::PerftResults> {
 
 namespace bears_chess {
 
-template<MoveGenType move_gen_type>
-bool is_legal(Board& board, const Move& last_move) {
-    if constexpr (move_gen_type == LEGAL)
+template<MoveGenPolicy policy>
+inline bool is_legal(Board& board, const Move& last_move) {
+    // TODO make board.is_legal only check whats necessary based on policy
+    if constexpr (policy::enforce_evasions && policy::enforce_king_safety && policy::enforce_pins) {
         return true;
-    return board.is_legal(last_move);
+    } else {
+        return board.is_legal(last_move);
+    }
 }
 
-template<MoveGenType move_gen_type=LEGAL, bool collect_stats=false>
+template<MoveGenPolicy policy=LegalPolicy, bool collect_stats=false>
 inline uint64_t perft(Board& board, int depth, const std::vector<DepthStats>::iterator &stats) {
     if (depth == 0) {
         return 1;
     }
 
     uint64_t nodes = 0;
-    auto moves = depth > 1 ? generate_moves<move_gen_type>(board) : generate_moves<LEGAL>(board);
+    auto moves = depth > 1 ? generate_moves<policy>(board) : generate_moves<LegalPolicy>(board);
     if (depth == 1) {
         return moves.size();
     }
     for (const Move& move : moves) {
         UndoInfo undo = board.do_move(move);
-        if (is_legal<move_gen_type>(board, move)) {
+        if (is_legal<policy>(board, move)) {
             if constexpr (collect_stats) {
                 stats->increment(board, move);
             }
-            nodes += perft<move_gen_type, collect_stats>(board, depth - 1, stats + 1);
+            nodes += perft<policy, collect_stats>(board, depth - 1, stats + 1);
         }
         board.undo_move(undo);
     }
@@ -178,7 +180,7 @@ inline uint64_t perft(Board& board, int depth, const std::vector<DepthStats>::it
     return nodes;
 }
 
-template<MoveGenType move_gen_type=LEGAL, bool collect_stats=false, bool show_moves=false>
+template<MoveGenPolicy policy=LegalPolicy, bool collect_stats=false, bool show_moves=false>
 PerftResults run_perft(const Board& board_orig, int max_depth) {
     Board board = board_orig;
 
@@ -192,16 +194,16 @@ PerftResults run_perft(const Board& board_orig, int max_depth) {
     auto single_move_stats_iter = single_move_stats.begin();
 
     auto start = std::chrono::steady_clock::now();
-    MoveList moves = max_depth > 1 ? generate_moves<move_gen_type>(board) : generate_moves<LEGAL>(board);
+    MoveList moves = max_depth > 1 ? generate_moves<policy>(board) : generate_moves<LegalPolicy>(board);
     for (auto move : moves) {
         uint64_t m_nodes = 0;
         UndoInfo undo = board.do_move(move);
-        if (is_legal<move_gen_type>(board, move)) {
+        if (is_legal<policy>(board, move)) {
             if constexpr (collect_stats) {
                 stats_iter->increment(board, move);
                 std::fill(single_move_stats.begin(), single_move_stats.end(), DepthStats());
             }
-            m_nodes += perft<move_gen_type, collect_stats>(board, max_depth - 1, single_move_stats_iter);
+            m_nodes += perft<policy, collect_stats>(board, max_depth - 1, single_move_stats_iter);
 
             if constexpr (collect_stats) {
                 for (int d = 1; d < max_depth; ++d) {
@@ -232,11 +234,10 @@ PerftResults run_perft(const Board& board_orig, int max_depth) {
     };
 }
 
-
-template<MoveGenType move_gen_type=PSEUDO_LEGAL>
+template<MoveGenPolicy policy=LegalPolicy>
 std::vector<Move> test_do_undo_(const Board& original, int depth) {
     Board original_copy = Board(original);
-    MoveList moves = generate_moves<move_gen_type>(original_copy);
+    MoveList moves = generate_moves<policy>(original_copy);
 
     for (const Move& move : moves) {
         Board board = original; // Copy original
@@ -327,9 +328,9 @@ std::vector<Move> test_do_undo_(const Board& original, int depth) {
             }
         } else if (depth > 1) {
             undo = board.do_move(move);
-            if (is_legal<move_gen_type>(board, move)) {
+            if (is_legal<policy>(board, move)) {
                 // recurse only for legal moves, not designed to undo two illegal moves in a row
-                auto movelist = test_do_undo_<move_gen_type>(board, depth - 1);
+                auto movelist = test_do_undo_<policy>(board, depth - 1);
                 if (movelist.size() > 0) {
                     movelist.push_back(move);
                     return movelist;
@@ -341,9 +342,9 @@ std::vector<Move> test_do_undo_(const Board& original, int depth) {
     return {};
 }
 
-template<MoveGenType move_gen_type=PSEUDO_LEGAL>
+template<MoveGenPolicy policy=PseudoLegalPolicy>
 std::vector<Move> test_do_undo(const Board& board, int max_depth) {
-    auto failure_moves = test_do_undo_<move_gen_type>(board, max_depth);
+    auto failure_moves = test_do_undo_<policy>(board, max_depth);
     
     if (!failure_moves.empty()) {
         Board temp_board = board;
@@ -385,9 +386,9 @@ inline void show_move_list(const Board& board, const MoveList& moves_in) {
     }
 }
 
-template<MoveGenType move_gen_type=LEGAL>
+template<MoveGenPolicy policy=LegalPolicy>
 inline void show_moves(const Board& board) {
-    MoveList moves = generate_moves<move_gen_type>(board);
+    MoveList moves = generate_moves<policy>(board);
     show_move_list(board, moves);
 }
 
