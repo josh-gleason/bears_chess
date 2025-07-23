@@ -7,8 +7,8 @@ namespace bears_chess {
 bool is_check(const Board& board) {
     Bitboard bb_attacks = (
         board.side_to_move == Color::WHITE
-        ? calculate_opponent_attacks<Color::WHITE>(board)
-        : calculate_opponent_attacks<Color::BLACK>(board)
+        ? calculate_attacks<Color::WHITE>(board, board.occupied)
+        : calculate_attacks<Color::BLACK>(board, board.occupied)
     );
     return nonzero(board.king_sq[idx(board.side_to_move)] & bb_attacks);
 }
@@ -16,6 +16,7 @@ bool is_check(const Board& board) {
 bool is_discovered_check(const Board& board, const Move& last_move) {
     if (is_castle(last_move.move_type))
         return false;
+    
     Bitboard bb_checkers = (
         board.side_to_move == Color::WHITE
         ? calculate_checkers<Color::WHITE>(board)
@@ -36,36 +37,27 @@ bool is_double_check(const Board& board) {
 template<Color color>
 bool is_checkmate_(const Board& board) {
     LegalPolicy policy;
-
-    policy.king_unallowed = calculate_opponent_attacks<color, true>(board);
-    policy.checkers = calculate_checkers<color>(board, policy.king_unallowed);
-    int num_checkers = popcount(policy.checkers);
-
     MoveList moves;
+
+    int num_checkers = calculate_checkers<color>(board, policy);
 
     if (num_checkers == 2) {
         generate_king_moves<color>(board, moves, policy);
-        return moves.empty();
     } else if (num_checkers == 1) {
-        generate_king_moves<color>(board, moves, policy);
-        if (!moves.empty()) return false;
+        calculate_pinned_pieces<color>(board, policy);
         generate_castle_moves<color>(board, moves, policy);
         if (!moves.empty()) return false;
-        policy.evasion_mask = num_checkers == 0 ? Bitboard::FULL : policy.checkers;
-        policy.pinned = (
-            calculate_pinned_pieces<color, Piece::ROOK>(board, policy.pin_rays, policy.evasion_mask) |
-            calculate_pinned_pieces<color, Piece::BISHOP>(board, policy.pin_rays, policy.evasion_mask)
-        );
+        generate_king_moves<color>(board, moves, policy);
+        if (!moves.empty()) return false;
         generate_knight_moves<color>(board, moves, policy);
         if (!moves.empty()) return false;
-        generate_slider_moves<color, Piece::ROOK>(board, moves, policy);
-        if (!moves.empty()) return false;
-        generate_slider_moves<color, Piece::BISHOP>(board, moves, policy);
+        generate_slider_moves<color>(board, moves, policy);
         if (!moves.empty()) return false;
         generate_pawn_moves<color>(board, moves, policy);
-        return moves.empty();
+        if (!moves.empty()) return false;
     }
-    return false;
+
+    return moves.empty();
 }
 
 bool is_checkmate(const Board& board) {

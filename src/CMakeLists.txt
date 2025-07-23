@@ -2,7 +2,6 @@ set(SOURCES
     board.cpp
     board_utils.cpp
     bitboard.cpp
-    movegen.cpp
     evaluation_utils.cpp
 )
 

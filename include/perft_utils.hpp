@@ -103,7 +103,7 @@ struct PerftResults {
 
         if (move_nodes) {
             result += "  Per-move:\n";
-            result += std::format("    {:>6}", "Move");
+            result += std::format("{:<6}", "Move");
             if (per_move_stats) {
                 result += DepthStats::header_string();
             } else {
@@ -112,7 +112,7 @@ struct PerftResults {
             result += '\n';
             for (const auto& [move, count] : *move_nodes) {
                 auto move_str = std::format("{:f}", move);
-                result += std::format("    {:>6}", move_str);
+                result += std::format("{:<6}", move_str);
                 if (per_move_stats) {
                     result += per_move_stats->at(move).to_string();
                 } else {
@@ -211,12 +211,12 @@ PerftResults run_perft(const Board& board_orig, int max_depth) {
             if constexpr (collect_stats && show_moves) {
                 per_move_stats[move] = max_depth > 1 ? single_move_stats.back() : DepthStats();
             }
+            if constexpr (show_moves) {
+                move_nodes[move] = m_nodes;
+            }
         }
         board.undo_move(undo);
         nodes += m_nodes;
-        if constexpr (show_moves) {
-            move_nodes[move] = m_nodes;
-        }
     }
     auto end = std::chrono::steady_clock::now();
     double elapsed = std::chrono::duration<double>(end - start).count();

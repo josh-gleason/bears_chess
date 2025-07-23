@@ -17,9 +17,10 @@ concept MoveGenPolicy = requires(const T& policy) {
         { T::king_unallowed } -> std::same_as<Bitboard&>;
         { T::checkers } -> std::same_as<Bitboard&>;
     };
-    requires (!T::enforce_evasions) || requires {
-        { T::evasion_mask } -> std::same_as<Bitboard&>;
-    };
+    requires (!T::enforce_evasions) || (
+        T::enforce_king_safety && // must enforce king_safety if enforcing evasions
+        requires { { T::evasion_mask } -> std::same_as<Bitboard&>; }
+    );
     requires (!T::enforce_pins) || requires {
         { T::pinned } -> std::same_as<Bitboard&>;
         { T::pin_rays } -> std::same_as<Bitboard(&)[num_of<IndexDirection>]>;
@@ -127,6 +128,12 @@ void generate_slider_moves(const Board& board, MoveList& moves, const Policy& po
         append_moves(moves, from, bb_moves & bb_quiet, MoveType::QUIET);
         append_moves(moves, from, bb_moves & bb_capture, MoveType::CAPTURE);
     }
+}
+
+template<Color color, MoveGenPolicy Policy>
+inline void generate_slider_moves(const Board& board, MoveList& moves, const Policy& policy) {
+    generate_slider_moves<color, Piece::ROOK>(board, moves, policy);
+    generate_slider_moves<color, Piece::BISHOP>(board, moves, policy);
 }
 
 template<Direction move_dir, MoveType type, Color color>
@@ -336,18 +343,11 @@ inline Bitboard generate_king_attacks(const Board& board) {
     return bb_attacks<Piece::KING>(board.king_sq[idx(color)]);
 }
 
-template <Color color, bool omit_king=false>
-inline Bitboard calculate_opponent_attacks(const Board& board) {
+template <Color color>
+inline Bitboard calculate_attacks(const Board& board, Bitboard bb_occupied) {
     constexpr Color opponent_color = ~color;
 
-    Bitboard bb_attacks = Bitboard::EMPTY;
-    Bitboard bb_occupied = board.occupied;
-    
-    if constexpr (omit_king) {
-        bb_occupied &= (~board.pieces[idx(color)][idx(Piece::KING)]);
-    }
-
-    bb_attacks |= generate_knight_attacks<opponent_color>(board);
+    Bitboard bb_attacks = generate_knight_attacks<opponent_color>(board);
     bb_attacks |= generate_slider_attacks<opponent_color, Piece::ROOK>(board, bb_occupied);
     bb_attacks |= generate_slider_attacks<opponent_color, Piece::BISHOP>(board, bb_occupied);
     bb_attacks |= generate_pawn_attacks<opponent_color>(board);
@@ -356,8 +356,18 @@ inline Bitboard calculate_opponent_attacks(const Board& board) {
     return bb_attacks;
 }
 
+template <Color color, MoveGenPolicy Policy> requires (!Policy::enforce_king_safety)
+inline void calculate_king_unallowed(const Board& board, Policy& policy) {}
+
+template <Color color, MoveGenPolicy Policy> requires Policy::enforce_king_safety
+inline void calculate_king_unallowed(const Board& board, Policy& policy) {
+    Bitboard bb_occupied = board.occupied;
+    bb_occupied &= (~board.pieces[idx(color)][idx(Piece::KING)]);
+    policy.king_unallowed = calculate_attacks<color>(board, bb_occupied);
+}
+
 template<Color color>
-inline Bitboard calculate_checkers(const Board& board, Bitboard& bb_block_mask) {
+inline Bitboard calculate_checkers(const Board& board) {
     constexpr Color opponent_color = ~color;
     Square king_sq = board.king_sq[idx(color)];
 
@@ -376,32 +386,65 @@ inline Bitboard calculate_checkers(const Board& board, Bitboard& bb_block_mask) 
     Bitboard bb_rook_checkers = bb_attacks<Piece::ROOK>(king_sq, board.occupied) & bb_opponent_rooklike;
     Bitboard bb_bishop_checkers = bb_attacks<Piece::BISHOP>(king_sq, board.occupied) & bb_opponent_bishoplike;
 
-    Bitboard bb_checkers = bb_knight_checkers | bb_pawn_checkers | bb_rook_checkers | bb_bishop_checkers;
-
-    bb_block_mask |= bb_checkers;
-    for (Square checker_sq : BBSquareScan(bb_rook_checkers | bb_bishop_checkers)) {
-        bb_block_mask |= BB_RAY<move_type>[idx(checker_sq)][idx(king_sq)];
-    }
-
-    return bb_checkers;
+    return bb_knight_checkers | bb_pawn_checkers | bb_rook_checkers | bb_bishop_checkers;
 }
 
-template<Color color>
-inline Bitboard calculate_checkers(const Board& board, Bitboard bb_king_unallowed) {
-    // same result as calculate_checkers(board) but can exit early if king not in check
-    Square king_sq = board.king_sq[idx(color)];
-    if (zero(bb_king_unallowed & bb_square(king_sq)))
-        return Bitboard::EMPTY;
-    return calculate_checkers<color>(board);
+template<Color color, MoveGenPolicy Policy> requires (!Policy::enforce_evasions)
+inline int calculate_checkers(const Board& board, Policy& policy) {
+    return 0;
 }
 
-template<Color color, Piece move_type> requires is_bishop_or_rook<move_type>
-inline Bitboard calculate_pinned_pieces(const Board& board, Bitboard bb_pin_rays[num_of<IndexDirection>])
-{
+template<Color color, MoveGenPolicy Policy>
+    requires (Policy::enforce_king_safety && Policy::enforce_evasions)
+inline int calculate_checkers(const Board& board, Policy& policy) {
     constexpr Color opponent_color = ~color;
 
-    Bitboard bb_pinned = Bitboard::EMPTY;
-    Square king_square = board.king_sq[idx(board.side_to_move)];
+    Square king_sq = board.king_sq[idx(color)];
+
+    if (zero(policy.king_unallowed & bb_square(king_sq))) {
+        policy.checkers = Bitboard::EMPTY;
+        policy.evasion_mask = Bitboard::FULL;
+        return 0;
+    }
+
+    Bitboard bb_opponent_pawns = board.pieces[idx(opponent_color)][idx(Piece::PAWN)];
+    Bitboard bb_opponent_knights = board.pieces[idx(opponent_color)][idx(Piece::KNIGHT)];
+    Bitboard bb_opponent_queens = board.pieces[idx(opponent_color)][idx(Piece::QUEEN)];
+    Bitboard bb_opponent_rooklike = (
+        board.pieces[idx(opponent_color)][idx(Piece::ROOK)] | bb_opponent_queens
+    );
+    Bitboard bb_opponent_bishoplike = (
+        board.pieces[idx(opponent_color)][idx(Piece::BISHOP)] | bb_opponent_queens
+    );
+
+    Bitboard bb_knight_checkers = bb_attacks<Piece::KNIGHT>(king_sq) & bb_opponent_knights;
+    Bitboard bb_pawn_checkers = bb_attacks<color, Piece::PAWN>(king_sq) & bb_opponent_pawns;
+    Bitboard bb_rook_checkers = bb_attacks<Piece::ROOK>(king_sq, board.occupied) & bb_opponent_rooklike;
+    Bitboard bb_bishop_checkers = bb_attacks<Piece::BISHOP>(king_sq, board.occupied) & bb_opponent_bishoplike;
+
+    policy.checkers = bb_knight_checkers | bb_pawn_checkers | bb_rook_checkers | bb_bishop_checkers;
+    int num_checkers = popcount(policy.checkers);
+
+    if (num_checkers == 1) {
+        policy.evasion_mask = policy.checkers;
+        for (Square checker_sq : BBSquareScan(bb_rook_checkers | bb_bishop_checkers)) {
+            policy.evasion_mask |= BB_RAY<Piece::QUEEN>[idx(checker_sq)][idx(king_sq)];
+        }
+    } else if (num_checkers == 2) {
+        policy.evasion_mask = Bitboard::EMPTY;
+    } else {
+        policy.evasion_mask = Bitboard::FULL;
+    }
+
+    return num_checkers;
+}
+
+template<Color color, Piece move_type, MoveGenPolicy Policy> 
+    requires (is_bishop_or_rook<move_type> && Policy::enforce_pins)
+inline void calculate_pinned_pieces(const Board& board, Policy &policy) {
+    constexpr Color opponent_color = ~color;
+
+    Square king_square = board.king_sq[idx(color)];
     Bitboard bb_enemy_sliders = (
         board.pieces[idx(opponent_color)][idx(move_type)] |
         board.pieces[idx(opponent_color)][idx(Piece::QUEEN)]
@@ -409,7 +452,6 @@ inline Bitboard calculate_pinned_pieces(const Board& board, Bitboard bb_pin_rays
 
     for (Square pinner_sq : BBSquareScan(bb_enemy_sliders)) {
         Bitboard bb_between = BB_RAY<move_type>[idx(pinner_sq)][idx(king_square)];
-
         Bitboard bb_opponent_pieces_between = bb_between & board.occupied_by_color[idx(opponent_color)];
         int opponent_piece_count = popcount(bb_opponent_pieces_between);
         if (opponent_piece_count == 1) {
@@ -417,27 +459,20 @@ inline Bitboard calculate_pinned_pieces(const Board& board, Bitboard bb_pin_rays
             int my_piece_count = popcount(bb_my_pieces_between);
             if (my_piece_count == 1) {
                 IndexDirection pinner_dir = DIR_BETWEEN<IndexDirection>[idx(king_square)][idx(pinner_sq)];
-                bb_pin_rays[idx(pinner_dir)] = bb_between;
-                bb_pinned |= bb_my_pieces_between;
+                policy.pin_rays[idx(pinner_dir)] = bb_between;
+                policy.pinned |= bb_my_pieces_between;
             }
         }
     }
-
-    return bb_pinned;
 }
 
-template<Color color>
-inline Bitboard calculate_block_mask(const Board& board, Bitboard bb_checkers) {
-    if zero(bb_checkers) {
-        return Bitboard::FULL;
+template<Color color, MoveGenPolicy Policy>
+inline void calculate_pinned_pieces(const Board& board, Policy &policy) {
+    if constexpr (Policy::enforce_pins) {
+        policy.pinned = Bitboard::EMPTY;
+        calculate_pinned_pieces<color, Piece::ROOK>(board, policy);
+        calculate_pinned_pieces<color, Piece::BISHOP>(board, policy);
     }
-
-    Square king_sq = board.king_sq[idx(board.side_to_move)];
-    Bitboard bb_occupied = board.occupied;
-
-    Bitboard bb_rook_attack = bb_attacks<Piece::ROOK>(king_sq, bb_occupied);
-    Bitboard bb_bishop_attack = bb_attacks<Piece::BISHOP>(king_sq, bb_occupied);
-
 }
 
 } // namespace bears_chess
