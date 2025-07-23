@@ -30,7 +30,7 @@ public:
     inline bool empty() const { return cur == moves.begin(); }
     inline size_t size() const { return cur - moves.begin(); }
 
-    const_iterator cbegin() const { return const_cast<const_iterator>(cur); }
+    const_iterator cbegin() const { return moves.cbegin(); }
     const_iterator cend() const { return cur; }
 
     iterator begin() { return moves.begin(); }
