@@ -8,14 +8,16 @@
 namespace bears_chess {
 
 template<Color color, MoveGenPolicy Policy>
-inline void generate_king_moves(const Board& board, MoveList& moves, const Policy& policy) {
+inline void generate_king_moves(
+    const Board& board, MoveList& moves, const BoardState<color, Policy>& state
+) {
     constexpr Color opponent_color = ~color;
 
     Bitboard bb_quiet = ~board.occupied;
     Bitboard bb_capture = board.occupied_by_color[idx(opponent_color)];
 
     if constexpr (Policy::enforce_king_safety) {
-        Bitboard bb_unattacked = ~policy.king_unallowed;
+        Bitboard bb_unattacked = ~state.king_unallowed;
         bb_quiet &= bb_unattacked;
         bb_capture &= bb_unattacked;
     }
@@ -28,7 +30,9 @@ inline void generate_king_moves(const Board& board, MoveList& moves, const Polic
 
 
 template<Color color, MoveGenPolicy Policy>
-inline void generate_castle_moves(const Board& board, MoveList& moves, const Policy& policy) {
+inline void generate_castle_moves(
+    const Board& board, MoveList& moves, const BoardState<color, Policy>& state
+) {
     constexpr Bitboard bb_kingside = BB_CASTLE_PATHS<Piece::KING>[idx(color)];
     constexpr Bitboard bb_queenside = BB_CASTLE_PATHS<Piece::QUEEN>[idx(color)];
     constexpr Move kingside_move = CASTLE_MOVES<Piece::KING>[idx(color)];
@@ -41,14 +45,14 @@ inline void generate_castle_moves(const Board& board, MoveList& moves, const Pol
     }
 
     if constexpr (Policy::enforce_evasions) {
-        if (nonzero(policy.checkers)) {
+        if (nonzero(state.checkers)) {
             return;
         }
     }
 
     Bitboard bb_blocked = board.occupied;
     if constexpr (Policy::enforce_king_safety) {
-        bb_blocked |= policy.king_unallowed & bb_attack_block;
+        bb_blocked |= state.king_unallowed & bb_attack_block;
     }
 
     if (castling_allowed<color, Piece::KING>(rights) && zero(bb_kingside & bb_blocked)) {

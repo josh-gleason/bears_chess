@@ -26,42 +26,32 @@ bool is_discovered_check(const Board& board, const Move& last_move) {
 }
 
 template<Color color>
-bool is_double_check_(const Board& board) {
-    return popcount(generate_checkers<color>(board)) == 2 && !is_checkmate_<color>(board);
+bool is_double_check(const Board& board) {
+    return popcount(generate_checkers<color>(board)) == 2 && !is_checkmate<color>(board);
 }
 
 bool is_double_check(const Board& board) {
-    return (board.side_to_move == Color::WHITE ? is_double_check_<Color::WHITE>(board) : is_double_check_<Color::BLACK>(board));
+    if (board.side_to_move == Color::WHITE)
+        return is_double_check<Color::WHITE>(board);
+    return is_double_check<Color::BLACK>(board);
 }
 
 template<Color color>
-bool is_checkmate_(const Board& board) {
-    LegalPolicy policy;
+bool is_checkmate(const Board& board) {
+    BoardState<color, LegalPolicy> state(board);
     MoveList moves;
 
-    init_king_unallowed<color>(board, policy);
-    int num_checkers = init_evasions<color>(board, policy);
+    generate_king_moves<color>(board, moves, state);
 
-    switch (num_checkers) {
-        case 2:
-            generate_king_moves<color>(board, moves, policy);
-            break;
-        case 1:
-            generate_king_moves<color>(board, moves, policy);
-            if (!moves.empty()) return false;
-            generate_castle_moves<color>(board, moves, policy);
-            if (!moves.empty()) return false;
-
-            // delay initializing pins until after king moves checked
-            init_pins<color>(board, policy);
-
-            generate_knight_moves<color>(board, moves, policy);
-            if (!moves.empty()) return false;
-            generate_slider_moves<color>(board, moves, policy);
-            if (!moves.empty()) return false;
-            generate_pawn_moves<color>(board, moves, policy);
-            break;
-        default:
+    if (state.num_checkers < 2) {
+        if (!moves.empty()) return false;
+        generate_castle_moves<color>(board, moves, state);
+        if (!moves.empty()) return false;
+        generate_knight_moves<color>(board, moves, state);
+        if (!moves.empty()) return false;
+        generate_slider_moves<color>(board, moves, state);
+        if (!moves.empty()) return false;
+        generate_pawn_moves<color>(board, moves, state);
     }
 
     return moves.empty();
@@ -69,9 +59,9 @@ bool is_checkmate_(const Board& board) {
 
 bool is_checkmate(const Board& board) {
     if (board.side_to_move == Color::WHITE) {
-        return is_checkmate_<Color::WHITE>(board);
+        return is_checkmate<Color::WHITE>(board);
     }
-    return is_checkmate_<Color::BLACK>(board);
+    return is_checkmate<Color::BLACK>(board);
 
 }
 

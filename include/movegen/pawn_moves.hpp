@@ -37,7 +37,9 @@ inline void emplace_pawn_moves(MoveList& moves, Bitboard bb_to) {
 }
 
 template<Color color, MoveGenPolicy Policy>
-inline void generate_ep_moves(const Board& board, MoveList& moves, const Policy& policy) {
+inline void generate_ep_moves(
+    const Board& board, MoveList& moves, const BoardState<color, Policy>& state
+) {
     constexpr Color opponent_color = ~color;
     constexpr Direction dir_from = (color == Color::WHITE ? Direction::SOUTH : Direction::NORTH);
     constexpr Direction dir_from_west = (
@@ -56,7 +58,7 @@ inline void generate_ep_moves(const Board& board, MoveList& moves, const Policy&
     Bitboard bb_to = bb_square(to);
     if constexpr (Policy::enforce_evasions) {
         Bitboard bb_opponent_pawn = bb_shift<dir_from>(bb_to);
-        if (zero((bb_to | bb_opponent_pawn) & policy.evasion_mask))
+        if (zero((bb_to | bb_opponent_pawn) & state.evasion_mask))
             return;
     }
 
@@ -86,7 +88,7 @@ inline void generate_ep_moves(const Board& board, MoveList& moves, const Policy&
             }
         }
 
-        Bitboard bb_pinned = policy.pinned;
+        Bitboard bb_pinned = state.pinned;
         Bitboard bb_unpinned = ~bb_pinned;
 
         Bitboard bb_allow_from_west = bb_unpinned | (bb_pinned & get_diag_of<dir_from_west>(king_sq));
@@ -103,7 +105,9 @@ inline void generate_ep_moves(const Board& board, MoveList& moves, const Policy&
 }
 
 template<Color color, MoveGenPolicy Policy>
-inline void generate_pawn_moves(const Board& board, MoveList& moves, const Policy& policy) {
+inline void generate_pawn_moves(
+    const Board& board, MoveList& moves, const BoardState<color, Policy>& state
+) {
     constexpr Color opponent_color = ~color;
 
     constexpr Direction dir_push = (color == Color::WHITE ? Direction::NORTH : Direction::SOUTH);
@@ -121,8 +125,8 @@ inline void generate_pawn_moves(const Board& board, MoveList& moves, const Polic
     Bitboard bb_opponent_capturable = board.occupied_by_color[idx(opponent_color)];
     Bitboard bb_unblocked = bb_unoccupied;
     if constexpr (Policy::enforce_evasions) {
-        bb_opponent_capturable &= policy.evasion_mask;
-        bb_unblocked &= policy.evasion_mask;
+        bb_opponent_capturable &= state.evasion_mask;
+        bb_unblocked &= state.evasion_mask;
     }
 
     Bitboard bb_attack_east = bb_opponent_capturable;
@@ -132,7 +136,7 @@ inline void generate_pawn_moves(const Board& board, MoveList& moves, const Polic
 
     if constexpr (Policy::enforce_pins) {
         Square king_sq = board.king_sq[idx(color)];
-        Bitboard bb_pinned = policy.pinned;
+        Bitboard bb_pinned = state.pinned;
         Bitboard bb_unpinned = ~bb_pinned;
         Bitboard bb_allow_east = bb_unpinned | (bb_pinned & get_diag_of<dir_attack_east>(king_sq));
         Bitboard bb_allow_west = bb_unpinned | (bb_pinned & get_diag_of<dir_attack_west>(king_sq));
@@ -157,7 +161,7 @@ inline void generate_pawn_moves(const Board& board, MoveList& moves, const Polic
     emplace_pawn_moves<dir_attack_west, MoveType::CAPTURE, color>(moves, bb_attack_west);
     emplace_pawn_moves<dir_push, MoveType::QUIET, color>(moves, bb_push);
     emplace_pawn_moves<dir_push, MoveType::DOUBLE_PAWN_PUSH, color>(moves, bb_dbl_push);
-    generate_ep_moves<color>(board, moves, policy);
+    generate_ep_moves<color>(board, moves, state);
 }
 
 } // namespace bears_chess
