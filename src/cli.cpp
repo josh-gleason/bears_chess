@@ -194,9 +194,9 @@ void CLI::handle_perft(const Command& cmd) {
     bool show_moves = false;
     bool show_stats = false;
     for (const auto& word : extras) {
-        if (word == "moves") {
+        if (word == "moves" && !show_moves) {
             show_moves = true;
-        } else if (word == "stats") {
+        } else if (word == "stats" && !show_stats) {
             show_stats = true;
         } else {
             throw std::invalid_argument(std::format("Unknown option {}", word));
@@ -221,13 +221,14 @@ void CLI::handle_position(const Command& cmd) {
         engine.board = Board();
     } else if (arg1 == "fen") {
         std::istringstream sin(cmd.original);
-        std::string garbage, fen;
+        std::string fen;
         while (idx < extras.size() && extras[idx] != "moves") {
             if (!fen.empty()) {
                 fen += " ";
             }
             fen += extras[idx++];
         }
+        // TODO: verify fen string
         engine.board = load_fen(fen);
     } else {
         throw std::invalid_argument(std::format("Unknown option {}", arg1));
