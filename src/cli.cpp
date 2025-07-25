@@ -90,22 +90,22 @@ CLI::CLI() :
         { "help", CommandType::HELP }
     },
     command_handlers{
-        { CommandType::QUIT, [this] (const ParsedCommand& cmd) { this->handle_quit(cmd); } },
-        { CommandType::DISPLAY, [this] (const ParsedCommand& cmd) { this->handle_display(cmd); } },
-        { CommandType::PERFT, [this] (const ParsedCommand& cmd) { this->handle_perft(cmd); } },
-        { CommandType::POSITION, [this] (const ParsedCommand& cmd) { this->handle_position(cmd); } },
-        { CommandType::GO, [this] (const ParsedCommand& cmd) { this->handle_go(cmd); } },
-        { CommandType::HELP, [this] (const ParsedCommand& cmd) { this->handle_help(cmd); } },
-        { CommandType::EMPTY, [this] (const ParsedCommand& cmd) { this->handle_empty(cmd); } },
-        { CommandType::UNKNOWN, [this] (const ParsedCommand& cmd) { this->handle_unknown(cmd); } }
-    },
-    reader([this](std::string line) { this->enqueue_command(std::move(line)); })
+        { CommandType::QUIT, [this] (const Command& cmd) { this->handle_quit(cmd); } },
+        { CommandType::DISPLAY, [this] (const Command& cmd) { this->handle_display(cmd); } },
+        { CommandType::PERFT, [this] (const Command& cmd) { this->handle_perft(cmd); } },
+        { CommandType::POSITION, [this] (const Command& cmd) { this->handle_position(cmd); } },
+        { CommandType::GO, [this] (const Command& cmd) { this->handle_go(cmd); } },
+        { CommandType::HELP, [this] (const Command& cmd) { this->handle_help(cmd); } },
+        { CommandType::EMPTY, [this] (const Command& cmd) { this->handle_empty(cmd); } },
+        { CommandType::UNKNOWN, [this] (const Command& cmd) { this->handle_unknown(cmd); } }
+    }
 {}
 
 CLI::~CLI() {
     exit_requested = true;
 
-    reader.stop();
+    if (input_thread.joinable())
+        input_thread.join();
     if (processor_thread.joinable())
         processor_thread.join();
 }
@@ -113,7 +113,7 @@ CLI::~CLI() {
 int CLI::run() {
     std::println("Welcome to the Bear's Chess Engine");
 
-    reader.start();
+    input_thread = std::thread(&CLI::input_listener, this);
     processor_thread = std::thread(&CLI::command_processor, this);
 
     processor_thread.join();
@@ -122,12 +122,15 @@ int CLI::run() {
 
 void CLI::input_listener() {
     std::string line;
-    while (!exit_requested && std::getline(std::cin, line)) {
-        enqueue_command(RawCommand(line));
+    CommandType cmd_type = CommandType::EMPTY;
+    while (cmd_type != CommandType::QUIT && !exit_requested && std::getline(std::cin, line)) {
+        Command cmd = parse_command(line);
+        cmd_type = cmd.type;
+        enqueue_command(std::move(cmd));
     }
 }
 
-CLI::ParsedCommand CLI::parse_command(const RawCommand& line) const {
+CLI::Command CLI::parse_command(const std::string& line) const {
     std::vector<std::string> words = split(line);
     if (words.empty()) {
         return { CommandType::EMPTY, line, {} };
@@ -140,33 +143,32 @@ CLI::ParsedCommand CLI::parse_command(const RawCommand& line) const {
 
 void CLI::command_processor() {
     while (!exit_requested) {
-        std::optional<RawCommand> cmd_opt = dequeue_command();
+        std::optional<Command> cmd_opt = dequeue_command();
         if (!cmd_opt)
             continue;
 
-        ParsedCommand cmd = parse_command(*cmd_opt);
         try {
-            command_handlers.at(cmd.type)(cmd);
+            command_handlers.at(cmd_opt->type)(*cmd_opt);
         } catch (std::invalid_argument err) {
             std::println("ERROR: {}", err.what());
         }
     }
 }
 
-void CLI::enqueue_command(const RawCommand& cmd) {
+void CLI::enqueue_command(const Command& cmd) {
     std::lock_guard<std::mutex> lock(queue_mutex);
     command_queue.push(cmd);
     queue_cv.notify_one();
 }
 
-std::optional<CLI::RawCommand> CLI::dequeue_command() {
+std::optional<CLI::Command> CLI::dequeue_command() {
     std::unique_lock<std::mutex> lock(queue_mutex);
     queue_cv.wait(lock, [this] {
         return exit_requested || !command_queue.empty();
     });
 
     if (!command_queue.empty()) {
-        RawCommand cmd = std::move(command_queue.front());
+        Command cmd = std::move(command_queue.front());
         command_queue.pop();
         return cmd;
     }
@@ -175,20 +177,19 @@ std::optional<CLI::RawCommand> CLI::dequeue_command() {
 
 // command handlers
 
-void CLI::handle_quit(const ParsedCommand& cmd) {
+void CLI::handle_quit(const Command& cmd) {
     if (!cmd.args.empty())
         throw std::invalid_argument(std::format("Unknown option {}", cmd.args[0]));
     exit_requested = true;
-    reader.stop();
 }
 
-void CLI::handle_display(const ParsedCommand& cmd) {
+void CLI::handle_display(const Command& cmd) {
     if (!cmd.args.empty())
         throw std::invalid_argument(std::format("Unknown option {}", cmd.args[0]));
     std::println("{}", engine.board);
 }
 
-void CLI::handle_perft(const ParsedCommand& cmd) {
+void CLI::handle_perft(const Command& cmd) {
     auto [max_depth, extras] = parse_args<int>(cmd.args);
     bool show_moves = false;
     bool show_stats = false;
@@ -239,7 +240,7 @@ Move parse_uci_move(const std::string& s, const Board& board) {
     throw std::invalid_argument(std::format("Invalid Move {}", s));
 }
 
-void CLI::handle_position(const ParsedCommand& cmd) {
+void CLI::handle_position(const Command& cmd) {
     auto [arg1, extras] = parse_args<std::string>(cmd.args);
     size_t idx = 0;
     if (arg1 == "startpos") {
@@ -273,21 +274,21 @@ void CLI::handle_position(const ParsedCommand& cmd) {
     }
 }
 
-void CLI::handle_go(const ParsedCommand& cmd) {
+void CLI::handle_go(const Command& cmd) {
     // TODO
     std::println("COMMAND: go");
 }
 
-void CLI::handle_help(const ParsedCommand& cmd) {
+void CLI::handle_help(const Command& cmd) {
     // TODO
     std::println("COMMAND: help");
 }
 
-void CLI::handle_empty(const ParsedCommand& cmd) {
+void CLI::handle_empty(const Command& cmd) {
     std::println("COMMAND: empty");
 }
 
-void CLI::handle_unknown(const ParsedCommand& cmd) {
+void CLI::handle_unknown(const Command& cmd) {
     throw std::invalid_argument(std::format("Unknown command: {}", cmd.original));
 }
 
