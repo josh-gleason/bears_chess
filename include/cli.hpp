@@ -10,6 +10,7 @@
 #include <functional>
 #include <unordered_map>
 #include "async_line_reader.hpp"
+#include "engine.hpp"
 
 namespace bears_chess {
 
@@ -29,7 +30,6 @@ private:
         QUIT,
         DISPLAY,
         PERFT,
-        DIVIDE,
         POSITION,
         GO,
         HELP,
@@ -58,6 +58,8 @@ private:
 
     ParsedCommand parse_command(const RawCommand& line) const;
 
+    Engine engine;
+
     void input_listener();
     void command_processor();
     void enqueue_command(const RawCommand& cmd);
@@ -67,7 +69,6 @@ private:
     void handle_quit(const ParsedCommand& cmd);
     void handle_display(const ParsedCommand& cmd);
     void handle_perft(const ParsedCommand& cmd);
-    void handle_divide(const ParsedCommand& cmd);
     void handle_position(const ParsedCommand& cmd);
     void handle_go(const ParsedCommand& cmd);
     void handle_help(const ParsedCommand& cmd);

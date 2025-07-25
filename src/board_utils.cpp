@@ -766,4 +766,31 @@ std::ostream& operator<<(std::ostream& out, Move move) {
     return out << move.from << "->" << move.to << " " << move.move_type;
 }
 
+File parse_file(char f) {
+    if (f >= FILE_STR[0][0] && f <= FILE_STR[num_of<File> - 1][0]) {
+        return static_cast<File>(f - FILE_STR[0][0]);
+    }
+    throw std::invalid_argument(std::format("Invalid file {}", f));
+}
+
+Rank parse_rank(char r) {
+    if (r >= RANK_STR[0][0] && r <= RANK_STR[num_of<Rank> - 1][0]) {
+        return static_cast<Rank>(r - RANK_STR[0][0]);
+    }
+    throw std::invalid_argument(std::format("Invalid rank {}", r));
+}
+
+Square parse_square(char f, char r) {
+    return square_of(parse_file(f), parse_rank(r));
+}
+
+Piece parse_piece(char p) {
+    for (Piece piece : iter<Piece>) {
+        if (p == piece_to_str(Color::BLACK, piece)[0]) {
+            return piece;
+        }
+    }
+    throw std::invalid_argument(std::format("Invalid piece {}", p));
+}
+
 } // namespace bears_chess

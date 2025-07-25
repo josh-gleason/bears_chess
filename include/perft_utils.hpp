@@ -89,10 +89,10 @@ struct PerftResults {
     std::optional<std::unordered_map<Move, DepthStats>> per_move_stats;
 
     const std::string to_string() const {
-        std::string result = "Perft Results:\n";
+        std::string result = "Perft results:\n";
         result += std::format("  FEN: {}\n", fen);
         if (depth_stats) {
-            result += "  Depth Stats:\n";
+            result += "  Per-depth:\n";
             result += std::format("    {:>6}{}\n", "Depth", DepthStats::header_string());
             for (int depth = 0; depth < depth_stats->size(); ++depth) {
                 result += std::format("    {:>6}{}\n", depth + 1, (*depth_stats)[depth].to_string());
@@ -101,21 +101,34 @@ struct PerftResults {
         }
 
         if (move_nodes) {
-            result += "  Per-move:\n";
-            result += std::format("{:<6}", "Move");
+            result += std::format("  Per-move (at depth {}):\n", depth);
+            result += std::format("    {:>6}", "Move");
             if (per_move_stats) {
                 result += DepthStats::header_string();
             } else {
                 result += std::format("{:>14}", "Nodes");
             }
+
+            std::vector<Move> moves_sorted;
+            moves_sorted.reserve(move_nodes->size());
+            for (const auto& [move, _] : *move_nodes) {
+                moves_sorted.push_back(move);
+            }
+
+            std::sort(moves_sorted.begin(), moves_sorted.end(),
+                [](const Move& a, const Move& b) {
+                    return std::format("{}", a) < std::format("{}", b);
+                }
+            );
+
             result += '\n';
-            for (const auto& [move, count] : *move_nodes) {
+            for (const Move& move : moves_sorted) {
                 auto move_str = std::format("{:f}", move);
-                result += std::format("{:<6}", move_str);
+                result += std::format("    {:>6}", move_str);
                 if (per_move_stats) {
                     result += per_move_stats->at(move).to_string();
                 } else {
-                    result += std::format("{:>14}", count);
+                    result += std::format("{:>14}", move_nodes->at(move));
                 }
                 result += "\n";
             }
@@ -123,7 +136,7 @@ struct PerftResults {
         }
 
         double nps = time > 0 ? nodes / time : 0.0;
-        result += std::format("  Depth {}: {} nodes ({:f} sec, {:g} nps)\n", depth, nodes, time, nps);
+        result += std::format("  Depth {}: {} nodes ({:f} sec, {:g} nps)", depth, nodes, time, nps);
 
         return result;
     }
@@ -163,8 +176,9 @@ inline uint64_t perft(Board& board, int depth, const std::vector<DepthStats>::it
 
     uint64_t nodes = 0;
     auto moves = depth > 1 ? generate_moves<policy>(board) : generate_moves<LegalPolicy>(board);
-    if (depth == 1) {
-        return moves.size();
+    if constexpr (!collect_stats) {
+        if (depth == 1)
+            return moves.size();
     }
     for (const Move& move : moves) {
         UndoInfo undo = board.do_move(move);

@@ -9,6 +9,56 @@
 
 namespace bears_chess {
 
+template<typename> constexpr bool is_optional_impl = false;
+template<typename T> constexpr bool is_optional_impl<std::optional<T>> = true;
+
+template<typename T> 
+constexpr bool is_optional = is_optional_impl<std::remove_cvref_t<T>>;
+
+template<typename T>
+T parse_scalar(const std::string& s)
+{
+    if constexpr (std::same_as<T, std::string>) {
+        return s;
+    } else {
+        T v{};
+        auto [ptr, err] = std::from_chars(s.data(), s.data() + s.size(), v);
+        if (err != std::errc() || ptr != s.data() + s.size())
+            throw std::invalid_argument(std::format("Failed to parse: {}", s));
+        return v;
+    }
+}
+
+template<typename... Ts>
+auto parse_args(const std::vector<std::string>& args) {
+    std::size_t idx = 0;
+
+    auto parse_one = [&](auto tag) {
+        using U = typename decltype(tag)::type;
+
+        if constexpr (is_optional<U>) {
+            if (idx < args.size())
+                return U{ parse_scalar<typename U::value_type>(args[idx++]) };
+            else
+                return U{};
+        } else {
+            // mandatory
+            if (idx >= args.size())
+                throw std::runtime_error(std::format("Missing argument at position {}", idx));
+            return parse_scalar<U>(args[idx++]);
+        }
+    };
+
+    auto parsed_args = std::make_tuple(parse_one(std::type_identity<Ts>{})...);
+
+    std::vector<std::string> extra_args;
+    if (idx < args.size()) {
+        extra_args.assign(args.begin() + idx, args.end());
+    }
+
+    return std::tuple_cat(parsed_args, std::tuple{ std::move(extra_args) });
+}
+
 std::string to_lower(const std::string& s) {
     std::string r;
     r.reserve(s.size());
@@ -36,12 +86,12 @@ T get_or_default(const std::unordered_map<K, T>& map, const K& key, const T& def
 
 CLI::CLI() :
     command_types{
+        { "q", CommandType::QUIT },
         { "quit", CommandType::QUIT },
         { "exit", CommandType::QUIT },
         { "d", CommandType::DISPLAY },
         { "display", CommandType::DISPLAY },
         { "perft", CommandType::PERFT },
-        { "divide", CommandType::DIVIDE },
         { "position", CommandType::POSITION },
         { "go", CommandType::GO },
         { "help", CommandType::HELP }
@@ -50,7 +100,6 @@ CLI::CLI() :
         { CommandType::QUIT, [this] (const ParsedCommand& cmd) { this->handle_quit(cmd); } },
         { CommandType::DISPLAY, [this] (const ParsedCommand& cmd) { this->handle_display(cmd); } },
         { CommandType::PERFT, [this] (const ParsedCommand& cmd) { this->handle_perft(cmd); } },
-        { CommandType::DIVIDE, [this] (const ParsedCommand& cmd) { this->handle_divide(cmd); } },
         { CommandType::POSITION, [this] (const ParsedCommand& cmd) { this->handle_position(cmd); } },
         { CommandType::GO, [this] (const ParsedCommand& cmd) { this->handle_go(cmd); } },
         { CommandType::HELP, [this] (const ParsedCommand& cmd) { this->handle_help(cmd); } },
@@ -103,7 +152,11 @@ void CLI::command_processor() {
             continue;
 
         ParsedCommand cmd = parse_command(*cmd_opt);
-        command_handlers.at(cmd.type)(cmd);
+        try {
+            command_handlers.at(cmd.type)(cmd);
+        } catch (std::invalid_argument err) {
+            std::println("ERROR: {}", err.what());
+        }
     }
 }
 
@@ -130,29 +183,102 @@ std::optional<CLI::RawCommand> CLI::dequeue_command() {
 // command handlers
 
 void CLI::handle_quit(const ParsedCommand& cmd) {
-    std::println("COMMAND: quit");
+    if (!cmd.args.empty())
+        throw std::invalid_argument(std::format("Unknown option {}", cmd.args[0]));
     exit_requested = true;
     reader.stop();
 }
 
 void CLI::handle_display(const ParsedCommand& cmd) {
-    // TODO
-    std::println("COMMAND: display");
+    if (!cmd.args.empty())
+        throw std::invalid_argument(std::format("Unknown option {}", cmd.args[0]));
+    std::println("{}", engine.board);
 }
 
 void CLI::handle_perft(const ParsedCommand& cmd) {
-    // TODO
-    std::println("COMMAND: perft");
+    auto [max_depth, extras] = parse_args<int>(cmd.args);
+    bool show_moves = false;
+    bool show_stats = false;
+    for (const auto& word : extras) {
+        auto lword = to_lower(word);
+        if (lword == "moves") {
+            show_moves = true;
+        } else if (lword == "stats") {
+            show_stats = true;
+        } else {
+            throw std::invalid_argument(std::format("Unknown option {}", word));
+        }
+    }
+
+    if (!show_stats && !show_moves) {
+        std::println("{}", run_perft<LegalPolicy, false, false>(engine.board, max_depth));
+    } else if (!show_stats && show_moves) {
+        std::println("{}", run_perft<LegalPolicy, false, true>(engine.board, max_depth));
+    } else if (show_stats && !show_moves) {
+        std::println("{}", run_perft<LegalPolicy, true, false>(engine.board, max_depth));
+    } else {
+        std::println("{}", run_perft<LegalPolicy, true, true>(engine.board, max_depth));
+    }
 }
 
-void CLI::handle_divide(const ParsedCommand& cmd) {
-    // TODO
-    std::println("COMMAND: divide");
+Move parse_uci_move(const std::string& s, const Board& board) {
+    MoveList legal_moves = generate_moves<LegalPolicy>(board);
+    if (s.size() != 4 && s.size() != 5) {
+        throw std::invalid_argument(std::format("Move {} is invalid", s));    
+    }
+    Square from = parse_square(s[0], s[1]);
+    Square to = parse_square(s[2], s[3]);
+    Piece promotion = Piece::NONE;
+    if (s.size() == 5) {
+        promotion = parse_piece(s[4]);
+    }
+
+    for (const auto& move : legal_moves) {
+        if (
+            move.from == from &&
+            move.to == to && (
+                (!is_promotion(move.move_type) && promotion == Piece::NONE) ||
+                (is_promotion(move.move_type) && promote_to(move.move_type) == promotion)
+            )
+        ) {
+            return move;
+        }
+    }
+    throw std::invalid_argument(std::format("Invalid Move {}", s));
 }
 
 void CLI::handle_position(const ParsedCommand& cmd) {
-    // TODO
-    std::println("COMMAND: position");
+    auto [arg1, extras] = parse_args<std::string>(cmd.args);
+    size_t idx = 0;
+    if (arg1 == "startpos") {
+        engine.board = Board();
+    } else if (arg1 == "kiwipete") {
+        engine.board = load_fen(PERFT_POSITION_2_FEN);
+    } else if (arg1 == "fen") {
+        std::istringstream sin(cmd.original);
+        std::string garbage, fen;
+        while (idx < extras.size() && extras[idx] != "moves") {
+            if (!fen.empty()) {
+                fen += " ";
+            }
+            fen += extras[idx++];
+        }
+        engine.board = load_fen(fen);
+    } else {
+        throw std::invalid_argument(std::format("Unknown option {}", arg1));
+    }
+
+    if (idx < extras.size()) {
+        if (extras[idx] != "moves") {
+            throw std::invalid_argument(std::format("Unknown option {}", extras[idx]));
+        }
+
+        idx++;
+        while (idx < extras.size()) {
+            engine.board.do_move(parse_uci_move(extras[idx], engine.board));
+            idx++;
+        }
+    }
 }
 
 void CLI::handle_go(const ParsedCommand& cmd) {
@@ -170,8 +296,7 @@ void CLI::handle_empty(const ParsedCommand& cmd) {
 }
 
 void CLI::handle_unknown(const ParsedCommand& cmd) {
-    std::println("COMMAND: unknown");
-    std::println("Unknown command: {}", cmd.original);
+    throw std::invalid_argument(std::format("Unknown command: {}", cmd.original));
 }
 
 } // bears_chess

@@ -118,6 +118,11 @@ std::ostream& operator<<(std::ostream& out, Color color);
 std::ostream& operator<<(std::ostream& out, MoveType move_type);
 std::ostream& operator<<(std::ostream& out, Move move);
 
+File parse_file(char f);
+Rank parse_rank(char r);
+Square parse_square(char f, char r);
+Piece parse_piece(char p);
+
 } // namespace bears_chess
 
 template<bears_chess::detail::BoardPrintable BoardT>
