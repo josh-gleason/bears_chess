@@ -45,13 +45,8 @@ elseif (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
         set(CMAKE_POSITION_INDEPENDENT_CODE OFF CACHE BOOL "" FORCE)
 
         add_compile_options(
-            # Only in Release
             -O3
             -DNDEBUG
-            # -fomit-frame-pointer
-            # -ffunction-sections
-            # -fdata-sections
-            # -fno-rtti
             -flto=thin
             -fno-pie
         )
