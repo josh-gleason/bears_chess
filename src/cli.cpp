@@ -44,7 +44,7 @@ auto parse_args(const std::vector<std::string>& args) {
         } else {
             // mandatory
             if (idx >= args.size())
-                throw std::runtime_error(std::format("Missing argument at position {}", idx));
+                throw std::invalid_argument(std::format("Missing argument at position {}", idx));
             return parse_scalar<U>(args[idx++]);
         }
     };
@@ -245,8 +245,6 @@ void CLI::handle_position(const Command& cmd) {
     size_t idx = 0;
     if (arg1 == "startpos") {
         engine.board = Board();
-    } else if (arg1 == "kiwipete") {
-        engine.board = load_fen(PERFT_POSITION_2_FEN);
     } else if (arg1 == "fen") {
         std::istringstream sin(cmd.original);
         std::string garbage, fen;
