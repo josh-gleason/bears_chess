@@ -214,32 +214,6 @@ void CLI::handle_perft(const Command& cmd) {
     }
 }
 
-Move parse_uci_move(const std::string& s, const Board& board) {
-    MoveList legal_moves = generate_moves<LegalPolicy>(board);
-    if (s.size() != 4 && s.size() != 5) {
-        throw std::invalid_argument(std::format("Move {} is invalid", s));    
-    }
-    Square from = parse_square(s[0], s[1]);
-    Square to = parse_square(s[2], s[3]);
-    Piece promotion = Piece::NONE;
-    if (s.size() == 5) {
-        promotion = parse_piece(s[4]);
-    }
-
-    for (const auto& move : legal_moves) {
-        if (
-            move.from == from &&
-            move.to == to && (
-                (!is_promotion(move.move_type) && promotion == Piece::NONE) ||
-                (is_promotion(move.move_type) && promote_to(move.move_type) == promotion)
-            )
-        ) {
-            return move;
-        }
-    }
-    throw std::invalid_argument(std::format("Invalid Move {}", s));
-}
-
 void CLI::handle_position(const Command& cmd) {
     auto [arg1, extras] = parse_args<std::string>(cmd.args);
     size_t idx = 0;
