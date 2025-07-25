@@ -56,15 +56,14 @@ CLI::CLI() :
         { CommandType::HELP, [this] (const ParsedCommand& cmd) { this->handle_help(cmd); } },
         { CommandType::EMPTY, [this] (const ParsedCommand& cmd) { this->handle_empty(cmd); } },
         { CommandType::UNKNOWN, [this] (const ParsedCommand& cmd) { this->handle_unknown(cmd); } }
-    }
+    },
+    reader([this](std::string line) { this->enqueue_command(std::move(line)); })
 {}
 
 CLI::~CLI() {
     exit_requested = true;
 
-    if (input_thread.joinable())
-        input_thread.join();
-
+    reader.stop();
     if (processor_thread.joinable())
         processor_thread.join();
 }
@@ -72,13 +71,10 @@ CLI::~CLI() {
 int CLI::run() {
     std::println("Welcome to the Bear's Chess Engine");
 
-    input_thread = std::thread(&CLI::input_listener, this);
+    reader.start();
     processor_thread = std::thread(&CLI::command_processor, this);
 
-    // threads exit when exit command provided
-    input_thread.join();
     processor_thread.join();
-
     return 0;
 }
 
@@ -136,7 +132,7 @@ std::optional<CLI::RawCommand> CLI::dequeue_command() {
 void CLI::handle_quit(const ParsedCommand& cmd) {
     std::println("COMMAND: quit");
     exit_requested = true;
-    std::cin.setstate(std::ios::eofbit);
+    reader.stop();
 }
 
 void CLI::handle_display(const ParsedCommand& cmd) {

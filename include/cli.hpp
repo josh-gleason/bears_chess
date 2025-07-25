@@ -9,6 +9,7 @@
 #include <optional>
 #include <functional>
 #include <unordered_map>
+#include "async_line_reader.hpp"
 
 namespace bears_chess {
 
@@ -52,7 +53,7 @@ private:
     std::condition_variable queue_cv;
 
     std::atomic<bool> exit_requested{false};
-    std::thread input_thread;
+    AsyncLineReader reader;
     std::thread processor_thread;
 
     ParsedCommand parse_command(const RawCommand& line) const;
