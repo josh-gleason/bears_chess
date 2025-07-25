@@ -3,6 +3,7 @@ set(SOURCES
     board_utils.cpp
     bitboard.cpp
     evaluation_utils.cpp
+    cli.cpp
 )
 
 add_library(bears_chess ${SOURCES})
@@ -11,5 +12,7 @@ target_include_directories(bears_chess
     PUBLIC
         ${PROJECT_SOURCE_DIR}/include
 )
+
+target_link_libraries(bears_chess PRIVATE asio)
 
 # target_compile_options(bears_chess PRIVATE -fconstexpr-ops-limit=1000000000 -fconstexpr-loop-limit=10000000)

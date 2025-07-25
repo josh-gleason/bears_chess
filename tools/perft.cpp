@@ -7,7 +7,7 @@
 #include <mutex>
 #include <thread>
 #include <future>
-#include "bears_chess.hpp"
+#include <bears_chess.hpp>
 
 using namespace std;
 using namespace bears_chess;

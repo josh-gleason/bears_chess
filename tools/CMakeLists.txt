@@ -42,4 +42,9 @@ add_executable(make_magic
 )
 target_link_libraries(make_magic PRIVATE bears_chess)
 
+add_executable(cli
+    cli.cpp
+)
+target_link_libraries(cli PRIVATE bears_chess)
+    
 # add_subdirectory(benchmarks)
