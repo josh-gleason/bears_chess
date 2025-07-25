@@ -59,13 +59,6 @@ auto parse_args(const std::vector<std::string>& args) {
     return std::tuple_cat(parsed_args, std::tuple{ std::move(extra_args) });
 }
 
-std::string to_lower(const std::string& s) {
-    std::string r;
-    r.reserve(s.size());
-    std::transform(s.begin(), s.end(), std::back_inserter(r), ::tolower);
-    return r;
-}
-
 std::vector<std::string> split(const std::string& line) {
     std::istringstream iss(line);
     std::vector<std::string> tokens{
@@ -135,7 +128,7 @@ void CLI::input_listener() {
 }
 
 CLI::ParsedCommand CLI::parse_command(const RawCommand& line) const {
-    std::vector<std::string> words = split(to_lower(line));
+    std::vector<std::string> words = split(line);
     if (words.empty()) {
         return { CommandType::EMPTY, line, {} };
     }
@@ -200,10 +193,9 @@ void CLI::handle_perft(const ParsedCommand& cmd) {
     bool show_moves = false;
     bool show_stats = false;
     for (const auto& word : extras) {
-        auto lword = to_lower(word);
-        if (lword == "moves") {
+        if (word == "moves") {
             show_moves = true;
-        } else if (lword == "stats") {
+        } else if (word == "stats") {
             show_stats = true;
         } else {
             throw std::invalid_argument(std::format("Unknown option {}", word));

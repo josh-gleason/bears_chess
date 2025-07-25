@@ -39,22 +39,27 @@ bool is_double_check(const Board& board) {
 template<Color color>
 bool is_checkmate(const Board& board) {
     BoardState<color, LegalPolicy> state(board);
-    MoveList moves;
 
-    generate_king_moves<color>(board, moves, state);
+    if (state.num_checkers > 0) {
+        MoveList moves;
 
-    if (state.num_checkers < 2) {
-        if (!moves.empty()) return false;
-        generate_castle_moves<color>(board, moves, state);
-        if (!moves.empty()) return false;
-        generate_knight_moves<color>(board, moves, state);
-        if (!moves.empty()) return false;
-        generate_slider_moves<color>(board, moves, state);
-        if (!moves.empty()) return false;
-        generate_pawn_moves<color>(board, moves, state);
+        generate_king_moves<color>(board, moves, state);
+
+        if (state.num_checkers < 2) {
+            if (!moves.empty()) return false;
+            generate_castle_moves<color>(board, moves, state);
+            if (!moves.empty()) return false;
+            generate_knight_moves<color>(board, moves, state);
+            if (!moves.empty()) return false;
+            generate_slider_moves<color>(board, moves, state);
+            if (!moves.empty()) return false;
+            generate_pawn_moves<color>(board, moves, state);
+        }
+
+        return moves.empty();
     }
 
-    return moves.empty();
+    return false;
 }
 
 bool is_checkmate(const Board& board) {
