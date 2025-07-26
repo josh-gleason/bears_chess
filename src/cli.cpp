@@ -9,6 +9,8 @@
 
 namespace bears_chess {
 
+using KeyedArgs = std::unordered_map<std::string, std::vector<std::string>>;
+
 template<typename> constexpr bool is_optional_impl = false;
 template<typename T> constexpr bool is_optional_impl<std::optional<T>> = true;
 
@@ -59,6 +61,22 @@ auto parse_args(const std::vector<std::string>& args) {
     return std::tuple_cat(parsed_args, std::tuple{ std::move(extra_args) });
 }
 
+KeyedArgs group_by_keywords(const std::vector<std::string>& args, const std::vector<std::string>& keywords) {
+    KeyedArgs result;
+    std::string current = "";
+    result[current];
+
+    for (auto& word : args) {
+        if (std::find(keywords.begin(), keywords.end(), word) != keywords.end()) {
+            current = word;
+            result[current];
+        } else {
+            result[current].push_back(word);
+        }
+    }
+    return result;
+}
+
 std::vector<std::string> split(const std::string& line) {
     std::istringstream iss(line);
     std::vector<std::string> tokens{
@@ -66,6 +84,21 @@ std::vector<std::string> split(const std::string& line) {
         std::istream_iterator<std::string>{}
     };
     return tokens;
+}
+
+std::string join(const std::vector<std::string>& words, const std::string& delimiter=" ") {
+    if (words.empty()) {
+        return "";
+    }
+    std::string result = words[0];
+    for (auto it = words.cbegin() + 1; it != words.cend(); ++it) {
+        result += delimiter + *it;
+    }
+    return result;
+}
+
+bool contains(const std::vector<std::string>& words, const std::string& value) {
+    return std::find(words.begin(), words.end(), value) != words.end();
 }
 
 template<typename K, typename T>
@@ -79,25 +112,43 @@ T get_or_default(const std::unordered_map<K, T>& map, const K& key, const T& def
 
 CLI::CLI() :
     command_types{
-        { "q", CommandType::QUIT },
-        { "quit", CommandType::QUIT },
-        { "exit", CommandType::QUIT },
-        { "d", CommandType::DISPLAY },
+        // Non-UCI commands
         { "display", CommandType::DISPLAY },
+        { "d", CommandType::DISPLAY },
         { "perft", CommandType::PERFT },
+        { "help", CommandType::HELP },
+        { "q", CommandType::QUIT },
+        { "exit", CommandType::QUIT },
+        // UCI commands
+        { "uci", CommandType::UCI },
+        { "debug", CommandType::DEBUG },
+        { "isready", CommandType::ISREADY },
+        { "setoption", CommandType::SETOPTION },
+        { "register", CommandType::REGISTER },
+        { "ucinewgame", CommandType::UCINEWGAME },
         { "position", CommandType::POSITION },
         { "go", CommandType::GO },
-        { "help", CommandType::HELP }
+        { "stop", CommandType::STOP },
+        { "ponderhit", CommandType::PONDERHIT },
+        { "quit", CommandType::QUIT },
     },
     command_handlers{
-        { CommandType::QUIT, [this] (const Command& cmd) { this->handle_quit(cmd); } },
+        { CommandType::EMPTY, [this] (const Command& cmd) { this->handle_empty(cmd); } },
+        { CommandType::UNKNOWN, [this] (const Command& cmd) { this->handle_unknown(cmd); } },
         { CommandType::DISPLAY, [this] (const Command& cmd) { this->handle_display(cmd); } },
         { CommandType::PERFT, [this] (const Command& cmd) { this->handle_perft(cmd); } },
+        { CommandType::HELP, [this] (const Command& cmd) { this->handle_help(cmd); } },
+        { CommandType::UCI, [this] (const Command& cmd) { this->handle_uci(cmd); } },
+        { CommandType::DEBUG, [this] (const Command& cmd) { this->handle_debug(cmd); } },
+        { CommandType::ISREADY, [this] (const Command& cmd) { this->handle_isready(cmd); } },
+        { CommandType::SETOPTION, [this] (const Command& cmd) { this->handle_setoption(cmd); } },
+        { CommandType::REGISTER, [this] (const Command& cmd) { this->handle_register(cmd); } },
+        { CommandType::UCINEWGAME, [this] (const Command& cmd) { this->handle_ucinewgame(cmd); } },
         { CommandType::POSITION, [this] (const Command& cmd) { this->handle_position(cmd); } },
         { CommandType::GO, [this] (const Command& cmd) { this->handle_go(cmd); } },
-        { CommandType::HELP, [this] (const Command& cmd) { this->handle_help(cmd); } },
-        { CommandType::EMPTY, [this] (const Command& cmd) { this->handle_empty(cmd); } },
-        { CommandType::UNKNOWN, [this] (const Command& cmd) { this->handle_unknown(cmd); } }
+        { CommandType::STOP, [this] (const Command& cmd) { this->handle_stop(cmd); } },
+        { CommandType::PONDERHIT, [this] (const Command& cmd) { this->handle_ponderhit(cmd); } },
+        { CommandType::QUIT, [this] (const Command& cmd) { this->handle_quit(cmd); } },
     }
 {}
 
@@ -177,31 +228,20 @@ std::optional<CLI::Command> CLI::dequeue_command() {
 
 // command handlers
 
-void CLI::handle_quit(const Command& cmd) {
-    if (!cmd.args.empty())
-        throw std::invalid_argument(std::format("Unknown option {}", cmd.args[0]));
-    exit_requested = true;
+void CLI::handle_empty(const Command& cmd) {}
+
+void CLI::handle_unknown(const Command& cmd) {
+    throw std::invalid_argument(std::format("Unknown command: {}", cmd.original));
 }
 
 void CLI::handle_display(const Command& cmd) {
-    if (!cmd.args.empty())
-        throw std::invalid_argument(std::format("Unknown option {}", cmd.args[0]));
     std::println("{}", engine.board);
 }
 
 void CLI::handle_perft(const Command& cmd) {
-    auto [max_depth, extras] = parse_args<int>(cmd.args);
-    bool show_moves = false;
-    bool show_stats = false;
-    for (const auto& word : extras) {
-        if (word == "moves" && !show_moves) {
-            show_moves = true;
-        } else if (word == "stats" && !show_stats) {
-            show_stats = true;
-        } else {
-            throw std::invalid_argument(std::format("Unknown option {}", word));
-        }
-    }
+    auto [max_depth, flags] = parse_args<int>(cmd.args);
+    bool show_moves = contains(flags, "moves");
+    bool show_stats = contains(flags, "stats");
 
     if (!show_stats && !show_moves) {
         std::println("{}", run_perft<LegalPolicy, false, false>(engine.board, max_depth));
@@ -214,55 +254,116 @@ void CLI::handle_perft(const Command& cmd) {
     }
 }
 
-void CLI::handle_position(const Command& cmd) {
-    auto [arg1, extras] = parse_args<std::string>(cmd.args);
-    size_t idx = 0;
-    if (arg1 == "startpos") {
-        engine.board = Board();
-    } else if (arg1 == "fen") {
-        std::istringstream sin(cmd.original);
-        std::string fen;
-        while (idx < extras.size() && extras[idx] != "moves") {
-            if (!fen.empty()) {
-                fen += " ";
-            }
-            fen += extras[idx++];
-        }
-        // TODO: verify fen string
-        engine.board = load_fen(fen);
-    } else {
-        throw std::invalid_argument(std::format("Unknown option {}", arg1));
-    }
-
-    if (idx < extras.size()) {
-        if (extras[idx] != "moves") {
-            throw std::invalid_argument(std::format("Unknown option {}", extras[idx]));
-        }
-
-        idx++;
-        while (idx < extras.size()) {
-            engine.board.do_move(parse_uci_move(extras[idx], engine.board));
-            idx++;
-        }
-    }
-}
-
-void CLI::handle_go(const Command& cmd) {
-    // TODO
-    std::println("COMMAND: go");
-}
-
 void CLI::handle_help(const Command& cmd) {
     // TODO
     std::println("COMMAND: help");
 }
 
-void CLI::handle_empty(const Command& cmd) {
-    std::println("COMMAND: empty");
+void CLI::handle_uci(const Command& cmd) {
+    // TODO
+    std::println("COMMAND: uci");
 }
 
-void CLI::handle_unknown(const Command& cmd) {
-    throw std::invalid_argument(std::format("Unknown command: {}", cmd.original));
+void CLI::handle_debug(const Command& cmd) {
+    // TODO
+    bool on = contains(cmd.args, "on");
+    std::println("COMMAND: debug");
+}
+
+void CLI::handle_isready(const Command& cmd) {
+    std::println("readyok");
+}
+
+void CLI::handle_setoption(const Command& cmd) {
+    // TODO
+    auto grouped = group_by_keywords(cmd.args, {"name", "value"});
+    std::println("COMMAND: setoption");
+}
+
+void CLI::handle_register(const Command& cmd) {
+    // TODO
+    auto grouped = group_by_keywords(cmd.args, {"later", "name", "code"});
+    std::println("COMMAND: register");
+}
+
+void CLI::handle_ucinewgame(const Command& cmd) {
+    engine.ucinewgame();
+}
+
+void CLI::handle_position(const Command& cmd) {
+    auto grouped = group_by_keywords(cmd.args, {"startpos", "fen", "moves"});
+    if (grouped.contains("startpos")) {
+        engine.board = Board();
+    } else if (grouped.contains("fen")) {
+        engine.board = load_fen(join(grouped["fen"], " "));
+    }
+
+    if (grouped.contains("moves")) {
+        for (auto& move_str : grouped["moves"]) {
+            engine.board.do_move(parse_uci_move(move_str, engine.board));
+        }
+    }
+}
+
+void CLI::handle_go(const Command& cmd) {
+    auto grouped = group_by_keywords(cmd.args, {
+        "searchmoves", "ponder", "wtime", "btime", "winc", "binc",
+        "movestogo", "depth", "nodes", "mate", "movetime", "infinite"
+    });
+
+    Engine::GoOptions opts;
+
+    if (grouped.contains("searchmoves")) {
+        opts.searchmoves = std::vector<Move>(grouped["searchmoves"].size());
+        auto it = opts.searchmoves->begin();
+        for (auto& move_str : grouped["searchmoves"]) {
+            *(it++) = parse_uci_move(move_str, engine.board);
+        }
+    }
+    if (grouped.contains("ponder")) {
+        opts.ponder = true;
+    }
+    if (grouped.contains("wtime")) {
+        opts.wtime = std::get<0>(parse_args<int>(grouped["wtime"]));
+    }
+    if (grouped.contains("btime")) {
+        opts.btime = std::get<0>(parse_args<int>(grouped["btime"]));
+    }
+    if (grouped.contains("winc")) {
+        opts.winc = std::get<0>(parse_args<int>(grouped["winc"]));
+    }
+    if (grouped.contains("binc")) {
+        opts.binc = std::get<0>(parse_args<int>(grouped["binc"]));
+    }
+    if (grouped.contains("movestogo")) {
+        opts.movestogo = std::get<0>(parse_args<int>(grouped["movestogo"]));
+    }
+    if (grouped.contains("depth")) {
+        opts.depth = std::get<0>(parse_args<int>(grouped["depth"]));
+    }
+    if (grouped.contains("nodes")) {
+        opts.nodes = std::get<0>(parse_args<int>(grouped["nodes"]));
+    }
+    if (grouped.contains("movetime")) {
+        opts.movetime = std::get<0>(parse_args<int>(grouped["movetime"]));
+    }
+    if (grouped.contains("infinite")) {
+        opts.infinite = true;
+    }
+
+    engine.go(opts);
+}
+
+void CLI::handle_stop(const Command& cmd) {
+    engine.stop();
+}
+
+void CLI::handle_ponderhit(const Command& cmd) {
+    engine.ponderhit();
+}
+
+void CLI::handle_quit(const Command& cmd) {
+    exit_requested = true;
 }
 
 } // bears_chess

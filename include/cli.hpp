@@ -25,14 +25,10 @@ private:
     using WordList = std::vector<Word>;
 
     enum class CommandType {
-        QUIT,
-        DISPLAY,
-        PERFT,
-        POSITION,
-        GO,
-        HELP,
-        EMPTY,
-        UNKNOWN
+        EMPTY, UNKNOWN, DISPLAY, PERFT, HELP,
+        UCI, DEBUG, ISREADY, SETOPTION, REGISTER,
+        UCINEWGAME, POSITION, GO, STOP, PONDERHIT,
+        QUIT
     };
 
     struct Command {
@@ -64,14 +60,22 @@ private:
     std::optional<Command> dequeue_command();
 
     // command handlers
-    void handle_quit(const Command& cmd);
-    void handle_display(const Command& cmd);
-    void handle_perft(const Command& cmd);
-    void handle_position(const Command& cmd);
-    void handle_go(const Command& cmd);
-    void handle_help(const Command& cmd);
     void handle_empty(const Command& cmd);
     void handle_unknown(const Command& cmd);
+    void handle_display(const Command& cmd);
+    void handle_perft(const Command& cmd);
+    void handle_help(const Command& cmd);
+    void handle_uci(const Command& cmd);
+    void handle_debug(const Command& cmd);
+    void handle_isready(const Command& cmd);
+    void handle_setoption(const Command& cmd);
+    void handle_register(const Command& cmd);
+    void handle_ucinewgame(const Command& cmd);
+    void handle_position(const Command& cmd);
+    void handle_go(const Command& cmd);
+    void handle_stop(const Command& cmd);
+    void handle_ponderhit(const Command& cmd);
+    void handle_quit(const Command& cmd);
 };
 
 }
