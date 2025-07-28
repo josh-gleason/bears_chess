@@ -97,7 +97,7 @@ void Engine::set_option(const std::string& name, const uci::RawOptionValue& valu
             throw std::invalid_argument(std::format("Unknown option {}", name));
         }
     }
-    options[name].value = uci::convert_raw(value, options[name].type);;
+    options[name].value = uci::convert_raw(value, options[name].type);
     options[name].on_change();
 }
 

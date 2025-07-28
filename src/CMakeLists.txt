@@ -4,6 +4,9 @@ set(SOURCES
     bitboard.cpp
     evaluation_utils.cpp
     cli.cpp
+    engine.cpp
+    parse_utils.cpp
+    uci_options.cpp
 )
 
 add_library(bears_chess ${SOURCES})
