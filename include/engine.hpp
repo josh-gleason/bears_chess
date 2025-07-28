@@ -1,5 +1,7 @@
 #pragma once
+#include <map>
 #include "board.hpp"
+#include "uci_options.hpp"
 
 namespace bears_chess {
 
@@ -19,25 +21,26 @@ public:
         bool infinite{false};
     };
 
-    Engine() {}
+    Engine();
 
-    void ucinewgame() {
-        // TODO
-    }
-
-    void go(const GoOptions& opts) {
-        // TODO
-    }
-
-    void stop() {
-        // TODO
-    }
-
-    void ponderhit() {
-        // TODO
-    }
+    void uci();
+    void ucinewgame();
+    void go(const GoOptions& opts);
+    void stop();
+    void ponderhit();
+    void debug(bool on);
+    bool debug() const;
+    void set_option(const std::string& name, const uci::RawOptionValue& value);
 
     Board board;
+
+private:
+    bool debug_on{false};
+    std::map<std::string, uci::Option> options;
+
+    void handle_hash_opt();
+    void handle_ponder_opt();
+    void handle_multipv_opt();
 };
 
 } // bears_chess
