@@ -3,7 +3,6 @@
 #include <gtest/gtest.h>
 
 using namespace bears_chess;
-using std::print, std::println;
 
 class MakeUnmakeTest : public ::testing::Test {
 protected:

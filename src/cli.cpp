@@ -2,13 +2,14 @@
 #include "bears_chess.hpp"
 #include "parse_utils.hpp"
 
-#include <print>
 #include <sstream>
 #include <algorithm>
 #include <iterator>
 #include <vector>
 
 namespace bears_chess {
+
+using log::print, log::println;
 
 CLI::CLI() :
     command_types{
@@ -62,7 +63,7 @@ CLI::~CLI() {
 }
 
 int CLI::run() {
-    std::println("Welcome to the Bear's Chess Engine");
+    println("Welcome to the Bear's Chess Engine");
 
     input_thread = std::thread(&CLI::input_listener, this);
     processor_thread = std::thread(&CLI::command_processor, this);
@@ -101,7 +102,7 @@ void CLI::command_processor() {
         try {
             command_handlers.at(cmd_opt->type)(*cmd_opt);
         } catch (std::invalid_argument err) {
-            std::println("ERROR: {}", err.what());
+            log::error("{}", err.what());
         }
     }
 }
@@ -135,7 +136,7 @@ void CLI::handle_unknown(const Command& cmd) {
 }
 
 void CLI::handle_display(const Command& cmd) {
-    std::println("{}", engine.board);
+    println("{}", engine.board);
 }
 
 void CLI::handle_perft(const Command& cmd) {
@@ -144,19 +145,19 @@ void CLI::handle_perft(const Command& cmd) {
     bool show_stats = contains(flags, "stats");
 
     if (!show_stats && !show_moves) {
-        std::println("{}", run_perft<LegalPolicy, false, false>(engine.board, max_depth));
+        println("{}", run_perft<LegalPolicy, false, false>(engine.board, max_depth));
     } else if (!show_stats && show_moves) {
-        std::println("{}", run_perft<LegalPolicy, false, true>(engine.board, max_depth));
+        println("{}", run_perft<LegalPolicy, false, true>(engine.board, max_depth));
     } else if (show_stats && !show_moves) {
-        std::println("{}", run_perft<LegalPolicy, true, false>(engine.board, max_depth));
+        println("{}", run_perft<LegalPolicy, true, false>(engine.board, max_depth));
     } else {
-        std::println("{}", run_perft<LegalPolicy, true, true>(engine.board, max_depth));
+        println("{}", run_perft<LegalPolicy, true, true>(engine.board, max_depth));
     }
 }
 
 void CLI::handle_help(const Command& cmd) {
     // TODO
-    std::println("COMMAND: help");
+    log::error("COMMAND: help not implemented");
 }
 
 void CLI::handle_uci(const Command& cmd) {
@@ -168,7 +169,7 @@ void CLI::handle_debug(const Command& cmd) {
 }
 
 void CLI::handle_isready(const Command& cmd) {
-    std::println("readyok");
+    engine.isready();
 }
 
 void CLI::handle_setoption(const Command& cmd) {
@@ -189,7 +190,7 @@ void CLI::handle_setoption(const Command& cmd) {
 void CLI::handle_register(const Command& cmd) {
     // TODO
     auto grouped = group_by_keywords(cmd.args, {"later", "name", "code"});
-    std::println("COMMAND: register");
+    log::error("COMMAND: register not implemented");
 }
 
 void CLI::handle_ucinewgame(const Command& cmd) {

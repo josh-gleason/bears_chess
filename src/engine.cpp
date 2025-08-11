@@ -1,10 +1,12 @@
 #include <stdexcept>
 #include <format>
-#include <print>
 #include <string>
 #include "engine.hpp"
+#include "log.hpp"
 
 namespace bears_chess {
+
+using log::uci_print, log::uci_println;
 
 Engine::Engine() :
     options{
@@ -21,49 +23,49 @@ Engine::Engine() :
 }
 
 void Engine::uci() {
-    std::println("id name Bear's Chess Engine");
-    std::println("id author Josh Gleason");
+    uci_println("id name Bear's Chess Engine");
+    uci_println("id author Josh Gleason");
 
     for (const auto& [name, opt] : options) {
-        std::print("option name {} type ", name);
+        uci_print("option name {} type ", name);
 
         switch (opt.type) {
             case uci::OptionType::Check: {
-                std::println("check default {}", (std::get<bool>(opt.value) ? "true" : "false"));
+                uci_println("check default {}", (std::get<bool>(opt.value) ? "true" : "false"));
                 break;
             }
             case uci::OptionType::Spin: {
                 int def = std::get<int>(opt.value);
                 const auto& meta = std::get<uci::SpinBounds>(opt.meta);
-                std::println("spin default {} min {} max {}", def, meta.min, meta.max);
+                uci_println("spin default {} min {} max {}", def, meta.min, meta.max);
                 break;
             }
             case uci::OptionType::Combo: {
                 std::string def = std::get<std::string>(opt.value);
-                std::print("combo default {}", def);
+                uci_print("combo default {}", def);
                 const auto& meta = std::get<uci::ComboOptions>(opt.meta);
                 for (auto &choice : meta.allowed) {
-                    std::print(" var {}", choice);
+                    uci_print(" var {}", choice);
                 }
-                std::println("");
+                uci_println("");
                 break;
             }
             case uci::OptionType::Button: {
-                std::println("button");
+                uci_println("button");
                 break;
             }
             case uci::OptionType::String: {
                 std::string def = std::get<std::string>(opt.value);
                 if (def.empty())
-                    std::println("string default <empty>");
+                    uci_println("string default <empty>");
                 else
-                    std::println("string default {}", def);
+                    uci_println("string default {}", def);
                 break;
             }
         }
     }
 
-    std::println("uciok");
+    uci_println("uciok");
 }
 
 void Engine::ucinewgame() {
@@ -99,6 +101,11 @@ void Engine::set_option(const std::string& name, const uci::RawOptionValue& valu
     }
     options[name].value = uci::convert_raw(value, options[name].type);
     options[name].on_change();
+}
+
+void Engine::isready() const
+{
+    uci_println("readyok");
 }
 
 void Engine::handle_hash_opt() {

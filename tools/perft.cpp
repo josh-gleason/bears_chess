@@ -1,16 +1,8 @@
-#include <format>
-#include <print>
-#include <iostream>
-#include <chrono>
-#include <map>
-#include <unordered_map>
-#include <mutex>
-#include <thread>
-#include <future>
 #include <bears_chess.hpp>
 
-using namespace std;
 using namespace bears_chess;
+
+using log::print, log::println;
 
 int main()
 {

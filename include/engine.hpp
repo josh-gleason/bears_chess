@@ -31,6 +31,7 @@ public:
     void debug(bool on);
     bool debug() const;
     void set_option(const std::string& name, const uci::RawOptionValue& value);
+    void isready() const;
 
     Board board;
 

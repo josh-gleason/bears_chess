@@ -64,6 +64,16 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 
 include(FetchContent)
 
+# spdlog
+
+FetchContent_Declare(
+    spdlog
+    GIT_REPOSITORY https://github.com/gabime/spdlog.git
+    GIT_TAG        v1.15.3
+)
+
+FetchContent_MakeAvailable(spdlog)
+
 # add subdirs
 
 add_subdirectory(src)

@@ -1,6 +1,5 @@
 #pragma once
 
-#include <print>
 #include <format>
 #include <iostream>
 #include <chrono>
@@ -12,6 +11,7 @@
 #include "board_utils.hpp"
 #include "movegen.hpp"
 #include "evaluation_utils.hpp"
+#include "log.hpp"
 
 
 template <>
@@ -27,8 +27,6 @@ struct std::hash<bears_chess::Move> {
 };
 
 namespace bears_chess {
-
-using std::print, std::println;
 
 struct DepthStats {
     uint64_t nodes = 0;
@@ -264,58 +262,58 @@ std::vector<Move> test_do_undo_(const Board& original, int depth) {
 
             bool differ = false;
             if (board.side_to_move != original.side_to_move) {
-                println("side_to_move does not match");
+                log::println("side_to_move does not match");
                 differ = true;
             }
             if (board.fullmove_number != original.fullmove_number) {
-                println("fullmove_number does not match");
+                log::println("fullmove_number does not match");
                 differ = true;
             }
             if (board.castling_rights != original.castling_rights) {
-                println("castling_rights does not match");
+                log::println("castling_rights does not match");
                 differ = true;
             }
             if (board.ep_square != original.ep_square) {
-                println("ep_square does not match");
+                log::println("ep_square does not match");
                 differ = true;
             }
             if (board.halfmove_clock != original.halfmove_clock) {
-                println("halfmove_clock does not match");
+                log::println("halfmove_clock does not match");
                 differ = true;
             }
             if (board.occupied != original.occupied) {
-                println("occupied does not match");
+                log::println("occupied does not match");
                 differ = true;
             }
             for (Piece p : iter<Piece>) {
                 if (board.pieces[idx(Color::WHITE)][idx(p)] != board.pieces[idx(Color::WHITE)][idx(p)]) {
-                    println("pieces[0][idx({})] does not match", p);
+                    log::println("pieces[0][idx({})] does not match", p);
                     highlights |= (board.pieces[idx(Color::WHITE)][idx(p)] ^ board.pieces[idx(Color::WHITE)][idx(p)]);
                     differ = true;
                 }
                 if (board.pieces[idx(Color::BLACK)][idx(p)] != board.pieces[idx(Color::BLACK)][idx(p)]) {
-                    println("pieces[1][idx({})] does not match", p);
+                    log::println("pieces[1][idx({})] does not match", p);
                     highlights |= (board.pieces[idx(Color::BLACK)][idx(p)] ^ board.pieces[idx(Color::BLACK)][idx(p)]);
                     differ = true;
                 }
             }
             if (board.occupied_by_color[idx(Color::WHITE)] != original.occupied_by_color[idx(Color::WHITE)]) {
-                println("occupied_by_color[0] does not match");
+                log::println("occupied_by_color[0] does not match");
                 highlights |= (board.occupied_by_color[idx(Color::WHITE)] ^ original.occupied_by_color[idx(Color::WHITE)]);
                 differ = true;
             }
             if (board.occupied_by_color[idx(Color::BLACK)] != original.occupied_by_color[idx(Color::BLACK)]) {
-                println("occupied_by_color[1] does not match");
+                log::println("occupied_by_color[1] does not match");
                 highlights |= (board.occupied_by_color[idx(Color::BLACK)] ^ original.occupied_by_color[idx(Color::BLACK)]);
                 differ = true;
             }
             if (board.king_sq[idx(Color::WHITE)] != original.king_sq[idx(Color::WHITE)]) {
-                println("king_sq[0] does not match");
+                log::println("king_sq[0] does not match");
                 highlights |= (bb_square(board.king_sq[idx(Color::WHITE)]) ^ bb_square(original.king_sq[idx(Color::WHITE)]));
                 differ = true;
             }
             if (board.king_sq[idx(Color::BLACK)] != original.king_sq[idx(Color::BLACK)]) {
-                println("king_sq[1] does not match");
+                log::println("king_sq[1] does not match");
                 highlights |= (bb_square(board.king_sq[idx(Color::BLACK)]) ^ bb_square(original.king_sq[idx(Color::BLACK)]));
                 differ = true;
             }
@@ -324,20 +322,20 @@ std::vector<Move> test_do_undo_(const Board& original, int depth) {
                     continue;
                 }
                 if (board.last_piece_sq[idx(sq)] != original.last_piece_sq[idx(sq)]) {
-                    println("last_piece_sq[idx({})] does not match", sq);
+                    log::println("last_piece_sq[idx({})] does not match", sq);
                     highlights |= bb_square(sq);
                     differ = true;
                 }
                 if (board.last_color_sq[idx(sq)] != original.last_color_sq[idx(sq)]) {
-                    println("last_color_sq[idx({})] does not match", sq);
+                    log::println("last_color_sq[idx({})] does not match", sq);
                     highlights |= bb_square(sq);
                     differ = true;
                 }
             }
             if (differ) {
-                println("Mismatch after do/undo for move: {}", move);
-                println("Original:\n{}", show_highlights(original, highlights));
-                println("After undo:\n{}", show_highlights(board, highlights));
+                log::println("Mismatch after do/undo for move: {}", move);
+                log::println("Original:\n{}", show_highlights(original, highlights));
+                log::println("After undo:\n{}", show_highlights(board, highlights));
                 return {move};
             }
         } else if (depth > 1) {
@@ -362,12 +360,12 @@ std::vector<Move> test_do_undo(const Board& board, int max_depth) {
     
     if (!failure_moves.empty()) {
         Board temp_board = board;
-        println("Failure");
-        println("Starting fen: {:F}", board);
+        log::println("Failure");
+        log::println("Starting fen: {:F}", board);
         for (auto it = failure_moves.rbegin(); it != failure_moves.rend(); ++it) {
             Move move = *it;
-            println("    {}. {}", std::distance(failure_moves.rbegin(), it) + 1, move);
-            println("{}", show_highlights(temp_board, bb_square(move.from) | bb_square(move.to)));
+            log::println("    {}. {}", std::distance(failure_moves.rbegin(), it) + 1, move);
+            log::println("{}", show_highlights(temp_board, bb_square(move.from) | bb_square(move.to)));
             temp_board.do_move(move);
         }
     }
@@ -376,26 +374,26 @@ std::vector<Move> test_do_undo(const Board& board, int max_depth) {
 }
 
 inline void show_move_list(const Board& board, const MoveList& moves_in) {
-    println("# Moves: {}", moves_in.size());
+    log::println("# Moves: {}", moves_in.size());
     std::vector<Move> moves(moves_in.cbegin(), moves_in.cend());
     for (Square from : BBSquareScan(board.occupied_by_color[idx(board.side_to_move)])) {
         Bitboard highlights = bb_square(from);
         for (int i = moves.size() - 1; i >= 0; --i) {
             if (moves[i].from == from) {
-                println("    {}", moves[i]);
+                log::println("    {}", moves[i]);
                 highlights |= bb_square(moves[i].to);
                 moves.erase(moves.begin() + i);
             }
         }
         if (popcount(highlights) > 1) {
-            println("{:+f}", show_highlights(board, highlights));
+            log::println("{:+f}", show_highlights(board, highlights));
         }
     }
 
     if (moves.size() > 0) {
-        println("ERROR: Should Be empty!!!!");
+        log::println("ERROR: Should Be empty!!!!");
         for (auto move : moves) {
-            println("{}", move);
+            log::println("{}", move);
         }
     }
 }
