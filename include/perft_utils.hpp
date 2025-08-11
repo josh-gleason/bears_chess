@@ -286,14 +286,14 @@ std::vector<Move> test_do_undo_(const Board& original, int depth) {
                 differ = true;
             }
             for (Piece p : iter<Piece>) {
-                if (board.pieces[idx(Color::WHITE)][idx(p)] != board.pieces[idx(Color::WHITE)][idx(p)]) {
+                if (board.pieces[idx(Color::WHITE)][idx(p)] != original.pieces[idx(Color::WHITE)][idx(p)]) {
                     log::println("pieces[0][idx({})] does not match", p);
-                    highlights |= (board.pieces[idx(Color::WHITE)][idx(p)] ^ board.pieces[idx(Color::WHITE)][idx(p)]);
+                    highlights |= (board.pieces[idx(Color::WHITE)][idx(p)] ^ original.pieces[idx(Color::WHITE)][idx(p)]);
                     differ = true;
                 }
-                if (board.pieces[idx(Color::BLACK)][idx(p)] != board.pieces[idx(Color::BLACK)][idx(p)]) {
+                if (board.pieces[idx(Color::BLACK)][idx(p)] != original.pieces[idx(Color::BLACK)][idx(p)]) {
                     log::println("pieces[1][idx({})] does not match", p);
-                    highlights |= (board.pieces[idx(Color::BLACK)][idx(p)] ^ board.pieces[idx(Color::BLACK)][idx(p)]);
+                    highlights |= (board.pieces[idx(Color::BLACK)][idx(p)] ^ original.pieces[idx(Color::BLACK)][idx(p)]);
                     differ = true;
                 }
             }
