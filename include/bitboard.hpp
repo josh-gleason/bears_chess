@@ -646,7 +646,7 @@ inline Bitboard bb_attacks(Square from, Bitboard bb_occupied) {
         return ROOK_ATTACKS[idx(from)].bb_attacks(bb_occupied);
     if constexpr (piece_type == Piece::QUEEN)
         return (
-            ROOK_ATTACKS[idx(from)].bb_attacks(bb_occupied)
+            BISHOP_ATTACKS[idx(from)].bb_attacks(bb_occupied)
             | ROOK_ATTACKS[idx(from)].bb_attacks(bb_occupied)
         );
     if constexpr (piece_type == Piece::KNIGHT)
