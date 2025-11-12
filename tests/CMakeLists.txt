@@ -1,6 +1,7 @@
 add_executable(bears_chess_tests
     perft_tests.cpp
     make_move_tests.cpp
+    zobrist_tests.cpp
 )
 
 target_link_libraries(bears_chess_tests

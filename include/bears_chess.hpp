@@ -6,11 +6,13 @@
 #include "board_utils.hpp"
 #include "cli.hpp"
 #include "log.hpp"
+#include "zobrist.hpp"
 
 namespace bears_chess {
 
 inline void init() {
     init_bitboards();
+    init_zobrist();
     log::init();
 }
 

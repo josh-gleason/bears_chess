@@ -130,9 +130,11 @@ void find_magics(std::ostream& out) {
             attack_sets.emplace_back(assign_bits(bb_attack_mask, bits), bb_attack_mask);
         }
         MagicHash magic = find_magic(attack_sets);
+        #ifndef NDEBUG
         auto stats = magic.check_magic(attack_sets);
         assert(stats.valid);
         assert(!stats.mod_needed);
+        #endif
         out << "            " << magic << (sq != Square::H8 ? "," : "") << std::endl;
     }
 }

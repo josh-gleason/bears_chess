@@ -59,7 +59,9 @@ ZobristHash compute_zobrist_hash(const Board& board) {
     }
     hash ^= zobrist_castling_rights(board.castling_rights);
     hash ^= zobrist_side_to_move(board.side_to_move);
-    hash ^= zobrist_ep_file(file_of(board.ep_square));
+    if (board.ep_square != Square::NONE) {
+        hash ^= zobrist_ep_file(file_of(board.ep_square));
+    }
     return hash;
 }
 
