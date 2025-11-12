@@ -114,45 +114,42 @@ UndoInfo Board::do_move(const Move &move)
 
     place<UPDATE_ZOBRIST>(us, moving_piece, to);
 
-    hash ^= zobrist_castling_rights(castling_rights);
-
     if (move.move_type == MoveType::KING_CASTLE) {
         Square rook_from = CASTLE_ROOK_FROM_SQUARES<Piece::KING>[idx(us)];
         Square rook_to = CASTLE_ROOK_TO_SQUARES<Piece::KING>[idx(us)];
         remove<UPDATE_ZOBRIST>(us, Piece::ROOK, rook_from);
         place<UPDATE_ZOBRIST>(us, Piece::ROOK, rook_to);
-        castling_rights = clear_castling_rights(castling_rights, us);
+        update_castling_rights<UPDATE_ZOBRIST>(clear_castling_rights(castling_rights, us));
         king_sq[idx(us)] = to;
     } else if (move.move_type == MoveType::QUEEN_CASTLE) {
         Square rook_from = CASTLE_ROOK_FROM_SQUARES<Piece::QUEEN>[idx(us)];
         Square rook_to = CASTLE_ROOK_TO_SQUARES<Piece::QUEEN>[idx(us)];
         remove<UPDATE_ZOBRIST>(us, Piece::ROOK, rook_from);
         place<UPDATE_ZOBRIST>(us, Piece::ROOK, rook_to);
-        castling_rights = clear_castling_rights(castling_rights, us);
+        update_castling_rights<UPDATE_ZOBRIST>(clear_castling_rights(castling_rights, us));
         king_sq[idx(us)] = to;
     } else if (moving_piece == Piece::KING) {
-        castling_rights = clear_castling_rights(castling_rights, us);
+        update_castling_rights<UPDATE_ZOBRIST>(clear_castling_rights(castling_rights, us));
         king_sq[idx(us)] = to;
     } else if (moving_piece == Piece::ROOK) {
         if (from == CASTLE_ROOK_FROM_SQUARES<Piece::KING>[idx(us)]) {
-            castling_rights = clear_half_castling_rights<Piece::KING>(castling_rights, us);
+            update_castling_rights<UPDATE_ZOBRIST>(clear_half_castling_rights<Piece::KING>(castling_rights, us));
         } else if (from == CASTLE_ROOK_FROM_SQUARES<Piece::QUEEN>[idx(us)]) {
-            castling_rights = clear_half_castling_rights<Piece::QUEEN>(castling_rights, us);
+            update_castling_rights<UPDATE_ZOBRIST>(clear_half_castling_rights<Piece::QUEEN>(castling_rights, us));
         }
     }
     
     if (undo.captured == Piece::ROOK) {
         if (to == CASTLE_ROOK_FROM_SQUARES<Piece::KING>[idx(them)]) {
-            castling_rights = clear_half_castling_rights<Piece::KING>(castling_rights, them);
+            update_castling_rights<UPDATE_ZOBRIST>(clear_half_castling_rights<Piece::KING>(castling_rights, them));
         } else if (to == CASTLE_ROOK_FROM_SQUARES<Piece::QUEEN>[idx(them)]) {
-            castling_rights = clear_half_castling_rights<Piece::QUEEN>(castling_rights, them);
+            update_castling_rights<UPDATE_ZOBRIST>(clear_half_castling_rights<Piece::QUEEN>(castling_rights, them));
         }
     }
 
     fullmove_number += static_cast<int>(side_to_move);
     side_to_move = them;
 
-    hash ^= zobrist_castling_rights(castling_rights);
     hash ^= zobrist_toggle_side_to_move();
 
     return undo;

@@ -73,6 +73,14 @@ class Board {
             remove<update_zobrist>(c, last_piece_sq[idx(s)], s);
         }
 
+        template<bool update_zobrist=false>
+        inline void update_castling_rights(CastlingRights r) {
+            if constexpr (update_zobrist) {
+                hash ^= zobrist_castling_rights(castling_rights) ^ zobrist_castling_rights(r);
+            }
+            castling_rights = r;
+        }
+
         inline bool test_bit(Color c, Piece p, Square s) const {
             return nonzero(pieces[idx(c)][idx(p)] & bb_square(s));
         }
