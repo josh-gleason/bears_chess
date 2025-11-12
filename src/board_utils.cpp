@@ -6,6 +6,7 @@
 #include "board_utils.hpp"
 #include "bitboard.hpp"
 #include "movegen.hpp"
+#include "zobrist.hpp"
 
 namespace bears_chess {
 
@@ -245,6 +246,8 @@ Board load_fen(const std::string &fen)
         }
         board.fullmove_number = move_number;
     }
+
+    board.hash = compute_zobrist_hash(board);
 
     return board;
 }
@@ -794,16 +797,16 @@ Piece parse_piece(char p) {
     throw std::invalid_argument(std::format("Invalid piece {}", p));
 }
 
-Move parse_uci_move(const std::string& s, const Board& board) {
+Move convert_uci_to_move(const std::string& uci_move, const Board& board) {
     MoveList legal_moves = generate_moves<LegalPolicy>(board);
-    if (s.size() != 4 && s.size() != 5) {
-        throw std::invalid_argument(std::format("Move {} is invalid", s));
+    if (uci_move.size() != 4 && uci_move.size() != 5) {
+        throw std::invalid_argument(std::format("Move {} is invalid", uci_move));
     }
-    Square from = parse_square(s[0], s[1]);
-    Square to = parse_square(s[2], s[3]);
+    Square from = parse_square(uci_move[0], uci_move[1]);
+    Square to = parse_square(uci_move[2], uci_move[3]);
     Piece promotion = Piece::NONE;
-    if (s.size() == 5) {
-        promotion = parse_piece(s[4]);
+    if (uci_move.size() == 5) {
+        promotion = parse_piece(uci_move[4]);
     }
 
     for (const auto& move : legal_moves) {
@@ -817,7 +820,16 @@ Move parse_uci_move(const std::string& s, const Board& board) {
             return move;
         }
     }
-    throw std::invalid_argument(std::format("Invalid Move {}", s));
+    throw std::invalid_argument(std::format("Invalid Move {}", uci_move));
+}
+
+const std::string convert_move_to_uci(const Move& move) {
+    std::string result;
+    result = square_to_str(move.from) + square_to_str(move.to);
+    if (is_promotion(move.move_type)) {
+        result += piece_to_str(Color::BLACK, promote_to(move.move_type));
+    }
+    return result;
 }
 
 } // namespace bears_chess

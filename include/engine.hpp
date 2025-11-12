@@ -34,6 +34,8 @@ public:
     void isready() const;
 
     Board board;
+    
+    // TODO: transposition table
 
 private:
     bool debug_on{false};

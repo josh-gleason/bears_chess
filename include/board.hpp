@@ -2,6 +2,7 @@
 
 #include "types.hpp"
 #include "bitboard.hpp"
+#include "zobrist.hpp"
 
 namespace bears_chess {
 
@@ -19,7 +20,10 @@ class Board {
     
         // utility functions
 
+        template<bool update_zobrist=false>
         inline void place(Color c, Piece p, Square s) {
+            if constexpr (update_zobrist)
+                hash ^= zobrist_piece(c, p, s);
             last_color_sq[idx(s)] = c;
             last_piece_sq[idx(s)] = p;
 
@@ -28,7 +32,10 @@ class Board {
             occupied |= bb_square(s);
         }
 
+        template<bool update_zobrist=false>
         inline void place_king(Color c, Square s) {
+            if constexpr (update_zobrist)
+                hash ^= zobrist_piece(c, Piece::KING, s);
             last_color_sq[idx(s)] = c;
             last_piece_sq[idx(s)] = Piece::KING;
 
@@ -39,28 +46,31 @@ class Board {
             king_sq[idx(c)] = s;
         }
 
+        template<bool update_zobrist=false>
         inline void remove(Color c, Piece p, Square s) {
+            if constexpr (update_zobrist)
+                hash ^= zobrist_piece(c, p, s);
             pieces[idx(c)][idx(p)] &= ~bb_square(s);
             occupied_by_color[idx(c)] &= ~bb_square(s);
             occupied &= ~bb_square(s);
         }
 
-        template<bool assume_occupied=true>
+        template<bool assume_occupied=true, bool update_zobrist=false>
         inline void clear_square(Square s) {
             if constexpr (!assume_occupied) {
                 if (!is_occupied(s))
                     return;
             }
-            remove(last_color_sq[idx(s)], last_piece_sq[idx(s)], s);
+            remove<update_zobrist>(last_color_sq[idx(s)], last_piece_sq[idx(s)], s);
         }
 
-        template<bool assume_occupied=true>
+        template<bool assume_occupied=true, bool update_zobrist=false>
         inline void clear_square_of_color(Color c, Square s) {
             if constexpr (!assume_occupied) {
                 if (!is_occupied(s))
                     return;
             }
-            remove(c, last_piece_sq[idx(s)], s);
+            remove<update_zobrist>(c, last_piece_sq[idx(s)], s);
         }
 
         inline bool test_bit(Color c, Piece p, Square s) const {
@@ -134,6 +144,8 @@ class Board {
         Piece last_piece_sq[num_of<Square>];
         Color last_color_sq[num_of<Square>];
         Square king_sq[num_of<Color>];
+
+        ZobristHash hash;
 };
 
 } // namespace bears_chess

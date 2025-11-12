@@ -33,6 +33,9 @@ public:
     const_iterator cbegin() const { return moves.cbegin(); }
     const_iterator cend() const { return cur; }
 
+    const_iterator begin() const { return moves.cbegin(); }
+    const_iterator end() const { return cur; }
+
     iterator begin() { return moves.begin(); }
     iterator end() { return cur; }
 

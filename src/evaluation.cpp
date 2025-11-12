@@ -1,8 +1,16 @@
 #include "movegen.hpp"
 #include "bitboard.hpp"
 #include "types.hpp"
+#include "evaluation.hpp"
 
 namespace bears_chess {
+
+const int PAWN_VALUE = 100;
+const int KNIGHT_VALUE = 300;
+const int BISHOP_VALUE = 300;
+const int ROOK_VALUE = 500;
+const int QUEEN_VALUE = 900;
+const int KING_VALUE = 100000;
 
 bool is_check(const Board& board) {
     Bitboard bb_attacks = (
@@ -68,6 +76,26 @@ bool is_checkmate(const Board& board) {
     }
     return is_checkmate<Color::BLACK>(board);
 
+}
+
+int evaluate(const Board& board) {
+    int material = 0;
+
+    material += popcount(board.pieces[idx(Color::WHITE)][idx(Piece::PAWN)]) * PAWN_VALUE;
+    material += popcount(board.pieces[idx(Color::WHITE)][idx(Piece::KNIGHT)]) * KNIGHT_VALUE;
+    material += popcount(board.pieces[idx(Color::WHITE)][idx(Piece::BISHOP)]) * BISHOP_VALUE;
+    material += popcount(board.pieces[idx(Color::WHITE)][idx(Piece::ROOK)]) * ROOK_VALUE;
+    material += popcount(board.pieces[idx(Color::WHITE)][idx(Piece::QUEEN)]) * QUEEN_VALUE;
+    material += popcount(board.pieces[idx(Color::WHITE)][idx(Piece::KING)]) * KING_VALUE;
+
+    material -= popcount(board.pieces[idx(Color::BLACK)][idx(Piece::PAWN)]) * PAWN_VALUE;
+    material -= popcount(board.pieces[idx(Color::BLACK)][idx(Piece::KNIGHT)]) * KNIGHT_VALUE;
+    material -= popcount(board.pieces[idx(Color::BLACK)][idx(Piece::BISHOP)]) * BISHOP_VALUE;
+    material -= popcount(board.pieces[idx(Color::BLACK)][idx(Piece::ROOK)]) * ROOK_VALUE;
+    material -= popcount(board.pieces[idx(Color::BLACK)][idx(Piece::QUEEN)]) * QUEEN_VALUE;
+    material -= popcount(board.pieces[idx(Color::BLACK)][idx(Piece::KING)]) * KING_VALUE;
+
+    return board.side_to_move == Color::WHITE ? material : -material;
 }
 
 } // namespace bears_chess

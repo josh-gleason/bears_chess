@@ -156,8 +156,31 @@ void CLI::handle_perft(const Command& cmd) {
 }
 
 void CLI::handle_help(const Command& cmd) {
-    // TODO
-    log::error("COMMAND: help not implemented");
+    println("Bear's Chess Engine CLI Help");
+    println("---------------------------");
+    println("");
+    println("Non-UCI Commands:");
+    println("  help                               - Show this help message");
+    println("  display | d                        - Display the current board position");
+    println("  perft [depth] [flags]              - Run performance test to specified depth");
+    println("                                       flags: moves - show moves at depth 1");
+    println("                                              stats - show statistics");
+    println("  q | quit | exit                    - Quit the program");
+    println("");
+    println("UCI Commands:");
+    println("  uci                                - Switch to UCI mode");
+    println("  debug [on|off]                     - Turn debug mode on or off");
+    println("  isready                            - Ping the engine to check if it's ready");
+    println("  setoption name X...                - Set engine option");
+    println("  register ...                       - Register the engine");
+    println("  ucinewgame                         - Start a new game");
+    println("  position [startpos|fen|moves] ...  - Set up a position");
+    println("  go ...                             - Start calculating");
+    println("  stop                               - Stop calculating");
+    println("  ponderhit                          - The opponent has played the expected move");
+    println("  quit                               - Quit the program");
+    println("");
+    println("See UCI protocol specification for detailed usage of UCI commands.");
 }
 
 void CLI::handle_uci(const Command& cmd) {
@@ -207,7 +230,7 @@ void CLI::handle_position(const Command& cmd) {
 
     if (grouped.contains("moves")) {
         for (auto& move_str : grouped["moves"]) {
-            engine.board.do_move(parse_uci_move(move_str, engine.board));
+            engine.board.do_move(convert_uci_to_move(move_str, engine.board));
         }
     }
 }
@@ -224,7 +247,7 @@ void CLI::handle_go(const Command& cmd) {
         opts.searchmoves = std::vector<Move>(grouped["searchmoves"].size());
         auto it = opts.searchmoves->begin();
         for (auto& move_str : grouped["searchmoves"]) {
-            *(it++) = parse_uci_move(move_str, engine.board);
+            *(it++) = convert_uci_to_move(move_str, engine.board);
         }
     }
     if (grouped.contains("ponder")) {

@@ -6,7 +6,7 @@ namespace bears_chess {
 template<typename E> using hash_func_t = size_t(*)(const E&) noexcept;
 
 // opt in traits for enum classes
-struct bitmask_ops {};
+struct bitwise_ops {};
 struct shift_ops {};
 struct arithmetic_ops {};
 struct preincrement_ops {};
@@ -34,14 +34,17 @@ struct hash_ops {
 template<typename E>
 struct enum_traits {};
 
-template<typename E> concept BitmaskEnum = std::is_enum_v<E> && std::is_base_of_v<bitmask_ops, enum_traits<E>>;
+template<typename E> concept BitmaskEnum = std::is_enum_v<E> && std::is_base_of_v<bitwise_ops, enum_traits<E>>;
 template<BitmaskEnum T> constexpr T operator|(T a, T b) noexcept { return static_cast<T>(static_cast<std::underlying_type_t<T>>(a) | static_cast<std::underlying_type_t<T>>(b)); }
 template<BitmaskEnum T> constexpr T operator&(T a, T b) noexcept { return static_cast<T>(static_cast<std::underlying_type_t<T>>(a) & static_cast<std::underlying_type_t<T>>(b)); }
 template<BitmaskEnum T> constexpr T operator^(T a, T b) noexcept { return static_cast<T>(static_cast<std::underlying_type_t<T>>(a) ^ static_cast<std::underlying_type_t<T>>(b)); }
+template<BitmaskEnum T> constexpr T operator%(T a, T b) noexcept { return static_cast<T>(static_cast<std::underlying_type_t<T>>(a) % static_cast<std::underlying_type_t<T>>(b)); }
 template<BitmaskEnum T> constexpr T& operator|=(T& a, T b) noexcept { return a = a | b; }
 template<BitmaskEnum T> constexpr T& operator&=(T& a, T b) noexcept { return a = a & b; }
 template<BitmaskEnum T> constexpr T& operator^=(T& a, T b) noexcept { return a = a ^ b; }
+template<BitmaskEnum T> constexpr T& operator%=(T& a, T b) noexcept { return a = a % b; }
 template<BitmaskEnum T> constexpr T operator~(T a) noexcept { return static_cast<T>(~static_cast<std::underlying_type_t<T>>(a)); }
+template<BitmaskEnum T> constexpr T mask_if(bool c) { return static_cast<T>(-static_cast<std::make_signed_t<std::underlying_type_t<T>>>(c)); }
 
 template<typename E> concept ShiftEnum = std::is_enum_v<E> && std::is_base_of_v<shift_ops, enum_traits<E>>;
 template<ShiftEnum T> constexpr T operator<<(T a, int b) noexcept { return static_cast<T>(static_cast<std::underlying_type_t<T>>(a) << b); }

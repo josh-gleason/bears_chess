@@ -8,5 +8,6 @@ bool is_check(const Board& board);
 bool is_discovered_check(const Board& board, const Move& last_move);
 bool is_double_check(const Board& board);
 bool is_checkmate(const Board& board);
+int evaluate(const Board& board);
 
 } // namespace bears_chess

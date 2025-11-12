@@ -46,7 +46,7 @@ enum class BoardFormat : long {
 };
 
 template<> struct enum_traits<BoardFormat> :
-    bitmask_ops,
+    bitwise_ops,
     flag_ops
 {};
 
@@ -122,7 +122,8 @@ File parse_file(char f);
 Rank parse_rank(char r);
 Square parse_square(char f, char r);
 Piece parse_piece(char p);
-Move parse_uci_move(const std::string& s, const Board& board);
+Move convert_uci_to_move(const std::string& s, const Board& board);
+const std::string convert_move_to_uci(const Move& move);
 
 } // namespace bears_chess
 

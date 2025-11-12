@@ -32,7 +32,7 @@ constexpr Bitboard to_bb(uint64_t value) noexcept {
 }
 
 template<> struct enum_traits<Bitboard> :
-    bitmask_ops,
+    bitwise_ops,
     shift_ops,
     arithmetic_ops,
     inequality_ops,

@@ -128,9 +128,10 @@ enum class CastlingRights : uint8_t {
 };
 
 template<> struct enum_traits<CastlingRights> :
-    bitmask_ops,
+    bitwise_ops,
     shift_ops,
-    flag_ops
+    flag_ops,
+    range_ops<CastlingRights::NONE, CastlingRights::ALL>
 {};
 
 enum class Color : int8_t {
@@ -222,7 +223,7 @@ enum class MoveType : int8_t {
 };
 
 template<> struct enum_traits<MoveType> :
-    bitmask_ops,
+    bitwise_ops,
     flag_ops
 {};
 
@@ -289,12 +290,21 @@ constexpr auto CASTLE_ROOK_TO_SQUARES = []() -> std::array<Square, num_of<Color>
     }
 }();
 
+enum class ZobristHash : uint64_t {
+    ZERO = 0
+};
+
+template<> struct enum_traits<ZobristHash> :
+    bitwise_ops
+{};
+
 struct UndoInfo {
     Move move;
     Piece captured;
     CastlingRights castling_rights;
     Square ep_square;
     uint8_t halfmove_clock;
+    ZobristHash hash;
 };
 
 enum class Direction : int8_t {

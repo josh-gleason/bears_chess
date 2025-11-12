@@ -1,5 +1,6 @@
 #include "board.hpp"
 #include "bitboard.hpp"
+#include "zobrist.hpp"
 
 namespace bears_chess {
 
@@ -11,7 +12,8 @@ Board::Board() :
     ep_square(Square::NONE),
     halfmove_clock(0),
     occupied(Bitboard::EMPTY),
-    occupied_by_color{Bitboard::EMPTY, Bitboard::EMPTY}
+    occupied_by_color{Bitboard::EMPTY, Bitboard::EMPTY},
+    hash(ZobristHash::ZERO)
 {
     for (Color c : iter<Color>)
         for (Piece p : iter<Piece>)
@@ -56,6 +58,8 @@ Board::Board() :
     place(Color::BLACK, Piece::BISHOP, Square::F8);
     place(Color::BLACK, Piece::KNIGHT, Square::G8);
     place(Color::BLACK, Piece::ROOK, Square::H8);
+
+    hash = compute_zobrist_hash(*this);
 }
 
 UndoInfo Board::do_move(const Move &move)
@@ -65,9 +69,11 @@ UndoInfo Board::do_move(const Move &move)
         Piece::NONE,
         castling_rights,
         ep_square,
-        halfmove_clock
+        halfmove_clock,
+        hash
     };
 
+    constexpr bool UPDATE_ZOBRIST = true;
     const Color us = side_to_move;
     const Color them = ~side_to_move;
     const Square from = move.from;
@@ -75,7 +81,10 @@ UndoInfo Board::do_move(const Move &move)
 
     Piece moving_piece = get_piece_of_color_at(us, from);
 
-    ep_square = Square::NONE;
+    if (ep_square != Square::NONE) {
+        hash ^= zobrist_ep_file(file_of(ep_square));
+        ep_square = Square::NONE;
+    }
 
     halfmove_clock++;
 
@@ -84,38 +93,41 @@ UndoInfo Board::do_move(const Move &move)
         if (move.move_type == MoveType::EP_CAPTURE) {
             undo.captured = Piece::PAWN;
             Square captured_sq = captured_ep_square(us, to);
-            remove(them, Piece::PAWN, captured_sq);
+            remove<UPDATE_ZOBRIST>(them, Piece::PAWN, captured_sq);
         } else {
             undo.captured = get_piece_of_color_at(them, to);
-            remove(them, undo.captured, to);
+            remove<UPDATE_ZOBRIST>(them, undo.captured, to);
         }
     } else if (moving_piece == Piece::PAWN) {
         halfmove_clock = 0;
         if (move.move_type == MoveType::DOUBLE_PAWN_PUSH) {
             ep_square = double_push_ep_square(us, to);
+            hash ^= zobrist_ep_file(file_of(ep_square));
         }
     }
 
-    remove(us, moving_piece, from);
+    remove<UPDATE_ZOBRIST>(us, moving_piece, from);
 
     if (is_promotion(move.move_type)) {
         moving_piece = promote_to(move.move_type);
     }
 
-    place(us, moving_piece, to);
+    place<UPDATE_ZOBRIST>(us, moving_piece, to);
+
+    hash ^= zobrist_castling_rights(castling_rights);
 
     if (move.move_type == MoveType::KING_CASTLE) {
         Square rook_from = CASTLE_ROOK_FROM_SQUARES<Piece::KING>[idx(us)];
         Square rook_to = CASTLE_ROOK_TO_SQUARES<Piece::KING>[idx(us)];
-        remove(us, Piece::ROOK, rook_from);
-        place(us, Piece::ROOK, rook_to);
+        remove<UPDATE_ZOBRIST>(us, Piece::ROOK, rook_from);
+        place<UPDATE_ZOBRIST>(us, Piece::ROOK, rook_to);
         castling_rights = clear_castling_rights(castling_rights, us);
         king_sq[idx(us)] = to;
     } else if (move.move_type == MoveType::QUEEN_CASTLE) {
         Square rook_from = CASTLE_ROOK_FROM_SQUARES<Piece::QUEEN>[idx(us)];
         Square rook_to = CASTLE_ROOK_TO_SQUARES<Piece::QUEEN>[idx(us)];
-        remove(us, Piece::ROOK, rook_from);
-        place(us, Piece::ROOK, rook_to);
+        remove<UPDATE_ZOBRIST>(us, Piece::ROOK, rook_from);
+        place<UPDATE_ZOBRIST>(us, Piece::ROOK, rook_to);
         castling_rights = clear_castling_rights(castling_rights, us);
         king_sq[idx(us)] = to;
     } else if (moving_piece == Piece::KING) {
@@ -140,6 +152,9 @@ UndoInfo Board::do_move(const Move &move)
     fullmove_number += static_cast<int>(side_to_move);
     side_to_move = them;
 
+    hash ^= zobrist_castling_rights(castling_rights);
+    hash ^= zobrist_toggle_side_to_move();
+
     return undo;
 }
 
@@ -156,6 +171,7 @@ void Board::undo_move(const UndoInfo &undo_info)
     halfmove_clock = undo_info.halfmove_clock;
     castling_rights = undo_info.castling_rights;
     ep_square = undo_info.ep_square;
+    hash = undo_info.hash;
 
     Piece moving_piece = get_piece_of_color_at(us, to);
     remove(us, moving_piece, to);
