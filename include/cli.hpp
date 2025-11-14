@@ -41,6 +41,7 @@ private:
 
     const std::unordered_map<std::string, CommandType> command_types;
     const std::unordered_map<CommandType, CommandHandler> command_handlers;
+    const std::unordered_map<CommandType, const std::string_view> help_messages;
 
     std::queue<Command> command_queue;
     std::mutex queue_mutex;

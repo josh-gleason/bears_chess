@@ -1,6 +1,7 @@
 #include "cli.hpp"
 #include "bears_chess.hpp"
 #include "parse_utils.hpp"
+#include "help/messages.hpp"
 
 #include <sstream>
 #include <algorithm>
@@ -50,6 +51,24 @@ CLI::CLI() :
         { CommandType::STOP, [this] (const Command& cmd) { this->handle_stop(cmd); } },
         { CommandType::PONDERHIT, [this] (const Command& cmd) { this->handle_ponderhit(cmd); } },
         { CommandType::QUIT, [this] (const Command& cmd) { this->handle_quit(cmd); } },
+    },
+    help_messages{
+        { CommandType::EMPTY, HELP },
+        { CommandType::UNKNOWN, HELP_UNKNOWN },
+        { CommandType::DISPLAY, HELP_DISPLAY },
+        { CommandType::PERFT, HELP_PERFT },
+        { CommandType::HELP, HELP_HELP },
+        { CommandType::UCI, HELP_UCI },
+        { CommandType::DEBUG, HELP_DEBUG },
+        { CommandType::ISREADY, HELP_ISREADY },
+        { CommandType::SETOPTION, HELP_SETOPTION },
+        { CommandType::REGISTER, HELP_REGISTER },
+        { CommandType::UCINEWGAME, HELP_UCINEWGAME },
+        { CommandType::POSITION, HELP_POSITION },
+        { CommandType::GO, HELP_GO },
+        { CommandType::STOP, HELP_STOP },
+        { CommandType::PONDERHIT, HELP_PONDERHIT },
+        { CommandType::QUIT, HELP_QUIT },
     }
 {}
 
@@ -156,31 +175,13 @@ void CLI::handle_perft(const Command& cmd) {
 }
 
 void CLI::handle_help(const Command& cmd) {
-    println("Bear's Chess Engine CLI Help");
-    println("---------------------------");
-    println("");
-    println("Non-UCI Commands:");
-    println("  help                               - Show this help message");
-    println("  display | d                        - Display the current board position");
-    println("  perft [depth] [flags]              - Run performance test to specified depth");
-    println("                                       flags: moves - show moves at depth 1");
-    println("                                              stats - show statistics");
-    println("  q | quit | exit                    - Quit the program");
-    println("");
-    println("UCI Commands:");
-    println("  uci                                - Switch to UCI mode");
-    println("  debug [on|off]                     - Turn debug mode on or off");
-    println("  isready                            - Ping the engine to check if it's ready");
-    println("  setoption name X...                - Set engine option");
-    println("  register ...                       - Register the engine");
-    println("  ucinewgame                         - Start a new game");
-    println("  position [startpos|fen|moves] ...  - Set up a position");
-    println("  go ...                             - Start calculating");
-    println("  stop                               - Stop calculating");
-    println("  ponderhit                          - The opponent has played the expected move");
-    println("  quit                               - Quit the program");
-    println("");
-    println("See UCI protocol specification for detailed usage of UCI commands.");
+    if (cmd.args.empty()) {
+        println("{}", help_messages.find(CommandType::EMPTY)->second);
+    } else {
+        std::string cmd_str = *cmd.args.begin();
+        CommandType cmd_type = get_or_default(command_types, cmd_str, CommandType::UNKNOWN);
+        println("{}", help_messages.find(cmd_type)->second);
+    }
 }
 
 void CLI::handle_uci(const Command& cmd) {
