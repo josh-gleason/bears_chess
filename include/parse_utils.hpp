@@ -74,6 +74,7 @@ T get_or_default(const std::unordered_map<K, T>& map, const K& key, const T& def
 KeyedArgs group_by_keywords(const std::vector<std::string>& args, const std::vector<std::string>& keywords);
 std::vector<std::string> split(const std::string& line);
 std::string join(const std::vector<std::string>& words, const std::string& delimiter=" ");
+std::string to_lower(const std::string& text);
 bool contains(const std::vector<std::string>& words, const std::string& value);
 
 } // bears_chess

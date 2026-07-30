@@ -12,7 +12,7 @@ namespace bears_chess {
 static const int DEFAULT_DEPTH = 245;
 static const int INFINITE_DEPTH = INT32_MAX;
 
-using log::uci_print, log::uci_println;
+using log::uci_print, log::uci_println, log::uci_info;
 
 Engine::Engine() :
     options{
@@ -29,6 +29,8 @@ Engine::Engine() :
 }
 
 void Engine::uci() {
+    log::set_uci_mode(true);
+
     uci_println("id name Bear's Chess Engine");
     uci_println("id author Josh Gleason");
 
@@ -136,7 +138,7 @@ void Engine::go(const GoOptions& opts) {
     }
 
     if (moves.empty()) {
-        log::error("No legal moves");
+        log::uci_println("bestmove 0000");
         return;
     }
 
@@ -149,7 +151,7 @@ void Engine::go(const GoOptions& opts) {
         max_depth = INFINITE_DEPTH;
     }
 
-    log::debug("Starting iterative deepening search with max depth {}", max_depth);
+    uci_info("Starting iterative deepening search with max depth {}", max_depth);
    
     const MoveList principal_variation{};
 
@@ -206,19 +208,26 @@ void Engine::ponderhit() {
 }
 
 void Engine::debug(bool on) {
-    debug_on = true;
+    debug_on = on;
+    log::set_uci_debug(on);
 }
 
 bool Engine::debug() const {
     return debug_on;
 }
 
+static bool is_uci_prefixed(std::string_view name) {
+    return name.size() >= 4 && std::tolower(name[0]) == 'u' && std::tolower(name[1]) == 'c' && std::tolower(name[2]) == 'i' && name[3] == '_';
+}
+
 void Engine::set_option(const std::string& name, const uci::RawOptionValue& value) {
     if (!options.contains(name)) {
         // ignore UCI_* commands that are not registered
-        if (!name.starts_with("UCI_")) {
+        if (!is_uci_prefixed(name)) {
             throw std::invalid_argument(std::format("Unknown option {}", name));
         }
+        log::debug("Unknown UCI option provided: {}", name);        
+        return;
     }
     options[name].value = uci::convert_raw(value, options[name].type);
     options[name].on_change();

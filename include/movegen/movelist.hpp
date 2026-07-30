@@ -1,5 +1,6 @@
 #pragma once
 #include "types.hpp"
+#include "bitboard.hpp"
 
 namespace bears_chess {
 
@@ -11,13 +12,17 @@ public:
     typedef ListType::iterator iterator;
     typedef ListType::const_iterator const_iterator;
 
-#pragma gcc diagnostic push
-#pragma clang diagnostic push
-#pragma gcc diagnostic ignored "-Wuninitialized"
-#pragma clang diagnostic ignored "-Wuninitialized"
-    MoveList() : cur(moves.begin()) {}
-#pragma gcc diagnostic pop
-#pragma clang diagnostic pop
+    MoveList() {
+        cur = moves.begin();
+    }
+
+    MoveList(const MoveList& rhs) : moves(rhs.moves), cur(moves.begin() + rhs.size()) {}
+
+    MoveList& operator=(const MoveList& rhs) {
+        moves = rhs.moves;
+        cur = moves.begin() + rhs.size();
+        return *this;
+    }
 
     inline void emplace_back(Move move) {
         *(cur++) = move;
@@ -52,8 +57,8 @@ public:
     }
 
 private:
-    iterator cur;
     ListType moves;
+    iterator cur;
 };
 
 } // namespace bears_chess

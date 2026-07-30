@@ -202,7 +202,9 @@ void CLI::handle_setoption(const Command& cmd) {
         throw std::invalid_argument("Missing name field");
     }
 
-    std::string name = std::get<0>(parse_args<std::string>(grouped["name"]));
+    // UCI names can be multiple words
+    std::string name = join(grouped["name"], " ");
+
     uci::RawOptionValue value{};
     if (grouped.contains("value")) {
         value = std::move(grouped["value"]);

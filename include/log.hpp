@@ -30,10 +30,13 @@ void println_sv(std::string_view v);
 // print directly to stdout even in UCI mode
 void uci_print_sv(std::string_view v);
 void uci_println_sv(std::string_view v);
+void uci_info_sv(std::string_view v);
 }
 
 void init(LogLevel level = LogLevel::Info);
 void set_log_level(LogLevel level);
+void set_uci_mode(bool on);
+void set_uci_debug(bool on);
 
 // too much copy-paste but not sure of a better way without ugly macros
 template<class... Args>
@@ -89,6 +92,12 @@ inline void uci_println(std::format_string<Args...> fmt, Args&&... args) {
     detail::uci_println_sv(std::format(fmt, std::forward<Args>(args)...));
 }
 inline void uci_println(std::string_view s) { detail::uci_println_sv(s); }
+
+template<class... Args>
+inline void uci_info(std::format_string<Args...> fmt, Args&&... args) {
+    detail::uci_info_sv(std::format(fmt, std::forward<Args>(args)...));
+}
+inline void uci_info(std::string_view s) { detail::uci_info_sv(s); }
 
 }   // namespace log
 }   // namespace bears_chess

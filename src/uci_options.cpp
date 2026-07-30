@@ -19,6 +19,8 @@ OptionValue convert_raw(const RawOptionValue& raw_value, OptionType type)
         case OptionType::Combo:
             return std::get<0>(parse_args<std::string>(raw_value));
     }
+
+    throw std::logic_error("convert_raw: unhandled OptionType");
 }
 
 } // uci

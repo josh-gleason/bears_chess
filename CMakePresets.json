@@ -5,6 +5,13 @@
         "minor": 19,
         "patch": 0
     },
+    "buildPresets": [
+        {
+            "name": "default-build",
+            "configurePreset": "release",
+            "jobs": 32
+        }
+    ],
     "configurePresets": [
         {
             "name": "common",

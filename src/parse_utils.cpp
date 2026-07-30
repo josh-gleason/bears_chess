@@ -38,6 +38,15 @@ std::string join(const std::vector<std::string>& words, const std::string& delim
     return result;
 }
 
+std::string to_lower(const std::string& text) {
+    std::string text_lower;
+    text_lower.reserve(text.size());
+    for (auto ch : text) {
+        text_lower += static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
+    }
+    return text_lower;
+}
+
 bool contains(const std::vector<std::string>& words, const std::string& value) {
     return std::find(words.begin(), words.end(), value) != words.end();
 }

@@ -15,25 +15,6 @@ endif()
 if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     add_compile_options(-fconstexpr-ops-limit=1000000000 -fconstexpr-loop-limit=10000000)
 elseif (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-    set(BOLT_ARGS
-        -data=${CMAKE_BINARY_DIR}/perf.fdata
-        -reorder-blocks=ext-tsp
-        -split-functions
-        -split-all-cold
-        -dyno-stats
-    )
-
-    add_custom_command(
-        OUTPUT ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/perft-opt
-        COMMAND llvm-bolt
-                $<TARGET_FILE:perft>
-                -o ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/perft-opt
-                ${BOLT_ARGS}
-        DEPENDS perft
-        COMMENT "=> Running BOLT post-link optimization on perft"
-        VERBATIM
-    )
-
     add_compile_options(
         -fconstexpr-depth=1000000000
         -fconstexpr-steps=1000000000

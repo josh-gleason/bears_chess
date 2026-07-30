@@ -38,8 +38,18 @@ public:
     // TODO: transposition table
 
 private:
+    struct CaseInsensitiveLess {
+        using is_transparent = void;
+        bool operator()(std::string_view a, std::string_view b) const {
+            return std::lexicographical_compare(
+                a.begin(), a.end(), b.begin(), b.end(),
+                [](unsigned char x, unsigned char y) { return std::tolower(x) < std::tolower(y); });
+        }
+    };
+
+
     bool debug_on{false};
-    std::map<std::string, uci::Option> options;
+    std::map<std::string, uci::Option, CaseInsensitiveLess> options;
 
     void handle_hash_opt();
     void handle_ponder_opt();
