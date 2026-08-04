@@ -36,6 +36,9 @@ Search::SearchResult Search::go(const Board& root, std::span<const ZobristHash> 
     if (options.searchmoves.has_value()) {
         root_moves = root_moves.filter_moves(*options.searchmoves);
     }
+
+    order_captures(root_moves);
+
     deadline = options.deadline.value_or(MAX_DEADLINE);
     max_node_count = options.max_node_count.value_or(MAX_NODE_LIMIT);
     int max_depth = std::min(options.max_depth.value_or(MAX_DEPTH_LIMIT), MAX_DEPTH_LIMIT);
@@ -96,6 +99,26 @@ void Search::report(const SearchResult& current_result) {
         auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start_time);
         on_report(current_result, elapsed, hashfull);
     }
+}
+
+static inline int16_t capture_gain(const Board& board, const Move& move) {
+    const Piece victim = (
+        move.move_type == MoveType::EP_CAPTURE
+        ? Piece::PAWN
+        : board.get_piece_at<false>(move.to)    // may be called with non-captures
+    );
+    return PIECE_VALUES[idx(victim)] - PIECE_VALUES[idx(board.get_piece_at(move.from))];
+}
+
+void Search::order_captures(MoveList& moves) const {
+    // TODO: could be more efficient by computing capture_gain up front for all moves
+
+    // order highest gain first
+    std::sort(moves.begin(), moves.end(), 
+        [this](const Move& a, const Move& b) {
+            return capture_gain(board, a) > capture_gain(board, b);
+        }
+    );
 }
 
 Search::SearchResult Search::search_root(const MoveList& move_list, int depth) {
@@ -185,20 +208,21 @@ int16_t Search::negamax(int depth, int16_t ply, int16_t alpha, int16_t beta) {
     }
 
     if (depth == 0) {
-        // TODO: quiescence search
-        return evaluate<side_to_move>(board);
+        return quiescence_search<side_to_move>(ply, alpha, beta);
     }
 
     int16_t alpha_original = alpha;
 
     // TODO build staged move picker to avoid full move generation, requires some refactor to movegen
-    MoveList moves = generate_moves<side_to_move, LegalPolicy>(board);
+    BoardState<side_to_move, LegalPolicy> state(board);
+    auto moves = generate_moves<side_to_move>(board, state);
+    order_captures(moves);
 
     if (best_move.move_type != MoveType::NONE) {
         moves.promote_to_front(best_move);
     }
 
-    bool is_draw = moves.empty() && !is_check(board);
+    bool is_draw = moves.empty() && state.num_checkers == 0;
     int16_t max_score = is_draw ? DRAW_SCORE : mated_in_score(ply);
 
     // TODO: implement "pick_next_move" instead of ordering like this
@@ -232,6 +256,68 @@ int16_t Search::negamax(int depth, int16_t ply, int16_t alpha, int16_t beta) {
         bound = Bound::LOWER;
     }
     transposition_table.store(board.hash, best_move, max_score, depth, bound, ply);
+
+    return max_score;
+}
+
+template<Color side_to_move>
+int16_t Search::quiescence_search(int16_t ply, int16_t alpha, int16_t beta) {
+    ++nodes;
+
+    if (can_abort && (
+            stop_requested
+            || nodes >= max_node_count
+            || ((nodes & ((1 << NODE_CHECK_INTERVAL_LOG2) - 1)) == 0 && past_deadline())
+        ))
+    {
+        has_aborted = true;
+        return 0;
+    }
+
+    if (ply >= MAX_PLY - 1) {
+        return evaluate<side_to_move>(board);
+    }
+
+    BoardState<side_to_move, LegalPolicy> state(board);
+    const bool in_check = state.num_checkers > 0;
+
+    int16_t max_score = -SCORE_INF;
+    if (!in_check) {
+        max_score = evaluate<side_to_move>(board);
+        if (max_score >= beta) {
+            return max_score;
+        }
+        alpha = std::max(alpha, max_score);
+    }
+
+    MoveList moves;
+    if (in_check) {
+        moves = generate_moves<side_to_move>(board, state);
+        if (moves.empty()) {
+            return mated_in_score(ply);
+        }
+    } else {
+        moves = generate_moves<side_to_move, LegalPolicy, CaptureMoves>(board, state);
+    }
+
+    order_captures(moves);
+
+    for (const auto& move : moves) {
+        UndoInfo undo_info = board.do_move(move);
+        int16_t score = -quiescence_search<~side_to_move>(ply + 1, -beta, -alpha);
+        board.undo_move(undo_info);
+
+        if (has_aborted) {
+            return 0;
+        }
+        if (score > max_score) {
+            max_score = score;
+        }
+        alpha = std::max(alpha, score);
+        if (alpha >= beta) {
+            break;
+        }
+    }
 
     return max_score;
 }

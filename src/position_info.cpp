@@ -4,6 +4,7 @@
 namespace bears_chess {
 
 bool is_check(const Board& board) {
+    // if you need to generate moves too, generate board state and use state.num_checkers > 0 instead of this function
     Bitboard bb_attacks = (
         board.side_to_move == Color::WHITE
         ? generate_attacks<Color::WHITE>(board, board.occupied)

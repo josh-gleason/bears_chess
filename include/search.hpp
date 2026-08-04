@@ -16,12 +16,7 @@
 #include <span>
 
 namespace bears_chess {
-
-/**
-- TODO finish implementing search_root and company
-- TODO implement Transposition Table :
-*/
-
+   
 class Search {
 public:
     struct SearchResult {
@@ -49,6 +44,8 @@ public:
     void unregister_report_callback();
 
 private:
+    void order_captures(MoveList& moves) const;
+
     bool past_deadline();
 
     void report(const SearchResult& current_result);
@@ -61,6 +58,9 @@ private:
 
     template <Color side_to_move>
     int16_t negamax(int depth, int16_t ply, int16_t alpha=-SCORE_INF, int16_t beta=SCORE_INF);
+
+    template<Color side_to_move>
+    int16_t quiescence_search(int16_t ply, int16_t alpha, int16_t beta);
 
     Board board{};
     std::atomic<bool> stop_requested{false};
