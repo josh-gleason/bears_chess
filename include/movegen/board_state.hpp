@@ -45,7 +45,7 @@ struct Pins<false> {};
 
 } // namespace detail
 
-template<Color color, MoveGenPolicy Policy>
+template<Color color, LegalityPolicy Policy>
 struct BoardState :
     detail::KingSafety<Policy::enforce_king_safety>,
     detail::Evasions<Policy::enforce_evasions>,

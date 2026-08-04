@@ -42,17 +42,17 @@ bool is_checkmate(const Board& board) {
     if (state.num_checkers > 0) {
         MoveList moves;
 
-        generate_king_moves<color>(board, moves, state);
+        generate_king_moves<color, LegalPolicy, AllMoves>(board, moves, state);
 
         if (state.num_checkers < 2) {
             if (!moves.empty()) return false;
-            generate_castle_moves<color>(board, moves, state);
+            generate_castle_moves<color, LegalPolicy, AllMoves>(board, moves, state);
             if (!moves.empty()) return false;
-            generate_knight_moves<color>(board, moves, state);
+            generate_knight_moves<color, LegalPolicy, AllMoves>(board, moves, state);
             if (!moves.empty()) return false;
-            generate_slider_moves<color>(board, moves, state);
+            generate_slider_moves<color, LegalPolicy, AllMoves>(board, moves, state);
             if (!moves.empty()) return false;
-            generate_pawn_moves<color>(board, moves, state);
+            generate_pawn_moves<color, LegalPolicy, AllMoves>(board, moves, state);
         }
 
         return moves.empty();

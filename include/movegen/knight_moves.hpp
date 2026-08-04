@@ -4,10 +4,11 @@
 #include "bitboard.hpp"
 #include "board.hpp"
 #include "movegen/policy.hpp"
+#include "movegen/board_state.hpp"
 
 namespace bears_chess {
 
-template<Color color, MoveGenPolicy Policy>
+template<Color color, LegalityPolicy Policy, MoveSelection Selection>
 inline void generate_knight_moves(
     const Board& board, MoveList& moves, const BoardState<color, Policy>& state
 ) {
@@ -27,8 +28,12 @@ inline void generate_knight_moves(
 
     for (Square from : BBSquareScan(bb_knights)) {
         Bitboard bb_moves = bb_attacks<Piece::KNIGHT>(from);
-        moves.append_bb(from, bb_moves & bb_quiet, MoveType::QUIET);
-        moves.append_bb(from, bb_moves & bb_capture, MoveType::CAPTURE);
+        if constexpr (Selection::include_quiets) {
+            moves.append_bb(from, bb_moves & bb_quiet, MoveType::QUIET);
+        }
+        if constexpr (Selection::include_captures) {
+            moves.append_bb(from, bb_moves & bb_capture, MoveType::CAPTURE);
+        }
     }
 }
 

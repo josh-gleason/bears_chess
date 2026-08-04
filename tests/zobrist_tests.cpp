@@ -11,7 +11,7 @@ protected:
     }
 };
 
-template<MoveGenPolicy policy=LegalPolicy>
+template<LegalityPolicy policy=LegalPolicy>
 bool test_zobrist_hash_(Board& board, int depth) {
     if (depth == 0) {
         return true;
@@ -45,7 +45,7 @@ bool test_zobrist_hash_(Board& board, int depth) {
     return true;
 }
 
-template<MoveGenPolicy policy=LegalPolicy>
+template<LegalityPolicy policy=LegalPolicy>
 bool test_zobrist_hash(const Board& board, int depth) {
     Board board_copy = board;
 

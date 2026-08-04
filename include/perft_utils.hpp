@@ -156,7 +156,7 @@ struct std::formatter<bears_chess::PerftResults> {
 
 namespace bears_chess {
 
-template<MoveGenPolicy policy>
+template<LegalityPolicy policy>
 inline bool is_legal(Board& board, const Move& last_move) {
     // TODO make board.is_legal only check whats necessary based on policy
     if constexpr (policy::enforce_evasions && policy::enforce_king_safety && policy::enforce_pins) {
@@ -166,7 +166,7 @@ inline bool is_legal(Board& board, const Move& last_move) {
     }
 }
 
-template<MoveGenPolicy policy=LegalPolicy, bool collect_stats=false>
+template<LegalityPolicy policy=LegalPolicy, bool collect_stats=false>
 inline uint64_t perft(Board& board, int depth, const std::vector<DepthStats>::iterator &stats) {
     if (depth == 0) {
         return 1;
@@ -192,7 +192,7 @@ inline uint64_t perft(Board& board, int depth, const std::vector<DepthStats>::it
     return nodes;
 }
 
-template<MoveGenPolicy policy=LegalPolicy, bool collect_stats=false, bool show_moves=false>
+template<LegalityPolicy policy=LegalPolicy, bool collect_stats=false, bool show_moves=false>
 PerftResults run_perft(const Board& board_orig, int max_depth) {
     Board board = board_orig;
 
@@ -246,7 +246,7 @@ PerftResults run_perft(const Board& board_orig, int max_depth) {
     };
 }
 
-template<MoveGenPolicy policy=LegalPolicy>
+template<LegalityPolicy policy=LegalPolicy>
 std::vector<Move> test_do_undo_(const Board& original, int depth) {
     Board original_copy = Board(original);
     MoveList moves = generate_moves<policy>(original_copy);
@@ -354,7 +354,7 @@ std::vector<Move> test_do_undo_(const Board& original, int depth) {
     return {};
 }
 
-template<MoveGenPolicy policy=PseudoLegalPolicy>
+template<LegalityPolicy policy=PseudoLegalPolicy>
 std::vector<Move> test_do_undo(const Board& board, int max_depth) {
     auto failure_moves = test_do_undo_<policy>(board, max_depth);
     
@@ -398,7 +398,7 @@ inline void show_move_list(const Board& board, const MoveList& moves_in) {
     }
 }
 
-template<MoveGenPolicy policy=LegalPolicy>
+template<LegalityPolicy policy=LegalPolicy>
 inline void show_moves(const Board& board) {
     MoveList moves = generate_moves<policy>(board);
     show_move_list(board, moves);

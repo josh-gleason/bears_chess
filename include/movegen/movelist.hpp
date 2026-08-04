@@ -14,37 +14,37 @@ public:
     typedef ListType::iterator iterator;
     typedef ListType::const_iterator const_iterator;
 
-    MoveList() {
-        cur = moves.begin();
+    MoveList() : count(0), moves{} {}
+
+    MoveList(const MoveList& rhs) : count{rhs.count} {
+        std::copy(rhs.cbegin(), rhs.cend(), moves.begin());
     }
 
-    MoveList(const MoveList& rhs) : moves(rhs.moves), cur(moves.begin() + rhs.size()) {}
-
     MoveList& operator=(const MoveList& rhs) {
-        moves = rhs.moves;
-        cur = moves.begin() + rhs.size();
+        count = rhs.count;
+        std::copy(rhs.cbegin(), rhs.cend(), moves.begin());
         return *this;
     }
 
     inline void emplace_back(Move move) {
-        *(cur++) = move;
+        moves[count++] = move;
     }
 
     inline void emplace_back(Square from, Square to, MoveType move_type) {
-        *(cur++) = {from, to, move_type};
+        moves[count++] = {from, to, move_type};
     }
     
-    inline bool empty() const { return cur == moves.begin(); }
-    inline size_t size() const { return cur - moves.begin(); }
+    inline bool empty() const { return count == 0; }
+    inline size_t size() const { return count; }
 
     const_iterator cbegin() const { return moves.cbegin(); }
-    const_iterator cend() const { return cur; }
+    const_iterator cend() const { return moves.cbegin() + count; }
 
     const_iterator begin() const { return moves.cbegin(); }
-    const_iterator end() const { return cur; }
+    const_iterator end() const { return moves.cbegin() + count; }
 
     iterator begin() { return moves.begin(); }
-    iterator end() { return cur; }
+    iterator end() { return moves.begin() + count; }
 
     inline void append_bb(Square from, Bitboard bb_to, MoveType move_type) {
         for (Square to : BBSquareScan(bb_to)) {
@@ -77,8 +77,8 @@ public:
         }
     }
 private:
-    ListType moves;
-    iterator cur;
+    ListType moves{};
+    size_t count{0};
 };
 
 } // namespace bears_chess

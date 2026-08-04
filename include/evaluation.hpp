@@ -1,7 +1,6 @@
 #pragma once
 
 #include "board.hpp"
-#include "score.hpp"
 
 namespace bears_chess {
 

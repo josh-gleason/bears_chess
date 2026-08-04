@@ -3,6 +3,7 @@
 #include "movelist.hpp"
 #include "bitboard.hpp"
 #include "board.hpp"
+#include "movegen/board_state.hpp"
 #include "movegen/policy.hpp"
 
 namespace bears_chess {
@@ -36,10 +37,13 @@ inline void emplace_pawn_moves(MoveList& moves, Bitboard bb_to) {
     }
 }
 
-template<Color color, MoveGenPolicy Policy>
+template<Color color, LegalityPolicy Policy, MoveSelection Selection>
 inline void generate_ep_moves(
     const Board& board, MoveList& moves, const BoardState<color, Policy>& state
 ) {
+    if constexpr (!Selection::include_captures) {
+        return;
+    }
     constexpr Color opponent_color = ~color;
     constexpr Direction dir_from = (color == Color::WHITE ? Direction::SOUTH : Direction::NORTH);
     constexpr Direction dir_from_west = (
@@ -104,7 +108,7 @@ inline void generate_ep_moves(
         moves.emplace_back(sq_shift<dir_from_east>(to), to, MoveType::EP_CAPTURE);
 }
 
-template<Color color, MoveGenPolicy Policy>
+template<Color color, LegalityPolicy Policy, MoveSelection Selection>
 inline void generate_pawn_moves(
     const Board& board, MoveList& moves, const BoardState<color, Policy>& state
 ) {
@@ -120,48 +124,49 @@ inline void generate_pawn_moves(
     constexpr Bitboard bb_dbl_rank = (color == Color::WHITE ? bb_rank(Rank::_4) : bb_rank(Rank::_5));
 
     Bitboard bb_pawns = board.pieces[idx(color)][idx(Piece::PAWN)];
-
     Bitboard bb_unoccupied = ~board.occupied;
-    Bitboard bb_opponent_capturable = board.occupied_by_color[idx(opponent_color)];
-    Bitboard bb_unblocked = bb_unoccupied;
-    if constexpr (Policy::enforce_evasions) {
-        bb_opponent_capturable &= state.evasion_mask;
-        bb_unblocked &= state.evasion_mask;
-    }
 
-    Bitboard bb_attack_east = bb_opponent_capturable;
-    Bitboard bb_attack_west = bb_opponent_capturable;
-    Bitboard bb_push = bb_unblocked;
-    Bitboard bb_dbl_push = bb_unblocked & bb_dbl_rank;
+    Bitboard bb_allow_east = Bitboard::FULL;
+    Bitboard bb_allow_west = Bitboard::FULL;
+    Bitboard bb_allow_push = Bitboard::FULL;
 
     if constexpr (Policy::enforce_pins) {
         Square king_sq = board.king_sq[idx(color)];
         Bitboard bb_pinned = state.pinned;
         Bitboard bb_unpinned = ~bb_pinned;
-        Bitboard bb_allow_east = bb_unpinned | (bb_pinned & get_diag_of<dir_attack_east>(king_sq));
-        Bitboard bb_allow_west = bb_unpinned | (bb_pinned & get_diag_of<dir_attack_west>(king_sq));
-        
-        Bitboard bb_allow_push = bb_unpinned | (bb_pinned & BB_FILE_OF[idx(king_sq)]);
-        Bitboard bb_single = bb_unoccupied & bb_shift<dir_push>(bb_pawns & bb_allow_push);
 
-        bb_attack_east &= bb_shift<dir_attack_east, true>(bb_pawns & bb_allow_east);
-        bb_attack_west &= bb_shift<dir_attack_west, true>(bb_pawns & bb_allow_west);
-        bb_push &= bb_single;
-        bb_dbl_push &= bb_shift<dir_push>(bb_single);
-    } else {
-        Bitboard bb_single = bb_unoccupied & bb_shift<dir_push>(bb_pawns);
-
-        bb_attack_east &= bb_shift<dir_attack_east, true>(bb_pawns);
-        bb_attack_west &= bb_shift<dir_attack_west, true>(bb_pawns);
-        bb_push &= bb_single;
-        bb_dbl_push &= bb_shift<dir_push>(bb_single);
+        bb_allow_east = bb_unpinned | (bb_pinned & get_diag_of<dir_attack_east>(king_sq));
+        bb_allow_west = bb_unpinned | (bb_pinned & get_diag_of<dir_attack_west>(king_sq));
+        bb_allow_push = bb_unpinned | (bb_pinned & BB_FILE_OF[idx(king_sq)]);
     }
 
-    emplace_pawn_moves<dir_attack_east, MoveType::CAPTURE, color>(moves, bb_attack_east);
-    emplace_pawn_moves<dir_attack_west, MoveType::CAPTURE, color>(moves, bb_attack_west);
-    emplace_pawn_moves<dir_push, MoveType::QUIET, color>(moves, bb_push);
-    emplace_pawn_moves<dir_push, MoveType::DOUBLE_PAWN_PUSH, color>(moves, bb_dbl_push);
-    generate_ep_moves<color>(board, moves, state);
+    if constexpr (Selection::include_quiets) {
+        Bitboard bb_unblocked = bb_unoccupied;
+        if constexpr (Policy::enforce_evasions) {
+            bb_unblocked &= state.evasion_mask;
+        }
+
+        Bitboard bb_single = bb_unoccupied & bb_shift<dir_push>(bb_pawns & bb_allow_push);
+        Bitboard bb_push = bb_single & bb_unblocked;
+        Bitboard bb_dbl_push = bb_unblocked & bb_dbl_rank & bb_shift<dir_push>(bb_single);
+
+        emplace_pawn_moves<dir_push, MoveType::QUIET, color>(moves, bb_push);
+        emplace_pawn_moves<dir_push, MoveType::DOUBLE_PAWN_PUSH, color>(moves, bb_dbl_push);
+    }
+
+    if constexpr (Selection::include_captures) {
+        Bitboard bb_opponent_capturable = board.occupied_by_color[idx(opponent_color)];
+        if constexpr (Policy::enforce_evasions) {
+            bb_opponent_capturable &= state.evasion_mask;
+        }
+
+        Bitboard bb_attack_east = bb_opponent_capturable & bb_shift<dir_attack_east, true>(bb_pawns & bb_allow_east);
+        Bitboard bb_attack_west = bb_opponent_capturable & bb_shift<dir_attack_west, true>(bb_pawns & bb_allow_west);
+
+        emplace_pawn_moves<dir_attack_east, MoveType::CAPTURE, color>(moves, bb_attack_east);
+        emplace_pawn_moves<dir_attack_west, MoveType::CAPTURE, color>(moves, bb_attack_west);
+        generate_ep_moves<color, Policy, Selection>(board, moves, state);
+    }
 }
 
 } // namespace bears_chess

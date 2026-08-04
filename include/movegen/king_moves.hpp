@@ -4,10 +4,11 @@
 #include "bitboard.hpp"
 #include "board.hpp"
 #include "movegen/policy.hpp"
+#include "movegen/board_state.hpp"
 
 namespace bears_chess {
 
-template<Color color, MoveGenPolicy Policy>
+template<Color color, LegalityPolicy Policy, MoveSelection Selection>
 inline void generate_king_moves(
     const Board& board, MoveList& moves, const BoardState<color, Policy>& state
 ) {
@@ -24,15 +25,23 @@ inline void generate_king_moves(
 
     Square from = board.king_sq[idx(color)];
     Bitboard bb_moves = bb_attacks<Piece::KING>(from);
-    moves.append_bb(from, bb_moves & bb_quiet, MoveType::QUIET);
-    moves.append_bb(from, bb_moves & bb_capture, MoveType::CAPTURE);
+    if constexpr (Selection::include_quiets) {
+        moves.append_bb(from, bb_moves & bb_quiet, MoveType::QUIET);
+    }
+    if constexpr (Selection::include_captures) {
+        moves.append_bb(from, bb_moves & bb_capture, MoveType::CAPTURE);
+    }
 }
 
 
-template<Color color, MoveGenPolicy Policy>
+template<Color color, LegalityPolicy Policy, MoveSelection Selection>
 inline void generate_castle_moves(
     const Board& board, MoveList& moves, const BoardState<color, Policy>& state
 ) {
+    if constexpr (!Selection::include_quiets) {
+        return;
+    }
+
     constexpr Bitboard bb_kingside = BB_CASTLE_PATHS<Piece::KING>[idx(color)];
     constexpr Bitboard bb_queenside = BB_CASTLE_PATHS<Piece::QUEEN>[idx(color)];
     constexpr Move kingside_move = CASTLE_MOVES<Piece::KING>[idx(color)];

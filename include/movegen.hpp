@@ -1,6 +1,5 @@
 #pragma once
 #include "types.hpp"
-#include "bitboard.hpp"
 #include "board.hpp"
 #include "movegen/movelist.hpp"
 #include "movegen/policy.hpp"
@@ -24,12 +23,25 @@ struct LegalPolicy {
     static constexpr bool enforce_pins = true;
 };
 
-template<Color color, MoveGenPolicy Policy>
-inline MoveList generate_moves(const Board& board) {
-    MoveList moves;
-    BoardState<color, Policy> state(board);
+struct CaptureMoves {
+    static constexpr bool include_captures = true;
+    static constexpr bool include_quiets = false;
+};
 
-    generate_king_moves<color>(board, moves, state);
+struct QuietMoves {
+    static constexpr bool include_captures = false;
+    static constexpr bool include_quiets = true;
+};
+
+struct AllMoves {
+    static constexpr bool include_captures = true;
+    static constexpr bool include_quiets = true;
+};
+
+template<Color color, LegalityPolicy Policy, MoveSelection Selection=AllMoves>
+inline MoveList generate_moves(const Board& board, const BoardState<color, Policy>& state) {
+    MoveList moves;
+    generate_king_moves<color, Policy, Selection>(board, moves, state);
 
     if constexpr (Policy::enforce_evasions) {
         if (state.num_checkers >= 2) {
@@ -37,19 +49,27 @@ inline MoveList generate_moves(const Board& board) {
         }
     }
 
-    generate_knight_moves<color>(board, moves, state);
-    generate_slider_moves<color>(board, moves, state);
-    generate_pawn_moves<color>(board, moves, state);
-    generate_castle_moves<color>(board, moves, state);
+    generate_knight_moves<color, Policy, Selection>(board, moves, state);
+    generate_slider_moves<color, Policy, Selection>(board, moves, state);
+    generate_pawn_moves<color, Policy, Selection>(board, moves, state);
+    generate_castle_moves<color, Policy, Selection>(board, moves, state);
 
     return moves;
 }
 
-template <MoveGenPolicy Policy>
+
+template<Color color, LegalityPolicy Policy, MoveSelection Selection=AllMoves>
+inline MoveList generate_moves(const Board& board) {
+    BoardState<color, Policy> state(board);
+    return generate_moves<color, Policy, Selection>(board, state);
+}
+
+
+template <LegalityPolicy Policy, MoveSelection Selection=AllMoves>
 MoveList generate_moves(const Board& board) {
     if (board.side_to_move == Color::WHITE)
-        return generate_moves<Color::WHITE, Policy>(board);
-    return generate_moves<Color::BLACK, Policy>(board);
+        return generate_moves<Color::WHITE, Policy, Selection>(board);
+    return generate_moves<Color::BLACK, Policy, Selection>(board);
 }
 
 } // namespace bears_chess
