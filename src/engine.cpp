@@ -14,6 +14,9 @@ namespace bears_chess {
 
 using log::uci_print, log::uci_println, log::uci_info;
 
+constexpr int64_t SAFETY_MARGIN_MS = 50;
+constexpr int64_t NO_CLOCK_FALLBACK_MS = 2000;
+
 Engine::Engine() :
     options{
         { "Hash", { [this]() {this->handle_hash_opt();}, uci::OptionType::Spin, 16, uci::SpinBounds{1, 1048576} } },
@@ -135,27 +138,21 @@ std::optional<std::chrono::steady_clock::time_point> Engine::deadline_from_go_op
     } else if (opts.infinite) {
         return std::nullopt;
     }
-    
-    int time_remaining;
-    int increment;
 
-    if (board.side_to_move == Color::WHITE) {
-        if (!opts.wtime) {
-            // time not given, let engine think infinite
+    const bool white = (board.side_to_move == Color::WHITE);
+    const std::optional<int64_t> time_remaining = white ? opts.wtime : opts.btime;
+    const int64_t increment = (white ? opts.winc : opts.binc).value_or(0);
+
+    if (time_remaining) {
+        if (opts.depth || opts.nodes) {
             return std::nullopt;
         }
-        time_remaining = *opts.wtime;
-        increment = opts.winc.value_or(0);
-    } else {
-        if (!opts.btime) {
-            return std::nullopt;
-        }
-        time_remaining = *opts.btime;
-        increment = opts.binc.value_or(0);
+        uci_info("WARNING: go with no lcok or other limit; using {} ms fallback", NO_CLOCK_FALLBACK_MS);
+        return std::chrono::steady_clock::now() + std::chrono::milliseconds(NO_CLOCK_FALLBACK_MS);
     }
 
     // TODO: better default later
-    int ms_remaining = std::max(1, time_remaining / 30 + increment);
+    int64_t ms_remaining = std::clamp<int64_t>(*time_remaining / 30 + increment, 1, *time_remaining - SAFETY_MARGIN_MS);
 
     return std::chrono::steady_clock::now() + std::chrono::milliseconds(ms_remaining);
 }

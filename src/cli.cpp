@@ -9,6 +9,16 @@ namespace bears_chess {
 
 using log::print, log::println;
 
+template<typename T>
+static std::optional<T> parse_field(const std::vector<std::string>& words, std::string_view name) {
+    try {
+        return std::get<0>(parse_args<T>(words));
+    } catch (const std::invalid_argument& e) {
+        log::warn("Ignoring unparseable '{}': {}", name, e.what());
+        return std::nullopt;
+    }
+}
+
 CLI::CLI() :
     command_types{
         // Non-UCI commands
@@ -254,28 +264,28 @@ void CLI::handle_go(const Command& cmd) {
         opts.ponder = true;
     }
     if (grouped.contains("wtime")) {
-        opts.wtime = std::get<0>(parse_args<int>(grouped["wtime"]));
+        opts.wtime = parse_field<int>(grouped["wtime"], "wtime");
     }
     if (grouped.contains("btime")) {
-        opts.btime = std::get<0>(parse_args<int>(grouped["btime"]));
+        opts.btime = parse_field<int64_t>(grouped["btime"], "btime");
     }
     if (grouped.contains("winc")) {
-        opts.winc = std::get<0>(parse_args<int>(grouped["winc"]));
+        opts.winc = parse_field<int64_t>(grouped["winc"], "winc");
     }
     if (grouped.contains("binc")) {
-        opts.binc = std::get<0>(parse_args<int>(grouped["binc"]));
+        opts.binc = parse_field<int64_t>(grouped["binc"], "binc");
     }
     if (grouped.contains("movestogo")) {
-        opts.movestogo = std::get<0>(parse_args<int>(grouped["movestogo"]));
+        opts.movestogo = parse_field<int>(grouped["movestogo"], "movestogo");
     }
     if (grouped.contains("depth")) {
-        opts.depth = std::get<0>(parse_args<int>(grouped["depth"]));
+        opts.depth = parse_field<int>(grouped["depth"], "depth");
     }
     if (grouped.contains("nodes")) {
-        opts.nodes = std::get<0>(parse_args<int>(grouped["nodes"]));
+        opts.nodes = parse_field<int64_t>(grouped["nodes"], "nodes");
     }
     if (grouped.contains("movetime")) {
-        opts.movetime = std::get<0>(parse_args<int>(grouped["movetime"]));
+        opts.movetime = parse_field<int64_t>(grouped["movetime"], "movetime");
     }
     if (grouped.contains("infinite")) {
         opts.infinite = true;
