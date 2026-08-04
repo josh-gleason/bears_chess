@@ -3,9 +3,6 @@
 #include "parse_utils.hpp"
 #include "help/messages.hpp"
 
-#include <sstream>
-#include <algorithm>
-#include <iterator>
 #include <vector>
 
 namespace bears_chess {

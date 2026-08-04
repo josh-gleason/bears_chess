@@ -4,7 +4,6 @@
 #include "movegen.hpp"
 #include "board_utils.hpp"
 #include "search.hpp"
-#include "parse_utils.hpp"
 
 #include <stdexcept>
 #include <format>

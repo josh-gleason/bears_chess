@@ -5,7 +5,6 @@
 #include <mutex>
 #include <condition_variable>
 #include <string>
-#include <iostream>
 #include <optional>
 #include <functional>
 #include <unordered_map>
