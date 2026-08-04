@@ -17,10 +17,10 @@
             "name": "common",
             "hidden": true,
             "cacheVariables": {
-                "CMAKE_EXPORT_COMPILE_COMMANDS": "YES",
+                "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
                 "CMAKE_CXX_COMPILER": "/usr/bin/clang++",
                 "CMAKE_CXX_FLAGS": "-Wunused-variable",
-                "BUILD_TESTING": "YES"
+                "BUILD_TESTING": "ON"
             }
         },
         {

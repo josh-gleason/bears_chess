@@ -1,16 +1,17 @@
-#include <stdexcept>
-#include <format>
-#include <string>
-#include <algorithm>
 #include "engine.hpp"
+
 #include "log.hpp"
 #include "movegen.hpp"
 #include "board_utils.hpp"
+#include "search.hpp"
+#include "parse_utils.hpp"
+
+#include <stdexcept>
+#include <format>
+#include <string>
+#include <thread>
 
 namespace bears_chess {
-
-static const int DEFAULT_DEPTH = 245;
-static const int INFINITE_DEPTH = INT32_MAX;
 
 using log::uci_print, log::uci_println, log::uci_info;
 
@@ -19,13 +20,22 @@ Engine::Engine() :
         { "Hash", { [this]() {this->handle_hash_opt();}, uci::OptionType::Spin, 16, uci::SpinBounds{1, 1048576} } },
         { "Ponder", { [this]() {this->handle_ponder_opt();}, uci::OptionType::Check, false } },
         { "MultiPV", { [this]() {this->handle_multipv_opt();}, uci::OptionType::Spin, 1, uci::SpinBounds{1, 256} } },
-    }
+    },
+    search(
+        16,
+        [this](const Search::SearchResult& results, std::chrono::milliseconds elapsed, int hashfull) {
+            return this->search_report(results, elapsed, hashfull);
+    })
 {
     for (auto& [name, opt] : options) {
         if (!std::holds_alternative<std::monostate>(opt.value)) {
             opt.on_change();
         }
     }
+}
+
+Engine::~Engine() {
+    wait_for_search();
 }
 
 void Engine::uci() {
@@ -77,7 +87,8 @@ void Engine::uci() {
 }
 
 void Engine::ucinewgame() {
-    board = Board();
+    wait_for_search();
+    set_position(Board());
     log::debug("Resetting engine state for a new game");
 }
 
@@ -118,82 +129,120 @@ static void log_go_options(const Engine::GoOptions& opts) {
     }
 }
 
-MoveList filter_moves(const MoveList& original_moves, const std::vector<Move>& allowed_moves) {
-    MoveList filtered_moves{};
-    for (const Move& move : original_moves) {
-        if (std::find(allowed_moves.cbegin(), allowed_moves.cend(), move) != allowed_moves.cend()) {
-            filtered_moves.emplace_back(move);
-        }
+
+std::optional<std::chrono::steady_clock::time_point> Engine::deadline_from_go_opts(const GoOptions& opts) const {
+    if (opts.movetime) {
+        return std::chrono::steady_clock::now() + std::chrono::milliseconds(*opts.movetime);
+    } else if (opts.infinite) {
+        return std::nullopt;
     }
-    return filtered_moves;
+    
+    int time_remaining;
+    int increment;
+
+    if (board.side_to_move == Color::WHITE) {
+        if (!opts.wtime) {
+            // time not given, let engine think infinite
+            return std::nullopt;
+        }
+        time_remaining = *opts.wtime;
+        increment = opts.winc.value_or(0);
+    } else {
+        if (!opts.btime) {
+            return std::nullopt;
+        }
+        time_remaining = *opts.btime;
+        increment = opts.binc.value_or(0);
+    }
+
+    // TODO: better default later
+    int ms_remaining = std::max(1, time_remaining / 30 + increment);
+
+    return std::chrono::steady_clock::now() + std::chrono::milliseconds(ms_remaining);
 }
 
 void Engine::go(const GoOptions& opts) {
+    wait_for_search();
+
     log_go_options(opts);
+    SearchOptions search_opts{};
 
-    MoveList moves = generate_moves<bears_chess::LegalPolicy>(board);
+    search_opts.max_depth = opts.depth;
+    search_opts.max_node_count = opts.nodes;
+    search_opts.searchmoves = opts.searchmoves;
+    
 
-    if (opts.searchmoves.has_value()) {
-        moves = filter_moves(moves, *opts.searchmoves);
+    if (search_opts.max_depth.has_value()) {
+        uci_info("search max depth set to {}", *search_opts.max_depth);
     }
 
-    if (moves.empty()) {
-        log::uci_println("bestmove 0000");
-        return;
+    if (search_opts.max_node_count.has_value()) {
+        uci_info("search max node count set to {}", *search_opts.max_node_count);
     }
 
-    Move best_move{ Square::NONE, Square::NONE, MoveType::NONE };
-
-    int max_depth = DEFAULT_DEPTH;
-    if (opts.depth.has_value()) {
-        max_depth = *opts.depth;
-    } else if (opts.infinite) {
-        max_depth = INFINITE_DEPTH;
+    if (!search_opts.max_depth.has_value() && !search_opts.max_node_count.has_value()) {
+        uci_info("running infinite search");
     }
 
-    uci_info("Starting iterative deepening search with max depth {}", max_depth);
-   
-    const MoveList principal_variation{};
+    search_opts.deadline = deadline_from_go_opts(opts);
 
-    for (int depth = 1; depth <= max_depth; ++depth) {
-        // TODO iterative deepning
-    }
+    auto search_fun = ([](
+        Search& search, Board board, std::vector<ZobristHash> hash_history, SearchOptions search_opts, bool ponder
+    ) {
+        MoveList moves = generate_moves<bears_chess::LegalPolicy>(board);
+        Move best_move{ Square::NONE, Square::NONE, MoveType::NONE };
 
-    if (best_move.move_type == MoveType::NONE) {
-        log::debug("Search failed to find a best move, using first legal move");
-        best_move = *moves.begin();
-    }
-
-    Move ponder_response{ Square::NONE, Square::NONE, MoveType::NONE };
-    if (opts.ponder) {
-        // TODO: temporarily just pick the first move after best_move for ponder, actually use second move of PV
-        UndoInfo undo_info = board.do_move(best_move);
-        MoveList response_moves = generate_moves<bears_chess::LegalPolicy>(board);
-        if (response_moves.size() > 0) {
-            ponder_response = *response_moves.begin();
+        if (moves.empty()) {
+            log::uci_println("bestmove 0000");
+            return;
         }
-        board.undo_move(undo_info);
-    }
 
-    if (ponder_response.move_type == MoveType::NONE) {
-        log::uci_print("bestmove {}\n", convert_move_to_uci(best_move));
-    } else {
-        log::uci_print(
-            "bestmove {} ponder {}\n",
-            convert_move_to_uci(best_move),
-            convert_move_to_uci(ponder_response)
+        auto search_results = search.go(
+            board,
+            hash_history,
+            search_opts
         );
-    }
+
+        if (!search_results.principal_variation.empty()) {
+            best_move = *(search_results.principal_variation.begin());
+        }
+
+        if (best_move.move_type == MoveType::NONE) {
+            log::debug("Search failed to find a best move, using first legal move");
+            best_move = *moves.begin();
+        }
+
+        Move ponder_response{ Square::NONE, Square::NONE, MoveType::NONE };
+        if (ponder) {
+            // TODO: temporarily just pick the first move after best_move for ponder, actually use second move of PV
+            UndoInfo undo_info = board.do_move(best_move);
+            MoveList response_moves = generate_moves<bears_chess::LegalPolicy>(board);
+            board.undo_move(undo_info);
+
+            if (response_moves.size() > 0) {
+                ponder_response = *response_moves.begin();
+            }
+        }
+
+        if (ponder_response.move_type == MoveType::NONE) {
+            log::uci_println("bestmove {}", convert_move_to_uci(best_move));
+        } else if (best_move.move_type != MoveType::NONE) {
+            log::uci_println(
+                "bestmove {} ponder {}",
+                convert_move_to_uci(best_move),
+                convert_move_to_uci(ponder_response)
+            );
+        } else {
+            uci_println("bestmove 0000");
+        }
+    });
+
+    search_thread = std::thread(search_fun, std::ref(search), board, hash_history, search_opts, opts.ponder);
 }
 
 void Engine::stop() {
-    // signal the search to stop as soon as possible
-    log::debug("Stop command received - stopping search");
-
-    // TODO
-    // 1. Set a stop flag that is checked by the search algorithm
-    // 2. Wait for the search to finish (or force stop after timeout)
-    // 3. Ensure that bestmove is sent after stopping
+    uci_info("Stop command received - stopping search");
+    wait_for_search();
 }
 
 void Engine::ponderhit() {
@@ -233,39 +282,80 @@ void Engine::set_option(const std::string& name, const uci::RawOptionValue& valu
     options[name].on_change();
 }
 
-void Engine::isready() const
-{
+void Engine::isready() const {
     uci_println("readyok");
 }
 
-void Engine::handle_hash_opt() {
-    int hash_size_mb = std::get<int>(options["Hash"].value);
-    log::debug("Setting hash size to {} MB", hash_size_mb);
+const Board& Engine::position() const {
+    return board;
+}
 
-    // TODO
-    // 1. Allocate/resize the transposition table based on the new size
-    // 2. Clear the transposition table
-    // 3. Update any related data structures that depend on the hash size
+void Engine::set_position(Board new_board) {
+    wait_for_search();
+    hash_history.clear();
+    board = new_board;
+}
+
+void Engine::play_move(Move move) {
+    wait_for_search();
+    hash_history.push_back(board.hash);
+    board.do_move(move);
+}
+
+void Engine::wait_for_search() {
+    search.stop();
+    if (search_thread.joinable()) {
+        search_thread.join();
+    }
+    search.reset_stop();
+}
+
+void Engine::search_report(const Search::SearchResult& result, std::chrono::milliseconds elapsed, int hashfull) const {
+    std::string score;
+    if (result.score >= MATE_SCORE_BOUND) {
+        int plies = SCORE_INF - 1 - result.score;
+        score = std::format("mate {}", (plies + 1) / 2);
+    } else if (result.score <= -MATE_SCORE_BOUND) {
+        int plies = result.score + SCORE_INF - 1;
+        score = std::format("mate -{}", (plies + 1) / 2);
+    } else {
+        score = std::format("cp {}", result.score);
+    }
+
+    uint64_t ms = elapsed.count();
+    uint64_t nps = (ms > 0) ? (result.nodes * 1000 / ms) : 0;
+
+    std::string pv;
+    for  (const Move& move : result.principal_variation) {
+        if (!pv.empty()) {
+            pv += " ";
+            
+        }
+        pv += convert_move_to_uci(move);
+    }
+
+    uci_println(
+        "info depth {} score {} nodes {} nps {} time {} hashfull {} pv {}",
+        result.depth, score, result.nodes, nps, ms, hashfull, pv
+    );
+}
+
+void Engine::handle_hash_opt() {
+    wait_for_search();
+
+    int hash_size_mb = std::get<int>(options["Hash"].value);
+    uci_info("Setting hash size to {} MB", hash_size_mb);
+    search.resize_tt(hash_size_mb);
 }
 
 void Engine::handle_ponder_opt() {
     bool ponder_enabled = std::get<bool>(options["Ponder"].value);
-    log::debug("Ponder option set to {}", ponder_enabled ? "true" : "false");
-
-    // TODO
-    // 1. Update the search behavior to ponder (think on opponent's time) or not
-    // 2. The engine should NOT automatically start pondering when this is enabled
-    //    It should wait for the "go ponder" command
+    uci_info("Ponder option set to {}", ponder_enabled ? "true" : "false");
 }
 
 void Engine::handle_multipv_opt() {
     int multipv = std::get<int>(options["MultiPV"].value);
-    log::debug("MultiPV option set to {}", multipv);
-
-    // TODO
-    // 1. Configure the search to find the top N lines instead of just the best one
-    // 2. Update any data structures that track multiple principal variations
-    // 3. Ensure the search reports all N principal variations in info output
+    uci_info("MultiPV option set to {}", multipv);
 }
 
 } // bears_chess

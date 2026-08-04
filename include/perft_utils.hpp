@@ -10,7 +10,7 @@
 #include <numeric>
 #include "board_utils.hpp"
 #include "movegen.hpp"
-#include "evaluation.hpp"
+#include "position_info.hpp"
 #include "log.hpp"
 
 

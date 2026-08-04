@@ -2,6 +2,8 @@
 #include "types.hpp"
 #include "bitboard.hpp"
 
+#include <algorithm>
+
 namespace bears_chess {
 
 constexpr int MAX_MOVES = 218;
@@ -56,6 +58,24 @@ public:
         }
     }
 
+    MoveList filter_moves(const std::vector<Move>& allowed_moves) const {
+        MoveList filtered_moves{};
+        for (const Move& move : *this) {
+            if (std::find(allowed_moves.cbegin(), allowed_moves.cend(), move) != allowed_moves.cend()) {
+                filtered_moves.emplace_back(move);
+            }
+        }
+        return filtered_moves;
+    }
+
+    void promote_to_front(const Move& front_move) {
+        for (auto it = begin(); it != end(); it++) {
+            if (*it == front_move) {
+                std::swap(*begin(), *it);
+                return;
+            }
+        }
+    }
 private:
     ListType moves;
     iterator cur;

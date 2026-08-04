@@ -70,7 +70,6 @@ void set_log_level(LogLevel level) {
 }
 
 void set_uci_mode(bool on) {
-    logger_human->set_level(on ? spdlog::level::off : spdlog::level::trace);
     if (!on) {
         logger_uci_info->set_level(spdlog::level::off);
     }

@@ -295,7 +295,8 @@ enum class ZobristHash : uint64_t {
 };
 
 template<> struct enum_traits<ZobristHash> :
-    bitwise_ops
+    bitwise_ops,
+    shift_ops
 {};
 
 struct UndoInfo {

@@ -6,6 +6,8 @@ set(SOURCES
     cli.cpp
     engine.cpp
     parse_utils.cpp
+    position_info.cpp
+    search.cpp
     uci_options.cpp
     log.cpp
     zobrist.cpp

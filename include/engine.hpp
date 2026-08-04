@@ -1,7 +1,10 @@
 #pragma once
-#include <map>
 #include "board.hpp"
 #include "uci_options.hpp"
+#include "search.hpp"
+
+#include <map>
+#include <thread>
 
 namespace bears_chess {
 
@@ -22,6 +25,7 @@ public:
     };
 
     Engine();
+    ~Engine();
 
     void uci();
     void ucinewgame();
@@ -33,9 +37,9 @@ public:
     void set_option(const std::string& name, const uci::RawOptionValue& value);
     void isready() const;
 
-    Board board;
-    
-    // TODO: transposition table
+    const Board& position() const;
+    void set_position(Board new_board);
+    void play_move(Move move);
 
 private:
     struct CaseInsensitiveLess {
@@ -47,13 +51,20 @@ private:
         }
     };
 
-
-    bool debug_on{false};
-    std::map<std::string, uci::Option, CaseInsensitiveLess> options;
-
     void handle_hash_opt();
     void handle_ponder_opt();
     void handle_multipv_opt();
+    std::optional<std::chrono::steady_clock::time_point> deadline_from_go_opts(const GoOptions& opts) const;
+    void search_report(const Search::SearchResult& result, std::chrono::milliseconds elapsed, int hashfull) const;
+    void wait_for_search();
+
+    Board board;
+
+    std::thread search_thread{};
+    bool debug_on{false};
+    std::map<std::string, uci::Option, CaseInsensitiveLess> options;
+    Search search;
+    std::vector<ZobristHash> hash_history;
 };
 
 } // bears_chess

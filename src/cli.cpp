@@ -155,7 +155,7 @@ void CLI::handle_unknown(const Command& cmd) {
 }
 
 void CLI::handle_display(const Command& cmd) {
-    println("{}", engine.board);
+    println("{}", engine.position());
 }
 
 void CLI::handle_perft(const Command& cmd) {
@@ -164,13 +164,13 @@ void CLI::handle_perft(const Command& cmd) {
     bool show_stats = contains(flags, "stats");
 
     if (!show_stats && !show_moves) {
-        println("{}", run_perft<LegalPolicy, false, false>(engine.board, max_depth));
+        println("{}", run_perft<LegalPolicy, false, false>(engine.position(), max_depth));
     } else if (!show_stats && show_moves) {
-        println("{}", run_perft<LegalPolicy, false, true>(engine.board, max_depth));
+        println("{}", run_perft<LegalPolicy, false, true>(engine.position(), max_depth));
     } else if (show_stats && !show_moves) {
-        println("{}", run_perft<LegalPolicy, true, false>(engine.board, max_depth));
+        println("{}", run_perft<LegalPolicy, true, false>(engine.position(), max_depth));
     } else {
-        println("{}", run_perft<LegalPolicy, true, true>(engine.board, max_depth));
+        println("{}", run_perft<LegalPolicy, true, true>(engine.position(), max_depth));
     }
 }
 
@@ -226,14 +226,14 @@ void CLI::handle_ucinewgame(const Command& cmd) {
 void CLI::handle_position(const Command& cmd) {
     auto grouped = group_by_keywords(cmd.args, {"startpos", "fen", "moves"});
     if (grouped.contains("startpos")) {
-        engine.board = Board();
+        engine.set_position(Board());
     } else if (grouped.contains("fen")) {
-        engine.board = load_fen(join(grouped["fen"], " "));
+        engine.set_position(load_fen(join(grouped["fen"], " ")));
     }
 
     if (grouped.contains("moves")) {
         for (auto& move_str : grouped["moves"]) {
-            engine.board.do_move(convert_uci_to_move(move_str, engine.board));
+            engine.play_move(convert_uci_to_move(move_str, engine.position()));
         }
     }
 }
@@ -250,7 +250,7 @@ void CLI::handle_go(const Command& cmd) {
         opts.searchmoves = std::vector<Move>(grouped["searchmoves"].size());
         auto it = opts.searchmoves->begin();
         for (auto& move_str : grouped["searchmoves"]) {
-            *(it++) = convert_uci_to_move(move_str, engine.board);
+            *(it++) = convert_uci_to_move(move_str, engine.position());
         }
     }
     if (grouped.contains("ponder")) {
