@@ -1,16 +1,8 @@
 #include "bitboard.hpp"
-#include "types.hpp"
+#include "score.hpp"
 #include "evaluation.hpp"
 
 namespace bears_chess {
-
-// selected so max score <= min(SCORE_INF) = 32767
-const int16_t PAWN_VALUE = 100;
-const int16_t KNIGHT_VALUE = 300;
-const int16_t BISHOP_VALUE = 300;
-const int16_t ROOK_VALUE = 500;
-const int16_t QUEEN_VALUE = 900;
-const int16_t KING_VALUE = 20000;
 
 int16_t evaluate_white(const Board& board) {
     int16_t material = 0;
