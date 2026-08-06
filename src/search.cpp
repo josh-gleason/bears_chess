@@ -2,7 +2,6 @@
 
 #include "movegen.hpp"
 #include "evaluation.hpp"
-#include "position_info.hpp"
 
 #include <algorithm>
 #include <utility>
@@ -10,6 +9,7 @@
 namespace bears_chess {
 
 constexpr int NODE_CHECK_INTERVAL_LOG2 = 10;
+constexpr int NODE_CHECK_MASK = (1 << NODE_CHECK_INTERVAL_LOG2) - 1;
 
 Search::Search(size_t tt_megabytes, ReportCallback on_report) :
     transposition_table(tt_megabytes),
@@ -20,11 +20,15 @@ void Search::resize_tt(size_t megabytes) {
     transposition_table.resize(megabytes);
 }
 
-Search::SearchResult Search::go(const Board& root, std::span<const ZobristHash> hash_history, const SearchOptions& options) {
-    // expected to be called in thread, pass-by-value avoids dangling references and race conditions on engine state
-
+Search::SearchResult Search::go(
+    std::stop_token stop_token,
+    const Board& root,
+    std::span<const ZobristHash> hash_history,
+    const SearchOptions& options
+) {
     start_time = std::chrono::steady_clock::now();
 
+    stop_signal = stop_token;
     board = root;
     repetition_hashes.seed(hash_history, board.halfmove_clock);
     has_aborted = false;
@@ -73,23 +77,7 @@ Search::SearchResult Search::go(const Board& root, std::span<const ZobristHash> 
     return result;
 }
 
-void Search::stop() {
-    stop_requested = true;
-}
-
-void Search::reset_stop() {
-    stop_requested = false;
-}
-
-void Search::register_report_callback(ReportCallback on_report_callback) {
-    on_report = std::move(on_report_callback);
-}
-
-void Search::unregister_report_callback() {
-    on_report = {};
-}
-
-bool Search::past_deadline() {
+bool Search::past_deadline() const {
     return std::chrono::steady_clock::now() >= deadline;
 }
 
@@ -176,6 +164,16 @@ bool Search::prunable_tt_hit(const TTHit& hit, int depth, int16_t alpha, int16_t
     );
 }
 
+bool Search::should_abort() const {
+    return (
+        can_abort
+        && (nodes & NODE_CHECK_MASK) == 0
+        && (stop_signal.stop_requested()
+            || nodes >= max_node_count
+            || past_deadline())
+    );
+}
+
 template <Color side_to_move>
 int16_t Search::negamax(int depth, int16_t ply, int16_t alpha, int16_t beta) {
     ++nodes;
@@ -187,12 +185,7 @@ int16_t Search::negamax(int depth, int16_t ply, int16_t alpha, int16_t beta) {
         return DRAW_SCORE;
     }
 
-    if (can_abort && (
-            stop_requested
-            || nodes >= max_node_count
-            || ((nodes & ((1 << NODE_CHECK_INTERVAL_LOG2) - 1)) == 0 && past_deadline())
-        ))
-    {
+    if (should_abort()) {
         has_aborted = true;
         return 0;
     }
@@ -264,12 +257,7 @@ template<Color side_to_move>
 int16_t Search::quiescence_search(int16_t ply, int16_t alpha, int16_t beta) {
     ++nodes;
 
-    if (can_abort && (
-            stop_requested
-            || nodes >= max_node_count
-            || ((nodes & ((1 << NODE_CHECK_INTERVAL_LOG2) - 1)) == 0 && past_deadline())
-        ))
-    {
+    if (should_abort()) {
         has_aborted = true;
         return 0;
     }

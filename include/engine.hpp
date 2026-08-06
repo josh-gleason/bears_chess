@@ -60,11 +60,12 @@ private:
 
     Board board;
 
-    std::thread search_thread{};
     bool debug_on{false};
     std::map<std::string, uci::Option, CaseInsensitiveLess> options;
+
     Search search;
     std::vector<ZobristHash> hash_history;
+    std::jthread search_thread{};
 };
 
 } // bears_chess

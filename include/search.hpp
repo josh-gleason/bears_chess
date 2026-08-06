@@ -10,10 +10,10 @@
 #include "score.hpp"
 
 #include <chrono>
-#include <atomic>
 #include <functional>
 #include <vector>
 #include <span>
+#include <stop_token>
 
 namespace bears_chess {
    
@@ -32,21 +32,18 @@ public:
 
     void resize_tt(size_t megabytes);
 
-    SearchResult go(const Board& root, std::span<const ZobristHash> hash_history, const SearchOptions& options);
-
-    void stop();
-
-    // call this after go returns
-    void reset_stop();
-
-    void register_report_callback(ReportCallback on_report_callback);
-
-    void unregister_report_callback();
+    SearchResult go(
+        std::stop_token stop_token,
+        const Board& root,
+        std::span<const ZobristHash> hash_history,
+        const SearchOptions& options
+    );
 
 private:
     void order_captures(MoveList& moves) const;
 
-    bool past_deadline();
+    bool should_abort() const;
+    bool past_deadline() const;
 
     void report(const SearchResult& current_result);
 
@@ -63,7 +60,7 @@ private:
     int16_t quiescence_search(int16_t ply, int16_t alpha, int16_t beta);
 
     Board board{};
-    std::atomic<bool> stop_requested{false};
+    std::stop_token stop_signal;
     bool can_abort{false};
     bool has_aborted{false};
     RepetitionHashes repetition_hashes{};

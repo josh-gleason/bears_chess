@@ -19,15 +19,11 @@ constexpr int64_t NO_CLOCK_FALLBACK_MS = 2000;
 
 Engine::Engine() :
     options{
-        { "Hash", { [this]() {this->handle_hash_opt();}, uci::OptionType::Spin, 16, uci::SpinBounds{1, 1048576} } },
-        { "Ponder", { [this]() {this->handle_ponder_opt();}, uci::OptionType::Check, false } },
-        { "MultiPV", { [this]() {this->handle_multipv_opt();}, uci::OptionType::Spin, 1, uci::SpinBounds{1, 256} } },
+        { "Hash", { std::bind_front(&Engine::handle_hash_opt, this), uci::OptionType::Spin, 16, uci::SpinBounds{1, 1048576} } },
+        { "Ponder", { std::bind_front(&Engine::handle_ponder_opt, this), uci::OptionType::Check, false } },
+        { "MultiPV", { std::bind_front(&Engine::handle_multipv_opt, this), uci::OptionType::Spin, 1, uci::SpinBounds{1, 256} } },
     },
-    search(
-        16,
-        [this](const Search::SearchResult& results, std::chrono::milliseconds elapsed, int hashfull) {
-            return this->search_report(results, elapsed, hashfull);
-    })
+    search(16, std::bind_front(&Engine::search_report, this))
 {
     for (auto& [name, opt] : options) {
         if (!std::holds_alternative<std::monostate>(opt.value)) {
@@ -143,7 +139,7 @@ std::optional<std::chrono::steady_clock::time_point> Engine::deadline_from_go_op
     const std::optional<int64_t> time_remaining = white ? opts.wtime : opts.btime;
     const int64_t increment = (white ? opts.winc : opts.binc).value_or(0);
 
-    if (time_remaining) {
+    if (!time_remaining) {
         if (opts.depth || opts.nodes) {
             return std::nullopt;
         }
@@ -152,7 +148,8 @@ std::optional<std::chrono::steady_clock::time_point> Engine::deadline_from_go_op
     }
 
     // TODO: better default later
-    int64_t ms_remaining = std::clamp<int64_t>(*time_remaining / 30 + increment, 1, *time_remaining - SAFETY_MARGIN_MS);
+    int64_t ub = std::max<int64_t>(1, *time_remaining - SAFETY_MARGIN_MS);
+    int64_t ms_remaining = std::clamp<int64_t>(*time_remaining / 30 + increment, 1, ub);
 
     return std::chrono::steady_clock::now() + std::chrono::milliseconds(ms_remaining);
 }
@@ -183,7 +180,12 @@ void Engine::go(const GoOptions& opts) {
     search_opts.deadline = deadline_from_go_opts(opts);
 
     auto search_fun = ([](
-        Search& search, Board board, std::vector<ZobristHash> hash_history, SearchOptions search_opts, bool ponder
+        std::stop_token stop_token,
+        Search& search,
+        Board board,
+        std::vector<ZobristHash> hash_history,
+        SearchOptions search_opts,
+        bool ponder
     ) {
         MoveList moves = generate_moves<bears_chess::LegalPolicy>(board);
         Move best_move{ Square::NONE, Square::NONE, MoveType::NONE };
@@ -194,6 +196,7 @@ void Engine::go(const GoOptions& opts) {
         }
 
         auto search_results = search.go(
+            stop_token,
             board,
             hash_history,
             search_opts
@@ -233,7 +236,7 @@ void Engine::go(const GoOptions& opts) {
         }
     });
 
-    search_thread = std::thread(search_fun, std::ref(search), board, hash_history, search_opts, opts.ponder);
+    search_thread = std::jthread(search_fun, std::ref(search), board, hash_history, search_opts, opts.ponder);
 }
 
 void Engine::stop() {
@@ -299,11 +302,10 @@ void Engine::play_move(Move move) {
 }
 
 void Engine::wait_for_search() {
-    search.stop();
     if (search_thread.joinable()) {
+        search_thread.request_stop();
         search_thread.join();
     }
-    search.reset_stop();
 }
 
 void Engine::search_report(const Search::SearchResult& result, std::chrono::milliseconds elapsed, int hashfull) const {
