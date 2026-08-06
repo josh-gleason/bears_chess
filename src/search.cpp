@@ -4,7 +4,12 @@
 #include "evaluation.hpp"
 
 #include <algorithm>
+#include <array>
+#include <functional>
+#include <ranges>
+#include <span>
 #include <utility>
+
 
 namespace bears_chess {
 
@@ -93,18 +98,25 @@ static inline int16_t capture_gain(const Board& board, const Move& move) {
     const Piece victim = (
         move.move_type == MoveType::EP_CAPTURE
         ? Piece::PAWN
-        : board.get_piece_at<false>(move.to)    // may be called with non-captures
+        : board.get_piece_at<false>(move.to)    // Piece::NONE possible if non-captures
     );
     return PIECE_VALUES[idx(victim)] - PIECE_VALUES[idx(board.get_piece_at(move.from))];
 }
 
 void Search::order_captures(MoveList& moves) const {
-    // TODO: could be more efficient by computing capture_gain up front for all moves
+    std::array<int16_t, MAX_MOVES> scores;
+    std::transform(
+        moves.begin(),
+        moves.end(),
+        scores.begin(),
+        [this](const Move& move) { return capture_gain(board, move); }
+    );
 
-    // order highest gain first
-    std::sort(moves.begin(), moves.end(), 
-        [this](const Move& a, const Move& b) {
-            return capture_gain(board, a) > capture_gain(board, b);
+    std::ranges::sort(
+        std::views::zip(moves, std::span(scores.begin(), scores.begin() + moves.size())),
+        std::ranges::greater{},
+        [](const auto& entry) {
+            return std::get<1>(entry);
         }
     );
 }
