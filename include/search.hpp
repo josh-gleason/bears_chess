@@ -61,6 +61,9 @@ private:
 
     SearchResult search_root(std::vector<RootMove>& ordered_moves, int depth, int num_pvs);
 
+    template<Color child_side_to_move>
+    inline int16_t search_child(int child_depth, int child_ply, int16_t alpha, int16_t beta, bool is_pv, bool full_window);
+
     int16_t mated_in_score(int16_t ply);
 
     template <Color side_to_move>

@@ -9,7 +9,6 @@
 #include <ranges>
 #include <span>
 #include <utility>
-#include <queue>
 
 
 namespace bears_chess {
@@ -138,48 +137,60 @@ struct ScoredMoveGT {
 };
 
 Search::SearchResult Search::search_root(std::vector<RootMove>& ordered_moves, int depth, int num_pvs) {
-    int16_t alpha = -SCORE_INF;
-    int16_t beta = SCORE_INF;
-
     ++nodes;
 
     // ignores return value: continue to compute a move even if we are in a claimable draw
     repetition_hashes.record_and_check(0, board.halfmove_clock, board.hash);
 
-    // track top moves with smallest (worst) at top
-    std::priority_queue<int16_t, std::vector<int16_t>, std::greater<>> top_moves;
+    size_t num_pvs_actual = std::min<size_t>(ordered_moves.size(), num_pvs);
 
-    for (size_t i = 0; i < ordered_moves.size(); ++i) {
-        RootMove& move_info = ordered_moves[i];
+    for (size_t pv_index = 0; pv_index < num_pvs_actual; ++pv_index) {
+        int16_t alpha = -SCORE_INF;
+        int16_t beta = SCORE_INF;
 
-        UndoInfo undo_info = board.do_move(move_info.move);
-        int16_t score;
-        bool is_pv = i < static_cast<size_t>(num_pvs);
-        if (board.side_to_move == Color::WHITE) {
-            score = -negamax<Color::WHITE>(depth - 1, 1, -beta, -alpha, is_pv);
-        } else {
-            score = -negamax<Color::BLACK>(depth - 1, 1, -beta, -alpha, is_pv);
+        bool is_pv = true;
+
+        size_t best_move_index = pv_index;
+        int16_t best_score = -SCORE_INF;
+
+        for (size_t move_index = pv_index; move_index < ordered_moves.size(); ++move_index) {
+            RootMove& move_info = ordered_moves[move_index];
+
+            bool first = move_index == pv_index;
+
+            UndoInfo undo_info = board.do_move(move_info.move);
+            int16_t score;
+            if (board.side_to_move == Color::WHITE) {
+                score = search_child<Color::WHITE>(depth - 1, 1, alpha, beta, true, first);
+            } else {
+                score = search_child<Color::BLACK>(depth - 1, 1, alpha, beta, true, first);
+            }
+            board.undo_move(undo_info);
+
+            if (has_aborted) {
+                break;
+            }
+
+            move_info.score = score;
+            move_info.pv_moves.clear();
+            move_info.pv_moves.emplace_back(move_info.move);
+            move_info.pv_moves.append(pv_record[0]);
+
+            if (score > best_score) {
+                best_score = score;
+                best_move_index = move_index;
+            }
+
+            alpha = std::max(alpha, score);
+
+            is_pv = false;
         }
-        board.undo_move(undo_info);
-
         if (has_aborted) {
             break;
         }
 
-        move_info.score = score;
-        move_info.pv_moves.clear();
-        move_info.pv_moves.emplace_back(move_info.move);
-        move_info.pv_moves.append(pv_record[0]);
-
-        top_moves.emplace(score);
-        if (top_moves.size() > static_cast<size_t>(num_pvs)) {
-            top_moves.pop();
-        }
-
-        if (top_moves.size() == static_cast<size_t>(num_pvs)) {
-            // alpha here represents lower bound on the num_pvs worst PV
-            alpha = std::max(alpha, top_moves.top());
-        }
+        // elevate the pv to the appropriate place, avoids using it next iteration
+        std::swap(ordered_moves[pv_index], ordered_moves[best_move_index]);
     }
 
     std::vector<PrincipalVariation> result_pvs{};
@@ -191,9 +202,8 @@ Search::SearchResult Search::search_root(std::vector<RootMove>& ordered_moves, i
             [](const RootMove& lhs, const RootMove& rhs) { return lhs.score > rhs.score; }
         );
 
-        size_t num_pv_results = std::min<size_t>(top_moves.size(), num_pvs);
-        result_pvs.reserve(num_pv_results);
-        for (size_t i = 0; i < num_pv_results; ++i) {
+        result_pvs.reserve(num_pvs_actual);
+        for (size_t i = 0; i < num_pvs_actual; ++i) {
             result_pvs.emplace_back(ordered_moves[i].score, ordered_moves[i].pv_moves);
         }
     }
@@ -203,6 +213,25 @@ Search::SearchResult Search::search_root(std::vector<RootMove>& ordered_moves, i
         nodes,
         result_pvs
     };
+}
+
+template <Color child_side_to_move>
+inline int16_t Search::search_child(int child_depth, int child_ply, int16_t alpha, int16_t beta, bool is_pv, bool full_window) {
+    
+    if (full_window) {
+        return -negamax<child_side_to_move>(child_depth, child_ply, -beta, -alpha, is_pv);
+    }
+
+    // null window aiming for score <= alpha implying line is no better than best
+    int16_t score = -negamax<child_side_to_move>(child_depth, child_ply, -(alpha + 1), -alpha, false);
+
+    // null window failed, need to search proper
+    // score < beta included to avoid searching when beta cutoff is imminent
+    if (!has_aborted && score > alpha && score < beta) {
+        score = -negamax<child_side_to_move>(child_depth, child_ply, -beta, -alpha, is_pv);
+    }
+
+    return score;
 }
 
 int16_t Search::mated_in_score(int16_t ply) {
@@ -286,8 +315,7 @@ int16_t Search::negamax(int depth, int16_t ply, int16_t alpha, int16_t beta, boo
 
     for (const auto& move : moves) {
         UndoInfo undo_info = board.do_move(move);
-        int16_t score;
-        score = -negamax<~side_to_move>(depth - 1, ply + 1, -beta, -alpha, is_pv && first);
+        int16_t score = search_child<~side_to_move>(depth - 1, ply + 1, alpha, beta, is_pv, first);
         board.undo_move(undo_info);
 
         if (has_aborted) {
