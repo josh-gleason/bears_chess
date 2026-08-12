@@ -1,4 +1,5 @@
 #pragma once
+
 #include "board.hpp"
 #include "uci_options.hpp"
 #include "search.hpp"
@@ -60,6 +61,7 @@ private:
 
     Board board;
 
+    int num_pvs{1};
     bool debug_on{false};
     std::map<std::string, uci::Option, CaseInsensitiveLess> options;
 

@@ -1,8 +1,6 @@
 #pragma once
 
 #include <cstdint>
-#include <string>
-#include <vector>
 #include <cassert>
 #include <array>
 #include "enum_traits.hpp"

@@ -1,4 +1,7 @@
 #pragma once
+#include <array>
+#include <concepts>
+#include <cstddef>
 #include <type_traits>
 
 namespace bears_chess {

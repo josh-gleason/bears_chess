@@ -19,6 +19,7 @@ struct SearchOptions {
     std::optional<size_t> max_node_count{};
     std::optional<std::chrono::steady_clock::time_point> deadline{};
     std::optional<std::vector<Move>> searchmoves{};
+    int num_pvs{1};
 };
 
 } // namespace bears_chess

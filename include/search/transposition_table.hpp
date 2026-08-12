@@ -1,10 +1,10 @@
 #pragma once
 
 #include "types.hpp"
-#include "zobrist.hpp"
 #include "score.hpp"
 #include <optional>
 #include <utility>
+#include <vector>
 
 namespace bears_chess {
 

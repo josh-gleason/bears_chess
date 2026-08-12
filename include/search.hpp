@@ -16,14 +16,20 @@
 #include <stop_token>
 
 namespace bears_chess {
-   
+
+using PVMoveList = BasicMoveList<MAX_DEPTH_LIMIT>;
+
+struct PrincipalVariation {
+    int16_t score;
+    PVMoveList moves;
+};
+
 class Search {
 public:
     struct SearchResult {
-        int16_t score;
         int depth;
         size_t nodes;
-        std::vector<Move> principal_variation;
+        std::vector<PrincipalVariation> principal_variations;
     };
 
     typedef std::function<void(const SearchResult&, std::chrono::milliseconds, int)> ReportCallback;
@@ -40,6 +46,12 @@ public:
     );
 
 private:
+    struct RootMove {
+        Move move;
+        int16_t score{-SCORE_INF};
+        PVMoveList pv_moves{};
+    };
+
     void order_captures(MoveList& moves) const;
 
     bool should_abort() const;
@@ -47,14 +59,12 @@ private:
 
     void report(const SearchResult& current_result);
 
-    SearchResult search_root(const MoveList& move_list, int depth);
+    SearchResult search_root(std::vector<RootMove>& ordered_moves, int depth, int num_pvs);
 
     int16_t mated_in_score(int16_t ply);
 
-    bool prunable_tt_hit(const TTHit& hit, int depth, int16_t alpha, int16_t beta) const;
-
     template <Color side_to_move>
-    int16_t negamax(int depth, int16_t ply, int16_t alpha=-SCORE_INF, int16_t beta=SCORE_INF);
+    int16_t negamax(int depth, int16_t ply, int16_t alpha=-SCORE_INF, int16_t beta=SCORE_INF, bool is_pv=false);
 
     template<Color side_to_move>
     int16_t quiescence_search(int16_t ply, int16_t alpha, int16_t beta);
@@ -68,6 +78,9 @@ private:
     size_t max_node_count{MAX_NODE_LIMIT};
     std::chrono::steady_clock::time_point start_time{};
     std::chrono::steady_clock::time_point deadline{MAX_DEADLINE};
+
+    int num_pvs{1};
+    std::array<PVMoveList, MAX_PLY> pv_record{};
 
     TranspositionTable transposition_table;
     ReportCallback on_report;

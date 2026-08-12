@@ -1,6 +1,7 @@
 #pragma once
 
 #include <bit>
+#include <vector>
 
 #include "types.hpp"
 #if defined(__BMI2__) || defined(_MSC_VER)

@@ -155,6 +155,8 @@ std::optional<std::chrono::steady_clock::time_point> Engine::deadline_from_go_op
 }
 
 void Engine::go(const GoOptions& opts) {
+    // TODO: handle ponder properly
+
     wait_for_search();
 
     log_go_options(opts);
@@ -163,7 +165,7 @@ void Engine::go(const GoOptions& opts) {
     search_opts.max_depth = opts.depth;
     search_opts.max_node_count = opts.nodes;
     search_opts.searchmoves = opts.searchmoves;
-    
+    search_opts.num_pvs = num_pvs;
 
     if (search_opts.max_depth.has_value()) {
         uci_info("search max depth set to {}", *search_opts.max_depth);
@@ -184,11 +186,11 @@ void Engine::go(const GoOptions& opts) {
         Search& search,
         Board board,
         std::vector<ZobristHash> hash_history,
-        SearchOptions search_opts,
-        bool ponder
+        SearchOptions search_opts
     ) {
         MoveList moves = generate_moves<bears_chess::LegalPolicy>(board);
         Move best_move{ Square::NONE, Square::NONE, MoveType::NONE };
+        Move ponder_response{ Square::NONE, Square::NONE, MoveType::NONE };
 
         if (moves.empty()) {
             log::uci_println("bestmove 0000");
@@ -202,25 +204,19 @@ void Engine::go(const GoOptions& opts) {
             search_opts
         );
 
-        if (!search_results.principal_variation.empty()) {
-            best_move = *(search_results.principal_variation.begin());
+        if (!search_results.principal_variations.empty()) {
+            const auto& pv = search_results.principal_variations.front();
+            if (!pv.moves.empty()) {
+                best_move = pv.moves.front();
+            }
+            if (pv.moves.size() > 1) {
+                ponder_response = pv.moves[1];
+            }
         }
 
-        if (best_move.move_type == MoveType::NONE) {
+        if (best_move.move_type == MoveType::NONE && !moves.empty()) {
             log::debug("Search failed to find a best move, using first legal move");
             best_move = *moves.begin();
-        }
-
-        Move ponder_response{ Square::NONE, Square::NONE, MoveType::NONE };
-        if (ponder) {
-            // TODO: temporarily just pick the first move after best_move for ponder, actually use second move of PV
-            UndoInfo undo_info = board.do_move(best_move);
-            MoveList response_moves = generate_moves<bears_chess::LegalPolicy>(board);
-            board.undo_move(undo_info);
-
-            if (response_moves.size() > 0) {
-                ponder_response = *response_moves.begin();
-            }
         }
 
         if (ponder_response.move_type == MoveType::NONE) {
@@ -236,7 +232,13 @@ void Engine::go(const GoOptions& opts) {
         }
     });
 
-    search_thread = std::jthread(search_fun, std::ref(search), board, hash_history, search_opts, opts.ponder);
+    search_thread = std::jthread(
+        search_fun,
+        std::ref(search),
+        board,
+        hash_history,
+        search_opts
+    );
 }
 
 void Engine::stop() {
@@ -309,33 +311,39 @@ void Engine::wait_for_search() {
 }
 
 void Engine::search_report(const Search::SearchResult& result, std::chrono::milliseconds elapsed, int hashfull) const {
-    std::string score;
-    if (result.score >= MATE_SCORE_BOUND) {
-        int plies = SCORE_INF - 1 - result.score;
-        score = std::format("mate {}", (plies + 1) / 2);
-    } else if (result.score <= -MATE_SCORE_BOUND) {
-        int plies = result.score + SCORE_INF - 1;
-        score = std::format("mate -{}", (plies + 1) / 2);
-    } else {
-        score = std::format("cp {}", result.score);
-    }
-
     uint64_t ms = elapsed.count();
     uint64_t nps = (ms > 0) ? (result.nodes * 1000 / ms) : 0;
 
-    std::string pv;
-    for  (const Move& move : result.principal_variation) {
-        if (!pv.empty()) {
-            pv += " ";
-            
-        }
-        pv += convert_move_to_uci(move);
-    }
+    const auto& principal_variations = result.principal_variations;
+    for (size_t pv_idx = 0; pv_idx < principal_variations.size(); ++pv_idx) {
+        const auto& pv = principal_variations[pv_idx];
 
-    uci_println(
-        "info depth {} score {} nodes {} nps {} time {} hashfull {} pv {}",
-        result.depth, score, result.nodes, nps, ms, hashfull, pv
-    );
+        std::string score;
+        if (pv.score >= MATE_SCORE_BOUND) {
+            int plies = SCORE_INF - 1 - pv.score;
+            score = std::format("mate {}", (plies + 1) / 2);
+        } else if (pv.score <= -MATE_SCORE_BOUND) {
+            int plies = pv.score + SCORE_INF - 1;
+            score = std::format("mate -{}", (plies + 1) / 2);
+        } else {
+            score = std::format("cp {}", pv.score);
+        }
+
+        std::string pv_msg;
+        for  (const Move& move : pv.moves) {
+            if (!pv_msg.empty()) {
+                pv_msg += " ";
+            }
+            pv_msg += convert_move_to_uci(move);
+        }
+
+        size_t multipv = pv_idx + 1;
+        
+        uci_println(
+            "info depth {} multipv {} score {} nodes {} nps {} time {} hashfull {} pv {}",
+            result.depth, multipv, score, result.nodes, nps, ms, hashfull, pv_msg
+        );
+    }
 }
 
 void Engine::handle_hash_opt() {
@@ -353,7 +361,8 @@ void Engine::handle_ponder_opt() {
 
 void Engine::handle_multipv_opt() {
     int multipv = std::get<int>(options["MultiPV"].value);
-    uci_info("MultiPV option set to {}", multipv);
+    num_pvs = std::clamp<int>(multipv, 1, MAX_PLY);
+    uci_info("MultiPV option set to {}", num_pvs);
 }
 
 } // bears_chess
