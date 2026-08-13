@@ -125,17 +125,6 @@ void Search::order_captures(MoveList& moves) const {
     );
 }
 
-struct ScoredMove {
-    Move move;
-    int16_t score;
-};
-
-struct ScoredMoveGT {
-    bool operator()(const ScoredMove& lhs, const ScoredMove& rhs) const {
-        return lhs.score > rhs.score;
-    }
-};
-
 Search::SearchResult Search::search_root(std::vector<RootMove>& ordered_moves, int depth, int num_pvs) {
     ++nodes;
 
@@ -147,8 +136,6 @@ Search::SearchResult Search::search_root(std::vector<RootMove>& ordered_moves, i
     for (size_t pv_index = 0; pv_index < num_pvs_actual; ++pv_index) {
         int16_t alpha = -SCORE_INF;
         int16_t beta = SCORE_INF;
-
-        bool is_pv = true;
 
         size_t best_move_index = pv_index;
         int16_t best_score = -SCORE_INF;
@@ -174,7 +161,7 @@ Search::SearchResult Search::search_root(std::vector<RootMove>& ordered_moves, i
             move_info.score = score;
             move_info.pv_moves.clear();
             move_info.pv_moves.emplace_back(move_info.move);
-            move_info.pv_moves.append(pv_record[0]);
+            move_info.pv_moves.append(state_stack[1].pv);
 
             if (score > best_score) {
                 best_score = score;
@@ -182,8 +169,6 @@ Search::SearchResult Search::search_root(std::vector<RootMove>& ordered_moves, i
             }
 
             alpha = std::max(alpha, score);
-
-            is_pv = false;
         }
         if (has_aborted) {
             break;
@@ -234,8 +219,8 @@ inline int16_t Search::search_child(int child_depth, int child_ply, int16_t alph
     return score;
 }
 
-int16_t Search::mated_in_score(int16_t ply) {
-    return -SCORE_INF + 1 + ply;
+int16_t Search::mated_in_score(int ply) {
+    return -SCORE_INF + 1 + static_cast<int16_t>(ply);
 }
 
 bool Search::should_abort() const {
@@ -249,13 +234,14 @@ bool Search::should_abort() const {
 }
 
 template <Color side_to_move>
-int16_t Search::negamax(int depth, int16_t ply, int16_t alpha, int16_t beta, bool is_pv) {
+int16_t Search::negamax(int depth, int ply, int16_t alpha, int16_t beta, bool is_pv) {
     ++nodes;
 
     // negamax doesn't start from the root node
     assert(ply > 0);
+    assert(ply < MAX_PLY);
 
-    PVMoveList& pv_row = pv_record[ply - 1];
+    PVMoveList& pv_row = state_stack[ply].pv;
     pv_row.clear();
 
     if (repetition_hashes.record_and_check(ply, board.halfmove_clock, board.hash)) {
@@ -331,7 +317,7 @@ int16_t Search::negamax(int depth, int16_t ply, int16_t alpha, int16_t beta, boo
             alpha = score;
             pv_row.clear();
             pv_row.emplace_back(move);
-            pv_row.append(pv_record[ply]);
+            pv_row.append(state_stack[ply + 1].pv);
         }
 
         if (alpha >= beta) {
@@ -353,7 +339,7 @@ int16_t Search::negamax(int depth, int16_t ply, int16_t alpha, int16_t beta, boo
 }
 
 template<Color side_to_move>
-int16_t Search::quiescence_search(int16_t ply, int16_t alpha, int16_t beta) {
+int16_t Search::quiescence_search(int ply, int16_t alpha, int16_t beta) {
     ++nodes;
 
     if (should_abort()) {

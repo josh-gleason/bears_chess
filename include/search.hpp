@@ -52,6 +52,13 @@ private:
         PVMoveList pv_moves{};
     };
 
+    struct NodeState {
+        int16_t static_eval;
+        Move current_move;
+        std::array<Move, 2> killers;
+        PVMoveList pv;
+    };
+
     void order_captures(MoveList& moves) const;
 
     bool should_abort() const;
@@ -64,13 +71,13 @@ private:
     template<Color child_side_to_move>
     inline int16_t search_child(int child_depth, int child_ply, int16_t alpha, int16_t beta, bool is_pv, bool full_window);
 
-    int16_t mated_in_score(int16_t ply);
+    int16_t mated_in_score(int ply);
 
     template <Color side_to_move>
-    int16_t negamax(int depth, int16_t ply, int16_t alpha=-SCORE_INF, int16_t beta=SCORE_INF, bool is_pv=false);
+    int16_t negamax(int depth, int ply, int16_t alpha=-SCORE_INF, int16_t beta=SCORE_INF, bool is_pv=false);
 
     template<Color side_to_move>
-    int16_t quiescence_search(int16_t ply, int16_t alpha, int16_t beta);
+    int16_t quiescence_search(int ply, int16_t alpha, int16_t beta);
 
     Board board{};
     std::stop_token stop_signal;
@@ -83,7 +90,7 @@ private:
     std::chrono::steady_clock::time_point deadline{MAX_DEADLINE};
 
     int num_pvs{1};
-    std::array<PVMoveList, MAX_PLY> pv_record{};
+    std::array<NodeState, MAX_PLY> state_stack{};
 
     TranspositionTable transposition_table;
     ReportCallback on_report;
