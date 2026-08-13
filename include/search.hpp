@@ -59,8 +59,6 @@ private:
         PVMoveList pv;
     };
 
-    void order_captures(MoveList& moves) const;
-
     bool should_abort() const;
     bool past_deadline() const;
 

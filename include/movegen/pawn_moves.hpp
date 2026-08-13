@@ -61,8 +61,8 @@ inline void generate_ep_moves(
 
     Bitboard bb_to = bb_square(to);
     if constexpr (Policy::enforce_evasions) {
-        Bitboard bb_opponent_pawn = bb_shift<dir_from>(bb_to);
-        if (zero((bb_to | bb_opponent_pawn) & state.evasion_mask))
+        Bitboard bb_captured_pawn = bb_shift<dir_from>(bb_to);
+        if (zero((bb_to | bb_captured_pawn) & state.evasion_mask))
             return;
     }
 
@@ -74,8 +74,8 @@ inline void generate_ep_moves(
         // check if discovered check after EP
         Square king_sq = board.king_sq[idx(color)];
         if (rank_of(king_sq) == pawns_rank) {
-            Bitboard bb_opponent_pawn = bb_shift<dir_from>(bb_to);
-            Bitboard bb_pawn_mask = bb_opponent_pawn | bb_pawn_from_west | bb_pawn_from_east;
+            Bitboard bb_captured_pawn = bb_shift<dir_from>(bb_to);
+            Bitboard bb_pawn_mask = bb_captured_pawn | bb_pawn_from_west | bb_pawn_from_east;
             if (popcount(bb_pawn_mask) == 2) {
                 Bitboard bb_opponent_rooks = bb_pawns_rank & (
                     board.pieces[idx(opponent_color)][idx(Piece::ROOK)] |

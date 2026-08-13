@@ -2,6 +2,7 @@
 
 #include "movegen.hpp"
 #include "evaluation.hpp"
+#include "search/movepicker.hpp"
 
 #include <algorithm>
 #include <array>
@@ -25,6 +26,26 @@ void Search::resize_tt(size_t megabytes) {
     transposition_table.resize(megabytes);
 }
 
+static MoveList generate_initial_moves(const Board& board) {
+    MoveList moves;
+    if (board.side_to_move == Color::WHITE) {
+        BoardState<Color::WHITE, LegalPolicy> board_state(board);
+        MovePicker<Color::WHITE> picker(board, board_state);
+        Move move;
+        while (!(move = picker.next()).is_none()) {
+            moves.emplace_back(move);
+        }
+    } else {
+        BoardState<Color::BLACK, LegalPolicy> board_state(board);
+        MovePicker<Color::BLACK> picker(board, board_state);
+        Move move;
+        while (!(move = picker.next()).is_none()) {
+            moves.emplace_back(move);
+        }
+    }
+    return moves;
+}
+
 Search::SearchResult Search::go(
     std::stop_token stop_token,
     const Board& root,
@@ -40,13 +61,11 @@ Search::SearchResult Search::go(
     nodes = 0;
     transposition_table.new_search();
 
-    MoveList initial_moves = generate_moves<LegalPolicy>(board);
+    MoveList initial_moves = generate_initial_moves(board);
 
     if (options.searchmoves.has_value()) {
         initial_moves = initial_moves.filter_moves(*options.searchmoves);
     }
-
-    order_captures(initial_moves);
 
     deadline = options.deadline.value_or(MAX_DEADLINE);
     max_node_count = options.max_node_count.value_or(MAX_NODE_LIMIT);
@@ -96,33 +115,6 @@ void Search::report(const SearchResult& current_result) {
         auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start_time);
         on_report(current_result, elapsed, hashfull);
     }
-}
-
-static inline int16_t capture_gain(const Board& board, const Move& move) {
-    const Piece victim = (
-        move.move_type == MoveType::EP_CAPTURE
-        ? Piece::PAWN
-        : board.get_piece_at<false>(move.to)    // Piece::NONE possible if non-captures
-    );
-    return PIECE_VALUES[idx(victim)] - PIECE_VALUES[idx(board.get_piece_at(move.from))];
-}
-
-void Search::order_captures(MoveList& moves) const {
-    std::array<int16_t, MoveList::max_length> scores;
-    std::transform(
-        moves.begin(),
-        moves.end(),
-        scores.begin(),
-        [this](const Move& move) { return capture_gain(board, move); }
-    );
-
-    std::ranges::sort(
-        std::views::zip(moves, std::span(scores.begin(), scores.begin() + moves.size())),
-        std::ranges::greater{},
-        [](const auto& entry) {
-            return std::get<1>(entry);
-        }
-    );
 }
 
 Search::SearchResult Search::search_root(std::vector<RootMove>& ordered_moves, int depth, int num_pvs) {
@@ -241,7 +233,10 @@ int16_t Search::negamax(int depth, int ply, int16_t alpha, int16_t beta, bool is
     assert(ply > 0);
     assert(ply < MAX_PLY);
 
-    PVMoveList& pv_row = state_stack[ply].pv;
+    NodeState& node_state = state_stack[ply];
+    PVMoveList& pv_row = node_state.pv;
+    node_state.killers = {MOVE_NONE, MOVE_NONE};
+
     pv_row.clear();
 
     if (repetition_hashes.record_and_check(ply, board.halfmove_clock, board.hash)) {
@@ -256,7 +251,7 @@ int16_t Search::negamax(int depth, int ply, int16_t alpha, int16_t beta, bool is
         return 0;
     };
 
-    Move best_move{Square::NONE, Square::NONE, MoveType::NONE};
+    Move tt_move = MOVE_NONE;
     if (auto hit_result = transposition_table.probe(board.hash, ply)) {
         const auto& hit = *hit_result;
         // only return or narrow the window on non-pv lines
@@ -275,33 +270,30 @@ int16_t Search::negamax(int depth, int ply, int16_t alpha, int16_t beta, bool is
                 beta = std::min(beta, hit.score);
             }
         }
-        best_move = hit.best_move;
+        tt_move = hit.best_move;
     }
 
     if (depth == 0) {
         return quiescence_search<side_to_move>(ply, alpha, beta);
     }
 
-    // TODO build staged move picker to avoid full move generation, requires some refactor to movegen
     BoardState<side_to_move, LegalPolicy> state(board);
-    auto moves = generate_moves<side_to_move>(board, state);
-    order_captures(moves);
+    MovePicker move_picker(board, state, tt_move, node_state.killers);
 
-    if (best_move.move_type != MoveType::NONE) {
-        moves.promote_to_front(best_move);
-    }
-
-    bool is_draw = moves.empty() && state.num_checkers == 0;
-    int16_t max_score = is_draw ? DRAW_SCORE : mated_in_score(ply);
+    int16_t max_score = mated_in_score(ply);
+    Move best_move = MOVE_NONE;
 
     // used for node bounds
     int16_t alpha_original = alpha;
 
-    bool first = true;
+    int moves_searched = 0;
 
-    for (const auto& move : moves) {
+    Move move;
+    while (!(move = move_picker.next()).is_none()) {
+        ++moves_searched;
+
         UndoInfo undo_info = board.do_move(move);
-        int16_t score = search_child<~side_to_move>(depth - 1, ply + 1, alpha, beta, is_pv, first);
+        int16_t score = search_child<~side_to_move>(depth - 1, ply + 1, alpha, beta, is_pv, moves_searched == 1);
         board.undo_move(undo_info);
 
         if (has_aborted) {
@@ -323,8 +315,11 @@ int16_t Search::negamax(int depth, int ply, int16_t alpha, int16_t beta, bool is
         if (alpha >= beta) {
             break;
         }
+    }
 
-        first = false;
+    bool is_draw = moves_searched == 0 && state.num_checkers == 0;
+    if (is_draw) {
+        max_score = DRAW_SCORE;
     }
 
     Bound bound = Bound::EXACT;
@@ -363,19 +358,11 @@ int16_t Search::quiescence_search(int ply, int16_t alpha, int16_t beta) {
         alpha = std::max(alpha, max_score);
     }
 
-    MoveList moves;
-    if (in_check) {
-        moves = generate_moves<side_to_move>(board, state);
-        if (moves.empty()) {
-            return mated_in_score(ply);
-        }
-    } else {
-        moves = generate_moves<side_to_move, LegalPolicy, CaptureMoves>(board, state);
-    }
+    bool include_quiets = in_check;
+    MovePicker<side_to_move> move_picker(board, state, MOVE_NONE, {MOVE_NONE, MOVE_NONE}, include_quiets);
 
-    order_captures(moves);
-
-    for (const auto& move : moves) {
+    Move move;
+    while (!(move = move_picker.next()).is_none()) {
         UndoInfo undo_info = board.do_move(move);
         int16_t score = -quiescence_search<~side_to_move>(ply + 1, -beta, -alpha);
         board.undo_move(undo_info);
@@ -390,6 +377,10 @@ int16_t Search::quiescence_search(int ply, int16_t alpha, int16_t beta) {
         if (alpha >= beta) {
             break;
         }
+    }
+
+    if (in_check && max_score == -SCORE_INF) {
+        return mated_in_score(ply);
     }
 
     return max_score;

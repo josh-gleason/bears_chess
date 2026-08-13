@@ -189,8 +189,8 @@ void Engine::go(const GoOptions& opts) {
         SearchOptions search_opts
     ) {
         MoveList moves = generate_moves<bears_chess::LegalPolicy>(board);
-        Move best_move{ Square::NONE, Square::NONE, MoveType::NONE };
-        Move ponder_response{ Square::NONE, Square::NONE, MoveType::NONE };
+        Move best_move = MOVE_NONE;
+        Move ponder_response = MOVE_NONE;
 
         if (moves.empty()) {
             log::uci_println("bestmove 0000");
@@ -214,14 +214,14 @@ void Engine::go(const GoOptions& opts) {
             }
         }
 
-        if (best_move.move_type == MoveType::NONE && !moves.empty()) {
+        if (best_move.is_none() && !moves.empty()) {
             log::debug("Search failed to find a best move, using first legal move");
             best_move = *moves.begin();
         }
 
-        if (ponder_response.move_type == MoveType::NONE) {
+        if (ponder_response.is_none()) {
             log::uci_println("bestmove {}", convert_move_to_uci(best_move));
-        } else if (best_move.move_type != MoveType::NONE) {
+        } else if (!best_move.is_none()) {
             log::uci_println(
                 "bestmove {} ponder {}",
                 convert_move_to_uci(best_move),

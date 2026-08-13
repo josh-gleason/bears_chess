@@ -72,4 +72,137 @@ MoveList generate_moves(const Board& board) {
     return generate_moves<Color::BLACK, Policy, Selection>(board);
 }
 
+
+template<Color color>
+bool is_legal_move(const Board& board, const BoardState<color, LegalPolicy>& state, const Move& move) {
+    // assumes that moves are either none or come from a valid movegen, but may be a different color due
+    // to TT collision
+
+    constexpr Bitboard bb_kingside = BB_CASTLE_PATHS<Piece::KING>[idx(color)];
+    constexpr Bitboard bb_queenside = BB_CASTLE_PATHS<Piece::QUEEN>[idx(color)];
+    constexpr Bitboard bb_attack_block = ~bb_file(File::B);
+    constexpr Rank promo_rank = (color == Color::WHITE ? Rank::_8 : Rank::_1);
+    constexpr Rank castle_rank = (color == Color::WHITE ? Rank::_1 : Rank::_8);
+    constexpr Direction dir_push = (color == Color::WHITE ? Direction::NORTH : Direction::SOUTH);
+
+    if (move.is_none()) {
+        return false;
+    }
+
+    if (move.move_type == MoveType::KING_CASTLE) {
+        CastlingRights rights = board.castling_rights;
+        if (!castling_allowed<color, Piece::KING>(rights) || nonzero(state.checkers) || rank_of(move.from) != castle_rank) {
+            return false;
+        }
+        Bitboard bb_blocked = board.occupied | (state.king_unallowed & bb_attack_block);
+        return zero(bb_kingside & bb_blocked);
+    }
+    if (move.move_type == MoveType::QUEEN_CASTLE) {
+        CastlingRights rights = board.castling_rights;
+        if (!castling_allowed<color, Piece::QUEEN>(rights) || nonzero(state.checkers) || rank_of(move.from) != castle_rank) {
+            return false;
+        }
+        Bitboard bb_blocked = board.occupied | (state.king_unallowed & bb_attack_block);
+        return zero(bb_queenside & bb_blocked);
+    }
+
+    const Piece piece = board.get_piece_of_color_at<false>(color, move.from);
+    if (piece == Piece::NONE) {
+        return false;
+    }
+
+    if (is_promotion(move.move_type) && (piece != Piece::PAWN || rank_of(move.to) != promo_rank)) {
+        return false;
+    }
+
+    if (move.move_type == MoveType::DOUBLE_PAWN_PUSH && piece != Piece::PAWN) {
+        return false;
+    }
+
+    if (move.move_type == MoveType::EP_CAPTURE) {
+        MoveList ep_moves;
+        generate_ep_moves<color, LegalPolicy, CaptureMoves>(board, ep_moves, state);
+        return std::find(ep_moves.begin(), ep_moves.end(), move) != ep_moves.end();
+    }
+
+    const Piece piece_to = board.get_piece_at<false>(move.to);
+    if (is_capture(move.move_type)) {
+        if (piece_to == Piece::NONE || piece_to == Piece::KING || board.get_color_at(move.to) == color) {
+            return false;
+        }
+    } else if (piece_to != Piece::NONE) {
+        return false;
+    }
+
+    const Bitboard bb_to = bb_square(move.to);
+    if (piece == Piece::PAWN) {
+        const Bitboard bb_from = bb_square(move.from);
+        
+        // promotion flag must match arrival on the promotion rank
+        if (is_promotion(move.move_type) != (rank_of(move.to) == promo_rank)) {
+            return false;
+        }
+
+        if (is_capture(move.move_type)) {
+            // ep handled earlier
+            if (zero(bb_to & bb_attacks<color, Piece::PAWN>(move.from))) {
+                return false;
+            }
+        } else if (move.move_type == MoveType::DOUBLE_PAWN_PUSH) {
+            const Bitboard bb_unoccupied = ~board.occupied;
+            const Bitboard bb_single = bb_unoccupied & bb_shift<dir_push>(bb_from);
+            if (zero(bb_to & bb_shift<dir_push>(bb_single))) {
+                return false;
+            }
+        } else {
+            if (zero(bb_to & bb_shift<dir_push>(bb_from))) {
+                return false;
+            }
+        }
+    } else {
+        Bitboard bb_pattern;
+        switch (piece) {
+            case Piece::KNIGHT:
+                bb_pattern = bb_attacks<Piece::KNIGHT>(move.from);
+                break;
+            case Piece::BISHOP:
+                bb_pattern = bb_attacks<Piece::BISHOP>(move.from, board.occupied);
+                break;
+            case Piece::ROOK:
+                bb_pattern = bb_attacks<Piece::ROOK>(move.from, board.occupied);
+                break;
+            case Piece::QUEEN:
+                bb_pattern = bb_attacks<Piece::QUEEN>(move.from, board.occupied);
+                break;
+            case Piece::KING:
+                bb_pattern = bb_attacks<Piece::KING>(move.from);
+                break;
+            default:
+                return false;
+        }
+        if (zero(bb_to & bb_pattern)) {
+            return false;
+        }
+    }
+
+    // check & pin
+    if (piece == Piece::KING) {
+        return zero(bb_to & state.king_unallowed);
+    }
+
+    // evasion mask
+    if (zero(bb_to & state.evasion_mask)) {
+        return false;
+    }
+
+    if (nonzero(state.pinned & bb_square(move.from))) {
+        const Square king_sq = board.king_sq[idx(color)];
+        if (DIR_BETWEEN<IndexDirection>[idx(king_sq)][idx(move.to)] != DIR_BETWEEN<IndexDirection>[idx(king_sq)][idx(move.from)]) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
 } // namespace bears_chess

@@ -250,7 +250,13 @@ struct Move {
     bool operator==(const Move& other) const noexcept {
         return from == other.from && to == other.to && move_type == other.move_type;
     }
+
+    inline bool is_none() const noexcept {
+        return move_type == MoveType::NONE;
+    }
 };
+
+constexpr Move MOVE_NONE = Move{ Square::NONE, Square::NONE, MoveType::NONE };
 
 template<Piece castle_side>
 constexpr auto CASTLE_MOVES = []() -> std::array<Move, num_of<Color>> {

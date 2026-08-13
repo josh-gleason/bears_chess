@@ -23,7 +23,7 @@ public:
 
     static constexpr size_t max_length = MAX_LENGTH;
 
-    BasicMoveList() : count(0), moves{} {}
+    BasicMoveList() : count{0} {}
 
     BasicMoveList(const BasicMoveList& rhs) : count{rhs.count} {
         std::copy(rhs.cbegin(), rhs.cend(), moves.begin());
@@ -116,12 +116,14 @@ public:
         }
     }
 
-    void move_to(const Move& move, size_type to) {
-        assert(to < count);
+    bool move_to(const Move& move, size_type to) {
         auto it = std::find(begin(), end(), move);
         if (it != end()) {
+            assert(to < count);
             std::swap(moves[to], *it);
+            return true;
         }
+        return false;
     }
 
     std::span<const Move> view() const {
