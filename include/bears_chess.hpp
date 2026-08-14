@@ -2,6 +2,7 @@
 #include "board.hpp"
 #include "movegen.hpp"
 #include "evaluation.hpp"
+#include "search.hpp"
 #include "perft_utils.hpp"
 #include "board_utils.hpp"
 #include "cli.hpp"

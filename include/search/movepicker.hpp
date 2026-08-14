@@ -2,7 +2,7 @@
 
 #include "types.hpp"
 #include "movegen.hpp"
-#include "score.hpp"
+#include "evaluation.hpp"
 
 namespace bears_chess {
 
@@ -12,9 +12,10 @@ public:
     enum class Stage: int {
         TT_MOVE,
         GEN_CAPTURES,
-        CAPTURES,
+        GOOD_CAPTURES,
         GEN_QUIETS,
         QUIETS,
+        BAD_CAPTURES,
         DONE
     };
 
@@ -28,8 +29,7 @@ public:
         tt_move(tt_move_),
         killers(std::move(killers_)),
         include_quiets(include_quiets_),
-        stage(Stage::TT_MOVE),
-        current(0)
+        stage(Stage::TT_MOVE)
     {}
 
     inline Move next() {
@@ -42,33 +42,45 @@ public:
                     }
                     tt_move = MOVE_NONE;
                 case Stage::GEN_CAPTURES:
-                    current = 0;    
+                    current = 0;
                     moves = generate_moves<color, LegalPolicy, CaptureMoves>(board, board_state);
                     for (size_t i = 0; i < moves.size(); ++i) {
-                        scores[i] = capture_gain(moves[i]);
+                        capture_scores[i] = capture_gain(moves[i]);
                     }
-                    stage = Stage::CAPTURES;
-                case Stage::CAPTURES:
-                    while (current < moves.size()) {
-                        swap_best_to_current();
-                        if (moves[current] != tt_move) {
+                    num_captures = good_captures_end = moves.size();
+                    stage = Stage::GOOD_CAPTURES;
+                case Stage::GOOD_CAPTURES:
+                    
+                    while (current < good_captures_end) {
+                        swap_best_capture_to_current(good_captures_end);
+                        Move& move = moves[current];
+                        if (move == tt_move) {
+                            ++current;
+                            continue;
+                        }
+                        if (capture_scores[current] >= 0 ||
+                            (capture_scores[current] = compute_see(move)) >= 0)
+                        {
                             return moves[current++];
                         }
-                        current += 1;
+
+                        --good_captures_end;
+                        std::swap(moves[current], moves[good_captures_end]);
+                        std::swap(capture_scores[current], capture_scores[good_captures_end]);
                     }
                     stage = Stage::GEN_QUIETS;
                 case Stage::GEN_QUIETS:
                     if (!include_quiets) {
-                        stage = Stage::DONE;
+                        stage = Stage::BAD_CAPTURES;
                         break;
                     }
 
-                    current = 0;
-                    moves = generate_moves<color, LegalPolicy, QuietMoves>(board, board_state);
+                    current = num_captures;
+                    moves.append(generate_moves<color, LegalPolicy, QuietMoves>(board, board_state));
 
                     // promote killer moves to front
                     {
-                        size_t front = 0;
+                        size_t front = current;
                         for (const Move& killer : killers) {
                             if (killer.is_none() || killer == tt_move) {
                                 continue;
@@ -81,6 +93,17 @@ public:
                     stage = Stage::QUIETS;
                 case Stage::QUIETS:
                     while (current < moves.size()) {
+                        if (moves[current] != tt_move) {
+                            return moves[current++];
+                        }
+                        current += 1;
+                    }
+                    moves.resize(num_captures);
+                    current = good_captures_end;
+                    stage = Stage::BAD_CAPTURES;
+                case Stage::BAD_CAPTURES:
+                    while (current < moves.size()) {
+                        swap_best_capture_to_current(num_captures);
                         if (moves[current] != tt_move) {
                             return moves[current++];
                         }
@@ -111,27 +134,35 @@ private:
 
     Stage stage;
     size_t current;
+    size_t good_captures_end;
+    size_t num_captures;
     MoveList moves;
-    std::array<int16_t, MoveList::max_length> scores;
+    std::array<int16_t, MoveList::max_length> capture_scores;
 
     inline int16_t capture_gain(const Move& move) {
-        const Piece victim = (
-            move.move_type == MoveType::EP_CAPTURE
-            ? Piece::PAWN
-            : board.get_piece_at(move.to)    // assume all moves provided here are captures
-        );
-        return PIECE_VALUES[idx(victim)] - PIECE_VALUES[idx(board.get_piece_at(move.from))];
+        assert(is_capture(move.move_type));
+        const Piece captured_piece = (move.move_type == MoveType::EP_CAPTURE ? Piece::PAWN : board.get_piece_at(move.to));
+        // MVV-LVA
+        return PIECE_VALUES[idx(captured_piece)] - PIECE_VALUES[idx(board.get_piece_at(move.from))];
     }
 
-    inline void swap_best_to_current() {
+    inline int16_t compute_see(const Move& move) {
+        // square undefended, shortcut check using board_state
+        if (zero(bb_square(move.to) & board_state.king_unallowed)) {
+            return PIECE_VALUES[idx(board.get_piece_at(move.to))];;
+        }
+        return static_exchange_evaluation<color>(board, move);
+    }
+
+    inline void swap_best_capture_to_current(size_t active_size) {
         size_t best = current;
-        for (size_t i = current + 1; i < moves.size(); ++i) {
-            if (scores[i] > scores[best]) {
+        for (size_t i = current + 1; i < active_size; ++i) {
+            if (capture_scores[i] > capture_scores[best]) {
                 best = i;
             }
         }
         std::swap(moves[current], moves[best]);
-        std::swap(scores[current], scores[best]);
+        std::swap(capture_scores[current], capture_scores[best]);
     }
 };
 

@@ -2,6 +2,7 @@ add_executable(bears_chess_tests
     perft_tests.cpp
     make_move_tests.cpp
     zobrist_tests.cpp
+    see_tests.cpp
 )
 
 target_link_libraries(bears_chess_tests
@@ -12,4 +13,5 @@ target_link_libraries(bears_chess_tests
 
 target_include_directories(bears_chess_tests PRIVATE ${PROJECT_SOURCE_DIR}/include)
 
-add_test(NAME EngineTests COMMAND bears_chess_tests)
+include(GoogleTest)
+gtest_discover_tests(bears_chess_tests)

@@ -205,4 +205,41 @@ bool is_legal_move(const Board& board, const BoardState<color, LegalPolicy>& sta
     return true;
 }
 
+inline Bitboard attackers_to(const Board& board, Square to_square, Bitboard bb_occupied) {
+    // bb_occupied is allowed to be a subset of board.occupied to simulate removed pieces
+    const Bitboard bb_queens =
+        board.pieces[idx(Color::WHITE)][idx(Piece::QUEEN)] |
+        board.pieces[idx(Color::BLACK)][idx(Piece::QUEEN)];
+    const Bitboard bb_rooklike_attackers = bb_attacks<Piece::ROOK>(to_square, bb_occupied) & (
+        bb_queens |
+        board.pieces[idx(Color::WHITE)][idx(Piece::ROOK)] |
+        board.pieces[idx(Color::BLACK)][idx(Piece::ROOK)]);
+    const Bitboard bb_bishoplike_attackers = bb_attacks<Piece::BISHOP>(to_square, bb_occupied) & (
+        bb_queens |
+        board.pieces[idx(Color::WHITE)][idx(Piece::BISHOP)] |
+        board.pieces[idx(Color::BLACK)][idx(Piece::BISHOP)]);
+    const Bitboard bb_knight_attackers = bb_attacks<Piece::KNIGHT>(to_square) & (
+        board.pieces[idx(Color::WHITE)][idx(Piece::KNIGHT)] |
+        board.pieces[idx(Color::BLACK)][idx(Piece::KNIGHT)]);
+    const Bitboard bb_king_attackers = bb_attacks<Piece::KING>(to_square) & (
+        board.pieces[idx(Color::WHITE)][idx(Piece::KING)] |
+        board.pieces[idx(Color::BLACK)][idx(Piece::KING)]);
+    // pawn attacks from to_square locate candidate attacking pawns of the opposite color
+    const Bitboard bb_white_pawn_attackers =
+        bb_attacks<Color::BLACK, Piece::PAWN>(to_square) &
+        board.pieces[idx(Color::WHITE)][idx(Piece::PAWN)];
+    const Bitboard bb_black_pawn_attackers =
+        bb_attacks<Color::WHITE, Piece::PAWN>(to_square) &
+        board.pieces[idx(Color::BLACK)][idx(Piece::PAWN)];
+    
+    return bb_occupied & (
+        bb_rooklike_attackers |
+        bb_bishoplike_attackers |
+        bb_knight_attackers |
+        bb_king_attackers |
+        bb_white_pawn_attackers |
+        bb_black_pawn_attackers
+    );
+}
+
 } // namespace bears_chess

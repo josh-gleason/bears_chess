@@ -202,6 +202,7 @@ void Board::undo_move(const UndoInfo &undo_info)
 
 bool Board::is_legal(const Move &last_move) const
 {
+    // assumes last_move is pseudo-legal move applied to a legal position
     Color us = ~side_to_move;
     Color them = side_to_move;
     Square king_square = king_sq[idx(us)];

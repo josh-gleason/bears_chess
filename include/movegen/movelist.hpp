@@ -81,6 +81,11 @@ public:
 
     inline void clear() { count = 0; }
 
+    inline void resize(size_type new_size) {
+        assert(new_size <= max_length);
+        count = new_size;
+    }
+
     inline void append(const BasicMoveList& moves) {
         for (const auto& move : moves) {
             emplace_back(move);
