@@ -60,6 +60,7 @@ Search::SearchResult Search::go(
     has_aborted = false;
     nodes = 0;
     transposition_table.new_search();
+    state_stack.fill({0, MOVE_NONE, {MOVE_NONE, MOVE_NONE}, {}});
 
     MoveList initial_moves = generate_initial_moves(board);
 
@@ -235,7 +236,6 @@ int16_t Search::negamax(int depth, int ply, int16_t alpha, int16_t beta, bool is
 
     NodeState& node_state = state_stack[ply];
     PVMoveList& pv_row = node_state.pv;
-    node_state.killers = {MOVE_NONE, MOVE_NONE};
 
     pv_row.clear();
 
@@ -313,6 +313,10 @@ int16_t Search::negamax(int depth, int ply, int16_t alpha, int16_t beta, bool is
         }
 
         if (alpha >= beta) {
+            if (!is_capture(move.move_type) && !is_promotion(move.move_type) && move != state_stack[ply].killers[0]) {
+                state_stack[ply].killers[1] = state_stack[ply].killers[0];
+                state_stack[ply].killers[0] = move;
+            }
             break;
         }
     }

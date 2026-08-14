@@ -88,7 +88,7 @@ private:
     std::chrono::steady_clock::time_point deadline{MAX_DEADLINE};
 
     int num_pvs{1};
-    std::array<NodeState, MAX_PLY> state_stack{};
+    std::array<NodeState, MAX_PLY> state_stack;
 
     TranspositionTable transposition_table;
     ReportCallback on_report;
