@@ -3,9 +3,9 @@
 #include <vector>
 #include <optional>
 #include <unordered_map>
-#include <iterator>
-#include <algorithm>
-#include <sstream>
+#include <format>
+#include <charconv>
+#include <stdexcept>
 
 namespace bears_chess {
 

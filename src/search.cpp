@@ -112,9 +112,7 @@ bool Search::past_deadline() const {
 
 void Search::report(const SearchResult& current_result) {
     if (on_report) {
-        int hashfull = transposition_table.hashfull();
-        auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start_time);
-        on_report(current_result, elapsed, hashfull);
+        on_report(current_result, elapsed(), hashfull());
     }
 }
 
@@ -389,5 +387,15 @@ int16_t Search::quiescence_search(int ply, int16_t alpha, int16_t beta) {
 
     return max_score;
 }
+
+    
+int Search::hashfull() const {
+    return transposition_table.hashfull();
+}
+
+std::chrono::milliseconds Search::elapsed() const {
+    return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start_time);
+}
+
 
 } // namespace bears_chess

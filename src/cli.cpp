@@ -1,8 +1,11 @@
 #include "cli.hpp"
+
 #include "bears_chess.hpp"
 #include "parse_utils.hpp"
 #include "help/messages.hpp"
 
+#include <iostream>
+#include <string>
 #include <vector>
 
 namespace bears_chess {

@@ -1,4 +1,6 @@
 #pragma once
+#include "engine.hpp"
+
 #include <thread>
 #include <atomic>
 #include <queue>
@@ -8,7 +10,6 @@
 #include <optional>
 #include <functional>
 #include <unordered_map>
-#include "engine.hpp"
 
 namespace bears_chess {
 

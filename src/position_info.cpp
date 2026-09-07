@@ -67,7 +67,36 @@ bool is_checkmate(const Board& board) {
         return is_checkmate<Color::WHITE>(board);
     }
     return is_checkmate<Color::BLACK>(board);
+}
 
+template<Color color>
+bool is_stalemate(const Board& board) {
+    BoardState<color, LegalPolicy> state(board);
+
+    if (state.num_checkers == 0) {
+        MoveList moves;
+
+        generate_king_moves<color, LegalPolicy, AllMoves>(board, moves, state);
+        if (!moves.empty()) return false;
+        generate_castle_moves<color, LegalPolicy, AllMoves>(board, moves, state);
+        if (!moves.empty()) return false;
+        generate_knight_moves<color, LegalPolicy, AllMoves>(board, moves, state);
+        if (!moves.empty()) return false;
+        generate_slider_moves<color, LegalPolicy, AllMoves>(board, moves, state);
+        if (!moves.empty()) return false;
+        generate_pawn_moves<color, LegalPolicy, AllMoves>(board, moves, state);
+
+        return moves.empty();
+    }
+
+    return false;
+}
+
+bool is_stalemate(const Board& board) {
+    if (board.side_to_move == Color::WHITE) {
+        return is_stalemate<Color::WHITE>(board);
+    }
+    return is_stalemate<Color::BLACK>(board);
 }
 
 }

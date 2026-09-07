@@ -1,12 +1,13 @@
+#include "board_utils.hpp"
+
+#include "bitboard.hpp"
+#include "movegen.hpp"
+#include "zobrist.hpp"
+
 #include <sstream>
 #include <optional>
 #include <tuple>
 #include <vector>
-
-#include "board_utils.hpp"
-#include "bitboard.hpp"
-#include "movegen.hpp"
-#include "zobrist.hpp"
 
 namespace bears_chess {
 
@@ -59,12 +60,24 @@ constexpr const char* ANSI_HIGHLIGHTED_DARK_SQUARE = "\033[48;2;205;70;83m";
 constexpr const char* ANSI_WHITE_PIECE = "\033[38;2;255;255;255m";
 constexpr const char* ANSI_BLACK_PIECE = "\033[38;2;0;0;0m";
 
-static std::string color_to_str(Color color) {
+std::string color_to_str(Color color) {
     return COLOR_STR[idx(color)];
 }
 
-static std::string piece_to_str(Color color, Piece piece) {
+std::string piece_to_str(Color color, Piece piece) {
     return PIECE_STR[idx(color) * num_of<Piece> + idx(piece)];
+}
+
+std::string file_to_str(const File file) {
+    return FILE_STR[idx(file)];
+}
+
+std::string rank_to_str(const Rank rank) {
+    return RANK_STR[idx(rank)];
+}
+
+std::string square_to_str(const Square square) {
+    return SQUARE_STR[idx(square)];
 }
 
 static std::string occupied_to_str(Color color) {
@@ -79,18 +92,6 @@ static std::string piece_to_utf8(Color color, Piece piece) {
 static std::string occupied_to_utf8(Color color) {
     const std::u8string_view glyph = OCCUPIED_UTF8[idx(color)];
     return std::string(glyph.begin(), glyph.end());
-}
-
-static std::string file_to_str(const File file) {
-    return FILE_STR[idx(file)];
-}
-
-static std::string rank_to_str(const Rank rank) {
-    return RANK_STR[idx(rank)];
-}
-
-static std::string square_to_str(const Square square) {
-    return SQUARE_STR[idx(square)];
 }
 
 static std::tuple<Color, Piece> char_to_piece(const char ch) {

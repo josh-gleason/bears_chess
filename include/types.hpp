@@ -1,9 +1,10 @@
 #pragma once
 
+#include "enum_traits.hpp"
+
 #include <cstdint>
 #include <cassert>
 #include <array>
-#include "enum_traits.hpp"
 
 namespace bears_chess {
 

@@ -1,9 +1,8 @@
 #pragma once
 
-#include <bit>
-#include <vector>
-
 #include "types.hpp"
+
+#include <vector>
 #if defined(__BMI2__) || defined(_MSC_VER)
 #include <immintrin.h>
 #define PEXT_SUPPORT

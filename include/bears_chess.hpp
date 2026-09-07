@@ -5,6 +5,7 @@
 #include "search.hpp"
 #include "perft_utils.hpp"
 #include "board_utils.hpp"
+#include "position_info.hpp"
 #include "cli.hpp"
 #include "log.hpp"
 #include "zobrist.hpp"

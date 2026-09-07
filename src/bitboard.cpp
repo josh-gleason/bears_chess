@@ -1,8 +1,10 @@
-#include <stdexcept>
 #include "bitboard.hpp"
+
 #ifndef PEXT_SUPPORT
 #include "magics.hpp"
 #endif
+
+#include <stdexcept>
 
 namespace bears_chess {
 

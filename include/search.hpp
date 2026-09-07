@@ -45,6 +45,9 @@ public:
         const SearchOptions& options
     );
 
+    int hashfull() const;
+    std::chrono::milliseconds elapsed() const;
+
 private:
     struct RootMove {
         Move move;

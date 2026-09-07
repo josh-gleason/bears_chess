@@ -1,4 +1,5 @@
 #include "board.hpp"
+
 #include "bitboard.hpp"
 #include "zobrist.hpp"
 

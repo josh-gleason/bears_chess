@@ -4,3 +4,8 @@ build
 perft_results/*
 .gitignore
 .clangd
+*.so
+*.pyi
+*.pyc
+__pycache__/
+python/tests/_module_location.py

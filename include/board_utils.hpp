@@ -1,10 +1,9 @@
 #pragma once
 
-// #include <format>
+#include "board.hpp"
+
 #include <ostream>
 #include <sstream>
-
-#include "board.hpp"
 
 namespace bears_chess {
 
@@ -117,6 +116,12 @@ std::ostream& operator<<(std::ostream& out, Piece piece);
 std::ostream& operator<<(std::ostream& out, Color color);
 std::ostream& operator<<(std::ostream& out, MoveType move_type);
 std::ostream& operator<<(std::ostream& out, Move move);
+
+std::string color_to_str(Color color);
+std::string piece_to_str(Color color, Piece piece);
+std::string file_to_str(const File file);
+std::string rank_to_str(const Rank rank);
+std::string square_to_str(const Square square);
 
 File parse_file(char f);
 Rank parse_rank(char r);

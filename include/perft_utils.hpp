@@ -1,18 +1,16 @@
 #pragma once
 
-#include <format>
-#include <iostream>
-#include <chrono>
-#include <unordered_map>
-#include <functional>
-#include <optional>
-#include <algorithm>
-#include <numeric>
 #include "board_utils.hpp"
 #include "movegen.hpp"
 #include "position_info.hpp"
 #include "log.hpp"
 
+#include <format>
+#include <chrono>
+#include <unordered_map>
+#include <functional>
+#include <optional>
+#include <algorithm>
 
 template <>
 struct std::hash<bears_chess::Move> {

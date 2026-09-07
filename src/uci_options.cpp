@@ -1,4 +1,3 @@
-#include <algorithm>
 #include "uci_options.hpp"
 #include "parse_utils.hpp"
 

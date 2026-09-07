@@ -1,5 +1,9 @@
 #include "parse_utils.hpp"
 
+#include <iterator>
+#include <algorithm>
+#include <sstream>
+
 namespace bears_chess {
 
 KeyedArgs group_by_keywords(const std::vector<std::string>& args, const std::vector<std::string>& keywords) {

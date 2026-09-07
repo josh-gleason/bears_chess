@@ -1,4 +1,5 @@
 #include "log.hpp"
+
 #include <ranges>
 #include <spdlog/spdlog.h>
 #include <spdlog/pattern_formatter.h>

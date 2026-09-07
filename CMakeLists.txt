@@ -6,6 +6,7 @@ project(bears_chess
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     message(STATUS "Setting default build type to Release")
@@ -23,19 +24,14 @@ elseif (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
     )
 
     if (CMAKE_BUILD_TYPE STREQUAL "Release")
-        set(CMAKE_POSITION_INDEPENDENT_CODE OFF CACHE BOOL "" FORCE)
-
         add_compile_options(
             -O3
             -DNDEBUG
             -flto=thin
-            -fno-pie
         )
         add_link_options(
             -fuse-ld=lld
-            -no-pie
             -Wl,--gc-sections
-            -Wl,--emit-relocs
             -Wl,--thinlto-jobs=${CMAKE_JOB_POOL_COMPILE}
         )
     endif()
@@ -76,4 +72,9 @@ if(BUILD_TESTING)
 
     enable_testing()
     add_subdirectory(tests)
+endif()
+
+option(BUILD_PYTHON_BINDINGS "Build the bears_chess python module" OFF)
+if(BUILD_PYTHON_BINDINGS)
+    add_subdirectory(bindings)
 endif()

@@ -90,6 +90,7 @@ bool is_legal_move(const Board& board, const BoardState<color, LegalPolicy>& sta
     }
 
     if (move.move_type == MoveType::KING_CASTLE) {
+        assert(move == CASTLE_MOVES<Piece::KING>[idx(color)]);
         CastlingRights rights = board.castling_rights;
         if (!castling_allowed<color, Piece::KING>(rights) || nonzero(state.checkers) || rank_of(move.from) != castle_rank) {
             return false;
@@ -98,6 +99,7 @@ bool is_legal_move(const Board& board, const BoardState<color, LegalPolicy>& sta
         return zero(bb_kingside & bb_blocked);
     }
     if (move.move_type == MoveType::QUEEN_CASTLE) {
+        assert(move == CASTLE_MOVES<Piece::QUEEN>[idx(color)]);
         CastlingRights rights = board.castling_rights;
         if (!castling_allowed<color, Piece::QUEEN>(rights) || nonzero(state.checkers) || rank_of(move.from) != castle_rank) {
             return false;
