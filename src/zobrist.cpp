@@ -1,8 +1,8 @@
 #include <random>
 #include <cstdint>
-#include "zobrist.hpp"
-#include "types.hpp"
-#include "board.hpp"
+#include "bears_chess/zobrist.hpp"
+#include "bears_chess/types.hpp"
+#include "bears_chess/board.hpp"
 
 namespace bears_chess {
 

@@ -1,4 +1,4 @@
-#include "log.hpp"
+#include "bears_chess/log.hpp"
 
 #include <ranges>
 #include <spdlog/spdlog.h>

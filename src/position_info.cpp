@@ -1,5 +1,5 @@
-#include "position_info.hpp"
-#include "movegen.hpp"
+#include "bears_chess/position_info.hpp"
+#include "bears_chess/movegen.hpp"
 
 namespace bears_chess {
 

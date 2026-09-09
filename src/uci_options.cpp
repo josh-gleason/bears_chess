@@ -1,5 +1,5 @@
-#include "uci_options.hpp"
-#include "parse_utils.hpp"
+#include "bears_chess/uci_options.hpp"
+#include "bears_chess/parse_utils.hpp"
 
 namespace bears_chess {
 

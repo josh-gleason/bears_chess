@@ -1,8 +1,9 @@
-#include "cli.hpp"
+#include "bears_chess/cli.hpp"
 
-#include "bears_chess.hpp"
-#include "parse_utils.hpp"
-#include "help/messages.hpp"
+#include "bears_chess/log.hpp"
+#include "bears_chess/perft_utils.hpp"
+#include "bears_chess/parse_utils.hpp"
+#include "bears_chess/help/messages.hpp"
 
 #include <iostream>
 #include <string>

@@ -1,9 +1,9 @@
-#include "engine.hpp"
+#include "bears_chess/engine.hpp"
 
-#include "log.hpp"
-#include "movegen.hpp"
-#include "board_utils.hpp"
-#include "search.hpp"
+#include "bears_chess/log.hpp"
+#include "bears_chess/movegen.hpp"
+#include "bears_chess/board_utils.hpp"
+#include "bears_chess/search.hpp"
 
 #include <stdexcept>
 #include <format>

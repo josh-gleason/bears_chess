@@ -1,7 +1,7 @@
-#include "search.hpp"
+#include "bears_chess/search.hpp"
 
-#include "movegen.hpp"
-#include "evaluation.hpp"
+#include "bears_chess/movegen.hpp"
+#include "bears_chess/evaluation.hpp"
 
 #include <algorithm>
 #include <array>

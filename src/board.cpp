@@ -1,7 +1,7 @@
-#include "board.hpp"
+#include "bears_chess/board.hpp"
 
-#include "bitboard.hpp"
-#include "zobrist.hpp"
+#include "bears_chess/bitboard.hpp"
+#include "bears_chess/zobrist.hpp"
 
 namespace bears_chess {
 

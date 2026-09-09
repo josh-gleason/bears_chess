@@ -1,8 +1,8 @@
-#include "board_utils.hpp"
+#include "bears_chess/board_utils.hpp"
 
-#include "bitboard.hpp"
-#include "movegen.hpp"
-#include "zobrist.hpp"
+#include "bears_chess/bitboard.hpp"
+#include "bears_chess/movegen.hpp"
+#include "bears_chess/zobrist.hpp"
 
 #include <sstream>
 #include <optional>

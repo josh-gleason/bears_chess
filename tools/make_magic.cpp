@@ -6,8 +6,8 @@
 #include <vector>
 #include <unordered_map>
 
-#include <bitboard.hpp>
-#include <board_utils.hpp>
+#include <bears_chess/bitboard.hpp>
+#include <bears_chess/board_utils.hpp>
 
 using namespace bears_chess;
 

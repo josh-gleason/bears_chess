@@ -5,10 +5,18 @@ FetchContent_Declare(
     nanobind
     GIT_REPOSITORY https://github.com/wjakob/nanobind
     GIT_TAG        v3.0.1
+    SYSTEM
 )
 FetchContent_MakeAvailable(nanobind)
 
-nanobind_add_module(bears_chess_py module.cpp)
+nanobind_add_module(bears_chess_py
+    module.cpp
+    attributes.cpp
+    move.cpp
+    board.cpp
+    search.cpp
+    mcts.cpp
+)
 target_link_libraries(bears_chess_py PRIVATE bears_chess)
 set_target_properties(bears_chess_py PROPERTIES
     OUTPUT_NAME bears_chess

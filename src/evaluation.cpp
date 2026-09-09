@@ -1,6 +1,6 @@
-#include "bitboard.hpp"
-#include "score.hpp"
-#include "evaluation.hpp"
+#include "bears_chess/bitboard.hpp"
+#include "bears_chess/score.hpp"
+#include "bears_chess/evaluation.hpp"
 
 namespace bears_chess {
 

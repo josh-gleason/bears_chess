@@ -1,7 +1,7 @@
-#include "bitboard.hpp"
+#include "bears_chess/bitboard.hpp"
 
 #ifndef PEXT_SUPPORT
-#include "magics.hpp"
+#include "bears_chess/magics.hpp"
 #endif
 
 #include <stdexcept>
