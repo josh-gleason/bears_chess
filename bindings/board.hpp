@@ -6,9 +6,9 @@
 
 #include <vector>
 
-using namespace bears_chess;
-
 namespace bears_chess_py {
+
+using namespace bears_chess;
 
 class PyBoard {
 public:
