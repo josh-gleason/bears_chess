@@ -3,6 +3,7 @@
 #include "search/repetition.hpp"
 #include "search/transposition_table.hpp"
 #include "search/search_options.hpp"
+#include "search/movepicker.hpp"
 
 #include "types.hpp"
 #include "board.hpp"
@@ -74,6 +75,8 @@ private:
 
     int16_t mated_in_score(int ply);
 
+    inline void update_history(Color side_to_move, Square from, Square to, int depth);
+
     template <Color side_to_move>
     int16_t negamax(int depth, int ply, int16_t alpha=-SCORE_INF, int16_t beta=SCORE_INF, bool is_pv=false);
 
@@ -92,6 +95,7 @@ private:
 
     int num_pvs{1};
     std::array<NodeState, MAX_PLY> state_stack;
+    std::array<HistoryTable, num_of<Color>> history;
 
     TranspositionTable transposition_table;
     ReportCallback on_report;

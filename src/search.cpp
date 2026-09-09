@@ -2,12 +2,10 @@
 
 #include "movegen.hpp"
 #include "evaluation.hpp"
-#include "search/movepicker.hpp"
 
 #include <algorithm>
 #include <array>
 #include <functional>
-#include <ranges>
 #include <span>
 #include <utility>
 
@@ -61,6 +59,7 @@ Search::SearchResult Search::go(
     nodes = 0;
     transposition_table.new_search();
     state_stack.fill({0, MOVE_NONE, {MOVE_NONE, MOVE_NONE}, {}});
+    history = {};
 
     MoveList initial_moves = generate_initial_moves(board);
 
@@ -224,6 +223,12 @@ bool Search::should_abort() const {
     );
 }
 
+inline void Search::update_history(Color side_to_move, Square from, Square to, int depth) {
+    int bonus = depth * depth;
+    int16_t& h = history[idx(side_to_move)][idx(from)][idx(to)];
+    h += bonus - h * bonus / MAX_HISTORY_SCORE;
+}
+
 template <Color side_to_move>
 int16_t Search::negamax(int depth, int ply, int16_t alpha, int16_t beta, bool is_pv) {
     ++nodes;
@@ -276,7 +281,14 @@ int16_t Search::negamax(int depth, int ply, int16_t alpha, int16_t beta, bool is
     }
 
     BoardState<side_to_move, LegalPolicy> state(board);
-    MovePicker move_picker(board, state, tt_move, node_state.killers);
+    MovePicker move_picker(
+        board,
+        state,
+        tt_move,
+        node_state.killers,
+        true,
+        history[idx(side_to_move)]
+    );
 
     int16_t max_score = mated_in_score(ply);
     Move best_move = MOVE_NONE;
@@ -311,9 +323,12 @@ int16_t Search::negamax(int depth, int ply, int16_t alpha, int16_t beta, bool is
         }
 
         if (alpha >= beta) {
-            if (!is_capture(move.move_type) && !is_promotion(move.move_type) && move != state_stack[ply].killers[0]) {
-                state_stack[ply].killers[1] = state_stack[ply].killers[0];
-                state_stack[ply].killers[0] = move;
+            if (!is_capture(move.move_type) && !is_promotion(move.move_type)) {
+                update_history(side_to_move, move.from, move.to, depth);
+                if (move != state_stack[ply].killers[0]) {
+                    state_stack[ply].killers[1] = state_stack[ply].killers[0];
+                    state_stack[ply].killers[0] = move;
+                }
             }
             break;
         }
@@ -361,7 +376,14 @@ int16_t Search::quiescence_search(int ply, int16_t alpha, int16_t beta) {
     }
 
     bool include_quiets = in_check;
-    MovePicker<side_to_move> move_picker(board, state, MOVE_NONE, {MOVE_NONE, MOVE_NONE}, include_quiets);
+    MovePicker move_picker(
+        board,
+        state,
+        MOVE_NONE,
+        {MOVE_NONE, MOVE_NONE},
+        include_quiets,
+        history[idx(side_to_move)]
+    );
 
     Move move;
     while (!(move = move_picker.next()).is_none()) {

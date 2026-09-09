@@ -9,7 +9,7 @@
 namespace bears_chess {
 
 
-template<Direction move_dir, MoveType type, Color color>
+template<Direction move_dir, MoveType type, Color color, MoveSelection Selection>
 inline void emplace_pawn_moves(MoveList& moves, Bitboard bb_to) {
     constexpr Bitboard bb_promote = (color == Color::WHITE ? bb_rank(Rank::_8) : bb_rank(Rank::_1));
     constexpr Bitboard bb_nopromote = ~bb_promote;
@@ -19,20 +19,26 @@ inline void emplace_pawn_moves(MoveList& moves, Bitboard bb_to) {
     constexpr MoveType type_promote_bishop = type | MoveType::BISHOP_PROMOTION;
     constexpr int step_size = (type == MoveType::DOUBLE_PAWN_PUSH ? -2 : -1);
     
-    if constexpr (type == MoveType::DOUBLE_PAWN_PUSH) {
+    if constexpr (Selection::include_quiets && type == MoveType::DOUBLE_PAWN_PUSH) {
         for (Square to: BBSquareScan(bb_to)) {
             moves.emplace_back(sq_shift<move_dir, step_size>(to), to, type);
         }
     } else {
-        for (Square to : BBSquareScan(bb_to & bb_nopromote)) {
-            moves.emplace_back(sq_shift<move_dir, step_size>(to), to, type);
+        if constexpr ((Selection::include_quiets && type == MoveType::QUIET) ||
+                      (Selection::include_captures && type == MoveType::CAPTURE)) {
+            for (Square to : BBSquareScan(bb_to & bb_nopromote)) {
+                moves.emplace_back(sq_shift<move_dir, step_size>(to), to, type);
+            }
         }
-        for (Square to : BBSquareScan(bb_to & bb_promote)) {
-            Square from = sq_shift<move_dir, step_size>(to);
-            moves.emplace_back(from, to, type_promote_queen);
-            moves.emplace_back(from, to, type_promote_rook);
-            moves.emplace_back(from, to, type_promote_knight);
-            moves.emplace_back(from, to, type_promote_bishop);
+        if constexpr ((Selection::include_promotion_pushes && type == MoveType::QUIET) ||
+                      (Selection::include_captures && type == MoveType::CAPTURE)) {
+            for (Square to : BBSquareScan(bb_to & bb_promote)) {
+                Square from = sq_shift<move_dir, step_size>(to);
+                moves.emplace_back(from, to, type_promote_queen);
+                moves.emplace_back(from, to, type_promote_rook);
+                moves.emplace_back(from, to, type_promote_knight);
+                moves.emplace_back(from, to, type_promote_bishop);
+            }
         }
     }
 }
@@ -140,7 +146,7 @@ inline void generate_pawn_moves(
         bb_allow_push = bb_unpinned | (bb_pinned & BB_FILE_OF[idx(king_sq)]);
     }
 
-    if constexpr (Selection::include_quiets) {
+    if constexpr (Selection::include_quiets || Selection::include_promotion_pushes) {
         Bitboard bb_unblocked = bb_unoccupied;
         if constexpr (Policy::enforce_evasions) {
             bb_unblocked &= state.evasion_mask;
@@ -148,10 +154,11 @@ inline void generate_pawn_moves(
 
         Bitboard bb_single = bb_unoccupied & bb_shift<dir_push>(bb_pawns & bb_allow_push);
         Bitboard bb_push = bb_single & bb_unblocked;
-        Bitboard bb_dbl_push = bb_unblocked & bb_dbl_rank & bb_shift<dir_push>(bb_single);
-
-        emplace_pawn_moves<dir_push, MoveType::QUIET, color>(moves, bb_push);
-        emplace_pawn_moves<dir_push, MoveType::DOUBLE_PAWN_PUSH, color>(moves, bb_dbl_push);
+        if constexpr (Selection::include_quiets) {
+            Bitboard bb_dbl_push = bb_unblocked & bb_dbl_rank & bb_shift<dir_push>(bb_single);
+            emplace_pawn_moves<dir_push, MoveType::DOUBLE_PAWN_PUSH, color, Selection>(moves, bb_dbl_push);
+        }
+        emplace_pawn_moves<dir_push, MoveType::QUIET, color, Selection>(moves, bb_push);
     }
 
     if constexpr (Selection::include_captures) {
@@ -163,8 +170,8 @@ inline void generate_pawn_moves(
         Bitboard bb_attack_east = bb_opponent_capturable & bb_shift<dir_attack_east, true>(bb_pawns & bb_allow_east);
         Bitboard bb_attack_west = bb_opponent_capturable & bb_shift<dir_attack_west, true>(bb_pawns & bb_allow_west);
 
-        emplace_pawn_moves<dir_attack_east, MoveType::CAPTURE, color>(moves, bb_attack_east);
-        emplace_pawn_moves<dir_attack_west, MoveType::CAPTURE, color>(moves, bb_attack_west);
+        emplace_pawn_moves<dir_attack_east, MoveType::CAPTURE, color, Selection>(moves, bb_attack_east);
+        emplace_pawn_moves<dir_attack_west, MoveType::CAPTURE, color, Selection>(moves, bb_attack_west);
         generate_ep_moves<color, Policy, Selection>(board, moves, state);
     }
 }

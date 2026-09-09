@@ -25,16 +25,25 @@ struct LegalPolicy {
 
 struct CaptureMoves {
     static constexpr bool include_captures = true;
+    static constexpr bool include_promotion_pushes = false;
+    static constexpr bool include_quiets = false;
+};
+
+struct NoisyMoves {
+    static constexpr bool include_captures = true;
+    static constexpr bool include_promotion_pushes = true;
     static constexpr bool include_quiets = false;
 };
 
 struct QuietMoves {
     static constexpr bool include_captures = false;
+    static constexpr bool include_promotion_pushes = false;
     static constexpr bool include_quiets = true;
 };
 
 struct AllMoves {
     static constexpr bool include_captures = true;
+    static constexpr bool include_promotion_pushes = true;
     static constexpr bool include_quiets = true;
 };
 

@@ -1,5 +1,5 @@
 #pragma once
-#include "bitboard.hpp"
+#include <concepts>
 
 namespace bears_chess {
 
@@ -13,6 +13,7 @@ concept LegalityPolicy = requires(const T& policy) {
 template<typename T>
 concept MoveSelection = requires(const T& policy) {
     { T::include_captures } -> std::convertible_to<bool>;
+    { T::include_promotion_pushes } -> std::convertible_to<bool>;
     { T::include_quiets } -> std::convertible_to<bool>;
 };
 
