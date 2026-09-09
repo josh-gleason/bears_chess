@@ -5,6 +5,11 @@
 namespace bears_chess {
 
 int16_t evaluate_white(const Board& board) {
+    return material_difference_white(board);
+}
+
+
+int16_t material_difference_white(const Board& board) {
     int16_t material = 0;
 
     material += popcount(board.pieces[idx(Color::WHITE)][idx(Piece::PAWN)]) * PAWN_VALUE;
@@ -23,5 +28,6 @@ int16_t evaluate_white(const Board& board) {
 
     return material;
 }
+
 
 } // namespace bears_chess

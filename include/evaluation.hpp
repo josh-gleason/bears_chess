@@ -7,8 +7,10 @@ namespace bears_chess {
 
 int16_t evaluate_white(const Board& board);
 
+int16_t material_difference_white(const Board& board);
+
 template <Color side_to_move=Color::NONE>
-int16_t evaluate(const Board& board) {
+inline int16_t evaluate(const Board& board) {
     if constexpr (side_to_move == Color::WHITE) {
         return evaluate_white(board);
     } else if constexpr (side_to_move == Color::BLACK) {
@@ -21,6 +23,19 @@ int16_t evaluate(const Board& board) {
     }
 }
 
+template <Color side_to_move=Color::NONE>
+int16_t material_difference(const Board& board) {
+    if constexpr (side_to_move == Color::WHITE) {
+        return material_difference_white(board);
+    } else if constexpr (side_to_move == Color::BLACK) {
+        return -material_difference_white(board);
+    } else {
+        if (board.side_to_move == Color::WHITE) {
+            return material_difference<Color::WHITE>(board);
+        }
+        return material_difference<Color::BLACK>(board);
+    }
+}
 
 template<Color color>
 int16_t static_exchange_evaluation(const Board& board, const Move& move) {

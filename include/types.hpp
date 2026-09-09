@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <cassert>
 #include <array>
+#include <span>
 
 namespace bears_chess {
 
@@ -438,5 +439,93 @@ constexpr bool all_unique(const std::array<T, N>& arr) {
                 return false;
     return true;
 }
+
+
+template <typename T, size_t MAX_LENGTH>
+class StaticVector {
+    static_assert(std::is_trivially_copyable<T>::value && std::is_trivially_destructible_v<T>);
+public:
+    using ListType = std::array<T, MAX_LENGTH>;
+    using iterator = ListType::iterator;
+    using const_iterator = ListType::const_iterator;
+
+    using size_type = size_t;
+
+    static constexpr size_type max_length = MAX_LENGTH;
+
+    StaticVector() : count(0) {}
+
+    StaticVector(const StaticVector& rhs) : count(rhs.count) {
+        std::copy(rhs.cbegin(), rhs.cend(), storage.begin());
+    }
+
+    StaticVector& operator=(const StaticVector& rhs) {
+        if (this != &rhs) {
+            count = rhs.count;
+            std::copy(rhs.cbegin(), rhs.cend(), storage.begin());
+        }
+        return *this;
+    }
+
+    inline T& operator[](size_type index) {
+        assert(index < count);
+        return storage[index];
+    }
+
+    inline const T& operator[](size_type index) const {
+        assert(index < count);
+        return storage[index];
+    }
+
+    template<typename... Args>
+    inline void emplace_back(Args&&... args) {
+        assert(count < MAX_LENGTH);
+        storage[count++] = T{std::forward<Args>(args)...};
+    }
+
+    inline bool empty() const { return count == 0; }
+    inline size_t size() const { return count; }
+
+    const_iterator cbegin() const { return storage.cbegin(); }
+    const_iterator cend() const { return storage.cbegin() + count; }
+
+    const_iterator begin() const { return storage.cbegin(); }
+    const_iterator end() const { return storage.cbegin() + count; }
+
+    iterator begin() { return storage.begin(); }
+    iterator end() { return storage.begin() + count; }
+
+    inline T& front() {
+        assert(count > 0);
+        return *storage.begin();
+    }
+
+    inline const T& front() const {
+        assert(count > 0);
+        return *storage.begin();
+    }
+
+    inline void clear() { count = 0; }
+
+    inline void resize(size_type new_size) {
+        assert(new_size <= max_length);
+        count = new_size;
+    }
+
+    template <size_t OTHER_MAX_LENGTH>
+    inline void append(const StaticVector<T, OTHER_MAX_LENGTH>& vec) {
+        assert(count + vec.size() <= MAX_LENGTH);
+        std::copy(vec.begin(), vec.end(), storage.begin() + count);
+        count += vec.size();
+    }
+
+    std::span<const T> view() const {
+        return std::span<const T>(storage.cbegin(), count);
+    }
+
+private:
+    size_type count;
+    ListType storage;
+};
 
 } // namespace bears_chess
