@@ -225,3 +225,26 @@ TEST_F(MCTSTest, StopEarlyFromThread) {
     EXPECT_LT(elapsed, std::chrono::seconds(5));
     EXPECT_EQ(total_visits(result), result.simulations);
 }
+
+TEST_F(MCTSTest, RootNoiseHasImpact) {
+    MCTSOptions noisy{.dirichlet_epsilon = 0.25f, .seed = 7};
+    MCTSResult first = search(UniformEvaluator{}, INITIAL_POSITION_FEN, 50, noisy);
+    MCTSResult second = search(UniformEvaluator{}, INITIAL_POSITION_FEN, 50, noisy);
+    MCTSResult other = search(
+        UniformEvaluator{},
+        INITIAL_POSITION_FEN,
+        50,
+        MCTSOptions{.dirichlet_epsilon = 0.25f, .seed = 8}
+    );
+    
+    float total = 0.0f;
+    bool any_differs = false;
+    for (size_t i = 0; i < first.moves.size(); ++i) {
+        total += first.moves[i].prior;
+        any_differs |= first.moves[i].prior != 1.0f / first.moves.size();
+        EXPECT_FLOAT_EQ(first.moves[i].prior, second.moves[i].prior);
+    }   
+    EXPECT_NEAR(total, 1.0f, 1e-5f);
+    EXPECT_TRUE(any_differs);
+    EXPECT_NE(first.moves[0].prior, other.moves[0].prior);
+}

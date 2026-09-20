@@ -13,8 +13,24 @@ namespace bears_chess_py {
 
 class PyUniformMCTS {
 public:
-    PyUniformMCTS(float c_puct, int max_ply, int batch_size) :
-        mcts(UniformEvaluator{}, MCTSOptions{c_puct, max_ply, batch_size})
+    PyUniformMCTS(
+        float c_puct,
+        int max_ply,
+        int batch_size,
+        float dirichlet_alpha,
+        float dirichlet_epsilon,
+        uint64_t seed
+    ) :
+        mcts(
+            UniformEvaluator{},
+            MCTSOptions{
+                c_puct,
+                max_ply,
+                batch_size,
+                dirichlet_alpha,
+                dirichlet_epsilon,
+                seed
+            })
     {}
 
     MCTSResult go(const PyBoard& board, size_t simulations) {
@@ -48,10 +64,13 @@ private:
 
 void bind_mcts(nb::module_& m) {
     nb::class_<PyUniformMCTS>(m, "UniformMCTS")
-        .def(nb::init<float, int, int>(),
+        .def(nb::init<float, int, int, float, float, uint64_t>(),
             nb::arg("c_puct") = MCTSOptions{}.c_puct,
             nb::arg("max_ply") = MCTSOptions{}.max_ply,
-            nb::arg("batch_size") = MCTSOptions{}.batch_size)
+            nb::arg("batch_size") = MCTSOptions{}.batch_size,
+            nb::arg("dirichlet_alpha") = MCTSOptions{}.dirichlet_alpha,
+            nb::arg("dirichlet_epsilon") = MCTSOptions{}.dirichlet_epsilon,
+            nb::arg("seed") = MCTSOptions{}.seed)
         .def("go", &PyUniformMCTS::go,
             nb::arg("board"),
             nb::arg("simulations"))

@@ -124,6 +124,18 @@ void Tree::mark_terminal(EdgeIndex parent_index, float reward) {
     nodes.emplace_back(IndexRange<EdgeIndex>(), terminal, reward);
 }
 
+void Tree::add_root_noise(std::span<const float> noise, float epsilon) {
+    assert(!nodes.empty());
+    const Node& root = nodes[0];
+    
+    assert(noise.size() == root.edge_indices.size());
+
+    for (size_t i = 0; i < noise.size(); ++i) {
+        Edge& edge = edges[idx(root.edge_indices[i])];
+        edge.prior = (1.0f - epsilon) * edge.prior + epsilon * noise[i];
+    }
+}
+
 bool Tree::has_child(EdgeIndex edge_index) const {
     assert(idx(edge_index) < edges.size());
     return edges[idx(edge_index)].child_idx != NodeIndex::NONE;

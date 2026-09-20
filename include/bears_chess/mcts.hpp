@@ -7,6 +7,7 @@
 #include "bears_chess/movegen.hpp"
 
 #include <stop_token>
+#include <random>
 
 namespace bears_chess {
 
@@ -14,6 +15,9 @@ struct MCTSOptions {
     float c_puct{1.25f};
     int max_ply{MAX_PLY};
     int batch_size{1};
+    float dirichlet_alpha{0.3f};
+    float dirichlet_epsilon{0.0f};
+    uint64_t seed{0};
 };
 
 struct MCTSResult {
@@ -42,7 +46,8 @@ public:
     MCTS(EvaluatorClass evaluator_, MCTSOptions options_) :
         evaluator(std::move(evaluator_)),
         options(std::move(options_)),
-        tree(options.c_puct, options.max_ply)
+        tree(options.c_puct, options.max_ply),
+        rng(options.seed)
     {}
 
     MCTSResult go(
@@ -61,9 +66,11 @@ public:
                 bool checkmate = in_check;
                 float reward = checkmate ? CHECKMATE_REWARD : DRAW_REWARD;
                 return {{}, 0, reward};
-            } else {
-                EvalResult eval_result = evaluate_one(evaluator, board, moves);
-                tree.expand(std::nullopt, moves, eval_result.priors);
+            }
+            EvalResult eval_result = evaluate_one(evaluator, board, moves);
+            tree.expand(std::nullopt, moves, eval_result.priors);
+            if (options.dirichlet_epsilon > 0.0f) {
+                tree.add_root_noise(dirichlet_noise(moves.size()).view(), options.dirichlet_epsilon);
             }
         }
 
@@ -127,6 +134,22 @@ private:
     EvaluatorClass evaluator;
     MCTSOptions options;
     Tree tree;
+    std::mt19937_64 rng;
+
+    PriorsList dirichlet_noise(size_t count) {
+        std::gamma_distribution<float> gamma(options.dirichlet_alpha, 1.0f);
+        PriorsList noise;
+        float total = 0.0f;
+        for (size_t i = 0; i < count; ++i) {
+            float value = gamma(rng);
+            noise.emplace_back(value);
+            total += value;
+        }
+        for (float& value : noise) {
+            value /= total;
+        }
+        return noise;
+    }
 };
 
 }   // bears_chess

@@ -44,6 +44,7 @@ public:
     NodeIndex expand(std::optional<EdgeIndex> parent_index, const MoveList& moves, const PriorsList& priors);
     void mark_terminal(EdgeIndex parent_index, float reward);
     void backup(std::span<const EdgeIndex> path, float reward);
+    void add_root_noise(std::span<const float> noise, float epsilon);
     bool has_child(EdgeIndex edge_index) const;
 
     std::vector<MCTSRootStats> root_stats() const;
