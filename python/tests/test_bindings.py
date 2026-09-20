@@ -200,3 +200,14 @@ def test_search_go_failure():
     search.stop()
     thread.join(timeout=3)
     assert not thread.is_alive()
+
+
+def test_mcts_repetition_scores_draw():
+    board = bc.Board("4k3/8/8/8/8/8/8/3QK3 w - - 10 20")
+    for uci in ["e1e2", "e8e7", "e2e1", "e7e8"] * 2:
+        board.do_move(board.parse_move(uci))
+    result = bc.UniformMCTS().go(board, 300)
+    repeating = next(s for s in result.moves if s.move.uci == "e1e2")
+    assert repeating.visits > 0
+    assert repeating.q == 0.0
+    assert all(s.q > 0.5 for s in result.moves if s.move.uci != "e1e2" and s.visits)
