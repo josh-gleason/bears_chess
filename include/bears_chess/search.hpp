@@ -1,6 +1,5 @@
 #pragma once
 
-#include "bears_chess/search/repetition.hpp"
 #include "bears_chess/search/transposition_table.hpp"
 #include "bears_chess/search/search_options.hpp"
 #include "bears_chess/search/movepicker.hpp"
@@ -9,6 +8,7 @@
 #include "bears_chess/board.hpp"
 #include "bears_chess/movegen/movelist.hpp"
 #include "bears_chess/score.hpp"
+#include "bears_chess/repetition.hpp"
 
 #include <chrono>
 #include <functional>

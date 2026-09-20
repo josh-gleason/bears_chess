@@ -16,9 +16,11 @@ struct EvalRequest {
     MoveList moves;     // never empty
 };
 
+typedef StaticVector<float, MoveList::max_length> PriorsList;
+
 struct EvalResult {
-    StaticVector<float, MoveList::max_length> priors;   // always parallel to requests moves
-    float value;                                        // in [-1, 1] from perspective of board.side_to_move
+    PriorsList priors;      // always parallel to requests moves
+    float value;            // in [-1, 1] from perspective of board.side_to_move
 };
 
 
@@ -27,10 +29,15 @@ concept Evaluator = requires(T& e, std::span<const EvalRequest> requests) {
     { e.evaluate(requests) } -> std::same_as<std::vector<EvalResult>>;
 };
 
+template <Evaluator E>
+EvalResult evaluate_one(E& evaluator, const Board& board, const MoveList& moves) {
+    const EvalRequest request{board, moves};
+    return evaluator.evaluate(std::span(&request, 1)).front();
+}
 
 class UniformEvaluator {
 public:
-    // simple method using uniform priors and piece value
+    // simple evaluator giving uniform priors and piece value
     std::vector<EvalResult> evaluate(std::span<const EvalRequest> requests) {
         std::vector<EvalResult> results;
         results.reserve(requests.size());

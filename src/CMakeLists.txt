@@ -11,6 +11,7 @@ set(SOURCES
     uci_options.cpp
     log.cpp
     zobrist.cpp
+    tree.cpp
 )
 
 add_library(bears_chess ${SOURCES})

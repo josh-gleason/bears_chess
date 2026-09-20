@@ -81,6 +81,24 @@ MoveList generate_moves(const Board& board) {
     return generate_moves<Color::BLACK, Policy, Selection>(board);
 }
 
+template<Color color, LegalityPolicy Policy, MoveSelection Selection=AllMoves>
+    requires Policy::enforce_evasions
+inline std::pair<MoveList, bool> generate_moves_and_check(const Board& board) {
+    BoardState<color, Policy> state(board);
+    MoveList moves = generate_moves<color, Policy, Selection>(board, state);
+    bool is_check = (state.num_checkers > 0);
+    return {moves, is_check};
+}
+
+template<LegalityPolicy Policy, MoveSelection Selection=AllMoves>
+    requires Policy::enforce_evasions
+inline std::pair<MoveList, bool> generate_moves_and_check(const Board& board) {
+    return (
+        board.side_to_move == Color::WHITE ?
+        generate_moves_and_check<Color::WHITE, Policy, Selection>(board) :
+        generate_moves_and_check<Color::BLACK, Policy, Selection>(board)
+    );
+}
 
 template<Color color>
 bool is_legal_move(const Board& board, const BoardState<color, LegalPolicy>& state, const Move& move) {

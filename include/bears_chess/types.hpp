@@ -484,6 +484,11 @@ public:
         storage[count++] = T{std::forward<Args>(args)...};
     }
 
+    inline void push_back(const T& value) {
+        assert(count < MAX_LENGTH);
+        storage[count++] = value;
+    }
+
     inline bool empty() const { return count == 0; }
     inline size_t size() const { return count; }
 
@@ -506,6 +511,16 @@ public:
         return *storage.begin();
     }
 
+    inline T& back() {
+        assert(count > 0);
+        return storage[count - 1];
+    }
+
+    inline const T& back() const {
+        assert(count > 0);
+        return storage[count - 1];
+    }
+
     inline void clear() { count = 0; }
 
     inline void resize(size_type new_size) {
@@ -513,11 +528,26 @@ public:
         count = new_size;
     }
 
+    inline void append(std::span<const T> values) {
+        assert(count + values.size() <= MAX_LENGTH);
+        std::copy(values.begin(), values.end(), storage.begin() + count);
+        count += values.size();
+    }
+
+    inline void assign(std::span<const T> values) {
+        assert(values.size() <= MAX_LENGTH);
+        std::copy(values.begin(), values.end(), storage.begin());
+        count = values.size();
+    }
+
     template <size_t OTHER_MAX_LENGTH>
     inline void append(const StaticVector<T, OTHER_MAX_LENGTH>& vec) {
-        assert(count + vec.size() <= MAX_LENGTH);
-        std::copy(vec.begin(), vec.end(), storage.begin() + count);
-        count += vec.size();
+        append(vec.view());
+    }
+
+    template <size_t OTHER_MAX_LENGTH>
+    inline void assign(const StaticVector<T, OTHER_MAX_LENGTH>& vec) {
+        assign(vec.view());
     }
 
     std::span<const T> view() const {
@@ -527,6 +557,70 @@ public:
 private:
     size_type count;
     ListType storage;
+};
+
+
+template <typename E>
+concept IndexEnum = std::is_enum_v<E> && std::unsigned_integral<std::underlying_type_t<E>>;
+
+template <IndexEnum E, std::unsigned_integral Count = uint16_t>
+class IndexRange {
+    using U = std::underlying_type_t<E>;
+public:
+    class iterator {
+    public:
+        using value_type = E;
+        using difference_type = std::ptrdiff_t;
+
+        E operator*() const {
+            return static_cast<E>(i);
+        }
+        
+        iterator& operator++() {
+            ++i;
+            return *this;
+        }
+
+        iterator operator++(int) {
+            auto prev = *this;
+            ++i;
+            return prev;
+        }
+
+        bool operator==(const iterator& rhs) const {
+            return i == rhs.i;
+        }
+
+        U i;
+    };
+
+    IndexRange() = default;
+    IndexRange(E first_, Count count_) : first(idx(first_)), count(count_) {}
+
+    iterator begin() const {
+        return iterator(first);
+    }
+
+    iterator end() const {
+        return iterator(first + count);
+    }
+
+    Count size() const {
+        return count;
+    }
+
+    bool empty() const {
+        return count == 0;
+    }
+
+    E operator[](size_t k) const {
+        assert(k < count);
+        return static_cast<E>(first + k);
+    }
+
+private:
+    U first{0};
+    Count count{0};
 };
 
 } // namespace bears_chess
