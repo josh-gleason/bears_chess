@@ -12,9 +12,7 @@ using namespace bears_chess;
 
 class PyBoard {
 public:
-    PyBoard(const std::string& fen = INITIAL_POSITION_FEN) : board(load_fen(fen)) {
-        hashes.push_back(board.hash);
-    }
+    PyBoard(const std::string& fen = INITIAL_POSITION_FEN) : board(load_fen(fen)) {}
 
     std::string fen() const {
         return get_fen(board);
@@ -33,8 +31,8 @@ public:
     }
 
     void do_move_unchecked(const Move& move) {
-        undo.push_back(board.do_move(move));
         hashes.push_back(board.hash);
+        undo.push_back(board.do_move(move));
     }
 
     void undo_move() {
@@ -84,7 +82,7 @@ public:
         return board;
     }
 
-    std::span<const ZobristHash> history() const {
+    std::span<const ZobristHash> hash_history() const {
         return hashes;
     }
 

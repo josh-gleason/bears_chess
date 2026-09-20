@@ -101,7 +101,7 @@ public:
             result = search.go(
                 token,
                 board.c_board(),
-                board.history(),
+                board.hash_history(),
                 options
             );
             elapsed = search.elapsed();
@@ -146,7 +146,7 @@ void bind_search(nb::module_& m) {
         .def_ro("pvs", &PySearchResult::pvs)
         .def_ro("hashfull", &PySearchResult::hashfull)
         .def_ro("elapsed_ms", &PySearchResult::elapsed_ms)
-        .def_prop_ro("bestmove", [](const PySearchResult& r) -> std::optional<Move> {
+        .def_prop_ro("best_move", [](const PySearchResult& r) -> std::optional<Move> {
             if (r.pvs.empty() || r.pvs.front().moves.empty()) {
                 return std::nullopt;
             }

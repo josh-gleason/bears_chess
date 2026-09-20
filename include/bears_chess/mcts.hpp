@@ -20,6 +20,20 @@ struct MCTSResult {
     std::vector<MCTSRootStats> moves;
     size_t simulations;
     float state_value{0};  // a.k.a. V
+
+    std::optional<Move> best_move() const {
+        if (moves.empty()) {
+            return std::nullopt;
+        }
+
+        return std::max_element(
+            moves.cbegin(),
+            moves.cend(),
+            [](const MCTSRootStats& a, const MCTSRootStats& b) {
+                return a.visits < b.visits;
+            }
+        )->move;
+    }
 };
 
 template <Evaluator EvaluatorClass>
