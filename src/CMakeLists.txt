@@ -12,6 +12,7 @@ set(SOURCES
     log.cpp
     zobrist.cpp
     tree.cpp
+    encoding.cpp
 )
 
 add_library(bears_chess ${SOURCES})

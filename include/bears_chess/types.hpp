@@ -111,6 +111,11 @@ constexpr Square square_of(File file, Rank rank) {
     return static_cast<Square>((idx(rank) << 3) | idx(file));
 }
 
+constexpr Square flip_square(Square orig) {
+    // https://chessprogramming.org/Color_Flipping
+    return static_cast<Square>(idx(orig) ^ 56);
+}
+
 constexpr bool is_light(Square square) {
     return (idx(rank_of(square)) + idx(square)) % 2 == 1;
 }
@@ -243,6 +248,10 @@ constexpr bool is_castle(MoveType move_type) {
 constexpr Piece promote_to(MoveType move_type) {
     assert(is_promotion(move_type));
     return static_cast<Piece>(move_type & MoveType::PROMOTION_PIECE_BITS);
+}
+
+constexpr Piece promote_to_or_none(MoveType move_type) {
+    return is_promotion(move_type) ? promote_to(move_type) : Piece::NONE;
 }
 
 struct Move {

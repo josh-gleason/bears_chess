@@ -4,6 +4,7 @@ add_executable(bears_chess_tests
     zobrist_tests.cpp
     see_tests.cpp
     mcts_tests.cpp
+    encoding_tests.cpp
 )
 
 target_link_libraries(bears_chess_tests

@@ -16,6 +16,7 @@ nanobind_add_module(bears_chess_py
     board.cpp
     search.cpp
     mcts.cpp
+    encoding.cpp
 )
 target_link_libraries(bears_chess_py PRIVATE bears_chess)
 set_target_properties(bears_chess_py PROPERTIES

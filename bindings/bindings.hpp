@@ -12,6 +12,7 @@ void bind_search(nanobind::module_& m);
 void bind_board(nanobind::module_& m);
 void bind_move(nanobind::module_& m);
 void bind_mcts(nanobind::module_& m);
+void bind_encoding(nanobind::module_& m);
 
 void bind_attrs(nanobind::module_& m);
 

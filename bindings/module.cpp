@@ -10,5 +10,6 @@ NB_MODULE(bears_chess, m) {
     bind_board(m);
     bind_search(m);
     bind_mcts(m);
+    bind_encoding(m);
     bind_attrs(m);
 }

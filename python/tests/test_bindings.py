@@ -211,3 +211,28 @@ def test_mcts_repetition_scores_draw():
     assert repeating.visits > 0
     assert repeating.q == 0.0
     assert all(s.q > 0.5 for s in result.moves if s.move.uci != "e1e2" and s.visits)
+
+
+def test_policy_index_is_distinct_and_mirrored():
+    for fen in bc.PERFT_FENS:
+        board = bc.Board(fen)
+        indices = [bc.policy_index(board, move) for move in board.legal_moves()]
+        assert all(0 <= index < bc.POLICY_SIZE for index in indices)
+        assert len(set(indices)) == len(indices)
+
+    white = bc.Board("4k3/8/8/8/8/8/4P3/4K3 w - - 0 1")
+    black = bc.Board("4k3/4p3/8/8/8/8/8/4K3 b - - 0 1")
+    assert bc.policy_index(white, white.parse_move("e2e4")) == bc.policy_index(black, black.parse_move("e7e5"))
+
+
+def test_encode_board_start_position():
+    planes = bc.encode_board(bc.Board())
+    assert planes.shape == (bc.INPUT_PLANES, 8, 8)
+    assert planes.dtype.name == "float32"
+    own_pawns = planes[5]
+    opponent_pawns = planes[11]
+    assert own_pawns[1].sum() == 8 and own_pawns.sum() == 8
+    assert opponent_pawns[6].sum() == 8 and opponent_pawns.sum() == 8
+    assert planes[4][0][4] == 1 and planes[10][7][4] == 1
+    assert all(planes[p].sum() == 64 for p in range(12, 16))
+    assert planes[16].sum() == 0 and planes[17].sum() == 0
