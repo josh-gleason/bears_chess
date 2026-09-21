@@ -11,6 +11,7 @@
 #include "bears_chess/cli.hpp"
 #include "bears_chess/log.hpp"
 #include "bears_chess/zobrist.hpp"
+#include "bears_chess/mcts.hpp"
 
 namespace bears_chess {
 

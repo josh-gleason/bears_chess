@@ -1,5 +1,4 @@
 #include "bears_chess.hpp"
-#include "bears_chess/mcts.hpp"
 
 #include <gtest/gtest.h>
 
@@ -247,4 +246,26 @@ TEST_F(MCTSTest, RootNoiseHasImpact) {
     EXPECT_NEAR(total, 1.0f, 1e-5f);
     EXPECT_TRUE(any_differs);
     EXPECT_NE(first.moves[0].prior, other.moves[0].prior);
+}
+
+TEST_F(MCTSTest, SelfPlayConsistency) {
+    MCTS<UniformEvaluator> mcts(UniformEvaluator{}, MCTSOptions{.seed = 3});
+    SelfPlay driver(SelfPlayOptions{.simulations = 50, .max_plies = 40, .seed = 5});
+    SelfPlayGame game = driver.play(mcts, load_fen(INITIAL_POSITION_FEN));
+
+    ASSERT_FALSE(game.plies.empty());
+    for (size_t i = 0; i < game.plies.size(); ++i) {
+        const SelfPlayPly& ply = game.plies[i];
+        EXPECT_TRUE(std::any_of(ply.stats.begin(), ply.stats.end(),
+            [&](const MCTSRootStats& s) {
+                return s.move == ply.selected_move;
+            }
+        ));
+        if (i + 1 < game.plies.size()) {
+            Board next = ply.board;
+            next.do_move(ply.selected_move);
+            EXPECT_EQ(next, game.plies[i + 1].board);
+        }
+    }
+    EXPECT_EQ(game.result_white != 0.0f, game.termination == GameTermination::CHECKMATE);
 }

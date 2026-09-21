@@ -3,7 +3,7 @@
 #include "bears_chess/types.hpp"
 #include "bears_chess/board.hpp"
 #include "bears_chess/score.hpp"
-#include "bears_chess/mcts/evaluator.hpp"
+#include "bears_chess/mcts/evaluation.hpp"
 
 #include <optional>
 #include <cmath>
