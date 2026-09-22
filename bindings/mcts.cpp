@@ -153,6 +153,7 @@ void bind_mcts(nb::module_& m) {
           .def_ro("moves", &MCTSResult::moves)
           .def_ro("simulations", &MCTSResult::simulations)
           .def_ro("state_value", &MCTSResult::state_value)
+          .def_ro("eval_value", &MCTSResult::eval_value)
           .def_prop_ro("best_move", &MCTSResult::best_move);
 
     nb::enum_<GameTermination>(m, "GameTermination")

@@ -24,7 +24,8 @@ struct MCTSOptions {
 struct MCTSResult {
     std::vector<MCTSRootStats> moves;
     size_t simulations;
-    float state_value{0};  // a.k.a. V
+    float state_value{0};  // simulated V
+    float eval_value{0};   // evaluation V
 
     std::optional<Move> best_move() const {
         if (moves.empty()) {
@@ -69,15 +70,17 @@ public:
         tree.reset();
         tree.reserve(simulations);
 
+        float eval_value = 0.0f;
         {
             // initialize the root node
             auto [moves, in_check] = generate_moves_and_check<LegalPolicy>(board);
             if (moves.empty()) {
                 bool checkmate = in_check;
                 float reward = checkmate ? CHECKMATE_REWARD : DRAW_REWARD;
-                return {{}, 0, reward};
+                return {{}, 0, reward, reward};
             }
             EvalResult eval_result = evaluate_one(evaluator, board, moves);
+            eval_value = eval_result.value;
             tree.expand(std::nullopt, moves, eval_result.priors);
             if (options.dirichlet_epsilon > 0.0f) {
                 tree.add_root_noise(dirichlet_noise(moves.size()).view(), options.dirichlet_epsilon);
@@ -137,7 +140,8 @@ public:
         return {
             tree.root_stats(),
             num_sims,
-            tree.root_value()
+            tree.root_value(),
+            eval_value
         };
     }
 

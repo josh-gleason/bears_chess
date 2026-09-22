@@ -19,6 +19,10 @@ nanobind_add_module(bears_chess_py
     encoding.cpp
 )
 target_link_libraries(bears_chess_py PRIVATE bears_chess)
+if(BUILD_TORCH_EVALUATOR)
+    target_link_libraries(bears_chess_py PRIVATE bears_chess_torch)
+    target_compile_definitions(bears_chess_py PRIVATE BEARS_CHESS_HAS_TORCH)
+endif()
 set_target_properties(bears_chess_py PROPERTIES
     OUTPUT_NAME bears_chess
 )
