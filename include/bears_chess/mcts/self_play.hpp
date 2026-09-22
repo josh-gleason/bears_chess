@@ -2,12 +2,14 @@
 
 #include "bears_chess/mcts/search.hpp"
 #include "bears_chess/repetition.hpp"
+#include "bears_chess/board_utils.hpp"
 
 #include <stop_token>
 #include <random>
 #include <algorithm>
 #include <vector>
 #include <cmath>
+#include <stdfloat>
 
 namespace bears_chess {
 
@@ -34,10 +36,92 @@ struct SelfPlayPly {
     Move selected_move;
 };
 
+struct SelfPlayRecord {
+    std::string start_fen;
+    std::vector<uint16_t> played_moves;
+    std::vector<uint32_t> ply_offsets;
+
+    std::vector<uint16_t> visited_moves;
+    std::vector<float> visited_priors;
+    std::vector<uint32_t> visited_visits;
+    std::vector<float> visited_qs;
+
+    float result_white{0.0f};
+    GameTermination termination{GameTermination::PLY_LIMIT};
+};
+
 struct SelfPlayGame {
     std::vector<SelfPlayPly> plies;
     float result_white{0.0f};
     GameTermination termination{GameTermination::PLY_LIMIT};
+
+    SelfPlayRecord record() const {
+        SelfPlayRecord out;
+        out.start_fen = plies.empty() ? std::string{} : get_fen(plies.front().board);
+        out.result_white = result_white;
+        out.termination = termination;
+        
+        out.ply_offsets.reserve(plies.size() + 1);
+        out.played_moves.reserve(plies.size());
+        out.visited_moves.reserve(plies.size() * 20);
+        out.visited_priors.reserve(plies.size() * 20);
+        out.visited_visits.reserve(plies.size() * 20);
+        out.visited_qs.reserve(plies.size() * 20);
+
+        out.ply_offsets.push_back(0);
+        for (const SelfPlayPly& ply : plies) {
+            out.played_moves.push_back(pack_move(ply.selected_move));
+            for (const MCTSRootStats& s : ply.stats) {
+                out.visited_moves.push_back(pack_move(s.move));
+                out.visited_priors.push_back(s.prior);
+                out.visited_visits.push_back(s.visits);
+                out.visited_qs.push_back(s.q);
+            }
+            out.ply_offsets.push_back(static_cast<uint32_t>(out.visited_moves.size()));
+        }
+        return out;
+    }
+
+    static SelfPlayGame from_record(const SelfPlayRecord& record) {
+        assert(record.played_moves.size() + 1 == record.ply_offsets.size());
+        assert(record.visited_moves.size() == record.visited_priors.size());
+        assert(record.visited_priors.size() == record.visited_visits.size());
+        assert(record.visited_visits.size() == record.visited_qs.size());
+
+        SelfPlayGame game{{}, record.result_white, record.termination};
+        Board board = load_fen(record.start_fen);
+        uint32_t k = 0;
+        for (size_t i = 0; i < record.played_moves.size(); ++i) {
+            SelfPlayPly ply{board, {}, unpack_move(record.played_moves[i])};
+            assert(record.ply_offsets[i + 1] <= record.visited_moves.size());
+            while (k < record.ply_offsets[i + 1]) {
+                ply.stats.push_back(MCTSRootStats{
+                    unpack_move(record.visited_moves[k]),
+                    record.visited_priors[k],
+                    record.visited_visits[k],
+                    record.visited_qs[k]
+                });
+                ++k;
+            }
+            board.do_move(ply.selected_move);
+            game.plies.push_back(std::move(ply));
+        }
+        return game;
+    }
+
+private:
+    static constexpr uint16_t pack_move(const Move& move) {
+        assert(!move.is_none());
+        return static_cast<uint16_t>((idx(move.from) << 10) | (idx(move.to) << 4) | idx(move.move_type));
+    }
+
+    static constexpr Move unpack_move(uint16_t packed) {
+        return Move{
+            static_cast<Square>(packed >> 10),
+            static_cast<Square>((packed >> 4) & 0x3F),
+            static_cast<MoveType>(packed & 0xF)
+        };
+    }
 };
 
 class SelfPlay {

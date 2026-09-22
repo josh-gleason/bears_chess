@@ -20,6 +20,11 @@ Board::Board() :
         for (Piece p : iter<Piece>)
             pieces[idx(c)][idx(p)] = Bitboard::EMPTY;
 
+    for (Square s : iter<Square>) {
+        last_piece_sq[idx(s)] = Piece::NONE;
+        last_color_sq[idx(s)] = Color::NONE;
+    }
+
     // Rank 1
     place(Color::WHITE, Piece::ROOK, Square::A1);
     place(Color::WHITE, Piece::KNIGHT, Square::B1);
