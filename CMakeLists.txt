@@ -52,6 +52,35 @@ FetchContent_Declare(
 
 FetchContent_MakeAvailable(spdlog)
 
+# torch
+
+option(BUILD_TORCH_EVALUATOR "Build TorchScript evaluator (Requires Python torch package)" OFF)
+
+if(BUILD_TORCH_EVALUATOR)
+    find_package(Python 3.10 COMPONENTS Interpreter REQUIRED)
+    execute_process(
+        COMMAND ${Python_EXECUTABLE} -c "import torch, os; print(os.path.dirname(torch.__file__), end='')"
+        OUTPUT_VARIABLE TORCH_DIR
+        RESULT_VARIABLE TORCH_QUERY_FAILED
+    )
+    if(TORCH_QUERY_FAILED)
+        message(FATAL_ERROR "BUILD_TORCH_EVALUATOR is ON but 'import torch' failed for ${Python_EXECUTABLE}")
+    endif()
+
+    add_library(torch_runtime INTERFACE)
+    target_include_directories(torch_runtime SYSTEM INTERFACE
+        ${TORCH_DIR}/include
+        ${TORCH_DIR}/include/torch/csrc/api/include
+    )
+    target_compile_definitions(torch_runtime INTERFACE _GLIBCXX_USE_CXX11_ABI=1)
+    target_link_directories(torch_runtime INTERFACE ${TORCH_DIR}/lib)
+    target_link_options(torch_runtime INTERFACE -Wl,--no-as-needed -Wl,-rpath,${TORCH_DIR}/lib)
+    target_link_libraries(torch_runtime INTERFACE torch torch_cpu c10)
+    if(EXISTS ${TORCH_DIR}/lib/libtorch_cuda.so)
+        target_link_libraries(torch_runtime INTERFACE torch_cuda c10_cuda)
+    endif()
+endif()
+
 # add subdirs
 
 add_subdirectory(src)

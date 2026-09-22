@@ -8,6 +8,7 @@
 
 #include <stop_token>
 #include <random>
+#include <utility>
 
 namespace bears_chess {
 
@@ -45,7 +46,16 @@ class MCTS {
 public:
     MCTS(EvaluatorClass evaluator_, MCTSOptions options_) :
         evaluator(std::move(evaluator_)),
-        options(std::move(options_)),
+        options(options_),
+        tree(options.c_puct, options.max_ply),
+        rng(options.seed)
+    {}
+
+    // optional constructor to build evaluator in place
+    template <typename... Args>
+    MCTS(MCTSOptions options_, std::in_place_t, Args&&... args) :
+        evaluator(std::forward<Args>(args)...),
+        options(options_),
         tree(options.c_puct, options.max_ply),
         rng(options.seed)
     {}

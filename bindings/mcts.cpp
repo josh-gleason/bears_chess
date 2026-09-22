@@ -2,6 +2,9 @@
 #include "board.hpp"
 
 #include <bears_chess/mcts.hpp>
+#ifdef BEARS_CHESS_HAS_TORCH
+#include <bears_chess/mcts/torch_evaluator.hpp>
+#endif
 
 #include <mutex>
 
@@ -11,27 +14,14 @@ using namespace bears_chess;
 
 namespace bears_chess_py {
 
-class PyUniformMCTS {
+template <Evaluator E>
+class PyMCTS {
 public:
-    PyUniformMCTS(
-        float c_puct,
-        int max_ply,
-        int batch_size,
-        float dirichlet_alpha,
-        float dirichlet_epsilon,
-        uint64_t seed
-    ) :
-        mcts(
-            UniformEvaluator{},
-            MCTSOptions{
-                c_puct,
-                max_ply,
-                batch_size,
-                dirichlet_alpha,
-                dirichlet_epsilon,
-                seed
-            })
-    {}
+    PyMCTS(E evaluator, MCTSOptions options) : mcts(std::move(evaluator), options) {}
+
+    template <typename... Args>
+    PyMCTS(MCTSOptions options, std::in_place_t, Args&&... args)
+        : mcts(options, std::in_place, std::forward<Args>(args)...) {}
 
     template <typename F>
     auto run_locked(F&& f) {
@@ -51,7 +41,7 @@ public:
     }
 
     MCTSResult go(const PyBoard& board, size_t simulations) {
-        return run_locked([this, &board, simulations](MCTS<UniformEvaluator>& m, std::stop_token token) {
+        return run_locked([&board, simulations](MCTS<E>& m, std::stop_token token) {
             return m.go(token, board.c_board(), board.hash_history(), simulations);
         });
     }
@@ -62,14 +52,19 @@ public:
     }
 
 private:
-    MCTS<UniformEvaluator> mcts;
+    MCTS<E> mcts;
     std::mutex go_mutex;
     std::mutex stop_mutex;
     std::stop_source stop_source;
 };
 
+using PyUniformMCTS = PyMCTS<UniformEvaluator>;
+#ifdef BEARS_CHESS_HAS_TORCH
+using PyTorchMCTS = PyMCTS<TorchEvaluator>;
+#endif
+
 class PySelfPlay {
-public: 
+public:
     PySelfPlay(
         size_t simulations,
         int temperature_plies,
@@ -78,10 +73,11 @@ public:
         uint64_t seed
     ) : self_play(SelfPlayOptions{simulations, temperature_plies, temperature, max_plies, seed})
     {}
-    
-    SelfPlayGame play(PyUniformMCTS& mcts, const PyBoard& board) {
+
+    template <Evaluator E>
+    SelfPlayGame play(PyMCTS<E>& mcts, const PyBoard& board) {
         return mcts.run_locked(
-            [this, &board](MCTS<UniformEvaluator>& m, std::stop_token token) {
+            [this, &board](MCTS<E>& m, std::stop_token token) {
                 return self_play.play(m, board.c_board(), token);
             }
         );
@@ -91,19 +87,61 @@ private:
     SelfPlay self_play;
 };
 
+static MCTSOptions make_options(
+    float c_puct, int max_ply, int batch_size, float dirichlet_alpha, float dirichlet_epsilon, uint64_t seed
+) {
+    return MCTSOptions{c_puct, max_ply, batch_size, dirichlet_alpha, dirichlet_epsilon, seed};
+}
+
 void bind_mcts(nb::module_& m) {
     nb::class_<PyUniformMCTS>(m, "UniformMCTS")
-        .def(nb::init<float, int, int, float, float, uint64_t>(),
+        .def("__init__",
+            [](PyUniformMCTS* self,
+                float c_puct, int max_ply, int batch_size, float dirichlet_alpha, float dirichlet_epsilon,
+                uint64_t seed
+            ) {
+                new (self) PyUniformMCTS(
+                    make_options(c_puct, max_ply, batch_size, dirichlet_alpha, dirichlet_epsilon, seed),
+                    std::in_place
+                );
+            },
             nb::arg("c_puct") = MCTSOptions{}.c_puct,
             nb::arg("max_ply") = MCTSOptions{}.max_ply,
             nb::arg("batch_size") = MCTSOptions{}.batch_size,
             nb::arg("dirichlet_alpha") = MCTSOptions{}.dirichlet_alpha,
             nb::arg("dirichlet_epsilon") = MCTSOptions{}.dirichlet_epsilon,
             nb::arg("seed") = MCTSOptions{}.seed)
-        .def("go", &PyUniformMCTS::go,
-            nb::arg("board"),
-            nb::arg("simulations"))
+        .def("go", &PyUniformMCTS::go, nb::arg("board"), nb::arg("simulations"))
         .def("stop", &PyUniformMCTS::stop);
+
+#ifdef BEARS_CHESS_HAS_TORCH
+    nb::class_<PyTorchMCTS>(m, "TorchMCTS")
+        .def("__init__",
+            [](PyTorchMCTS* self,
+                const std::string& package_path, const std::string& device, int threads,
+                float c_puct, int max_ply, int batch_size, float dirichlet_alpha, float dirichlet_epsilon,
+                uint64_t seed
+            ) {
+                new (self) PyTorchMCTS(
+                    make_options(c_puct, max_ply, batch_size, dirichlet_alpha, dirichlet_epsilon, seed),
+                    std::in_place, package_path, device, threads
+                );
+            },
+            nb::arg("package_path"),
+            nb::arg("device") = "cpu",
+            nb::arg("threads") = 1,
+            nb::arg("c_puct") = MCTSOptions{}.c_puct,
+            nb::arg("max_ply") = MCTSOptions{}.max_ply,
+            nb::arg("batch_size") = MCTSOptions{}.batch_size,
+            nb::arg("dirichlet_alpha") = MCTSOptions{}.dirichlet_alpha,
+            nb::arg("dirichlet_epsilon") = MCTSOptions{}.dirichlet_epsilon,
+            nb::arg("seed") = MCTSOptions{}.seed)
+        .def("go", &PyTorchMCTS::go, nb::arg("board"), nb::arg("simulations"))
+        .def("stop", &PyTorchMCTS::stop);
+    m.attr("HAS_TORCH") = true;
+#else
+    m.attr("HAS_TORCH") = false;
+#endif
 
     nb::class_<MCTSRootStats>(m, "RootMoveStats")
           .def_ro("move", &MCTSRootStats::move)
@@ -142,7 +180,11 @@ void bind_mcts(nb::module_& m) {
             nb::arg("temperature") = SelfPlayOptions{}.temperature,
             nb::arg("max_plies") = SelfPlayOptions{}.max_plies,
             nb::arg("seed") = SelfPlayOptions{}.seed)
-        .def("play", &PySelfPlay::play, nb::arg("mcts"), nb::arg("board"));
+        .def("play", &PySelfPlay::play<UniformEvaluator>, nb::arg("mcts"), nb::arg("board"))
+#ifdef BEARS_CHESS_HAS_TORCH
+        .def("play", &PySelfPlay::play<TorchEvaluator>, nb::arg("mcts"), nb::arg("board"))
+#endif
+        ;
 }
 
 } // bears_chess_py

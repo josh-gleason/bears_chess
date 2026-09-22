@@ -15,6 +15,14 @@ set(SOURCES
     encoding.cpp
 )
 
+if(BUILD_TORCH_EVALUATOR)
+    add_library(
+        bears_chess_torch
+        torch_evaluator.cpp
+    )
+    target_link_libraries(bears_chess_torch PUBLIC bears_chess torch_runtime)
+endif()
+
 add_library(bears_chess ${SOURCES})
 
 target_include_directories(bears_chess

@@ -22,31 +22,42 @@
                 "CMAKE_CXX_FLAGS": "-Wunused-variable",
                 "BUILD_TESTING": "ON",
                 "BUILD_PYTHON_BINDINGS": "ON"
+            },
+            "binaryDir": "${sourceDir}/build/${presetName}"
+        },
+        {
+            "name": "torch",
+            "hidden": true,
+            "cacheVariables": {
+                "CONDA_PREFIX": "/home/gleason/miniforge3/envs/bears_chess",
+                "CUDAToolkit_ROOT": "/home/gleason/miniforge3/envs/bears_chess",
+                "CUDA_TOOLKIT_ROOT_DIR": "/home/gleason/miniforge3/envs/bears_chess",
+                "BUILD_TORCH_EVALUATOR": "ON"
             }
         },
         {
             "name": "rel-with-deb-info",
             "inherits": "common",
-            "binaryDir": "${sourceDir}/build/${presetName}",
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "RelWithDebInfo"
             }
         },
+        { "name": "rel-with-deb-info-torch", "inherits": ["rel-with-deb-info", "torch"] },
         {
             "name": "release",
             "inherits": "common",
-            "binaryDir": "${sourceDir}/build/${presetName}",
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Release"
             }
         },
+        { "name": "release-torch", "inherits": ["release", "torch"] },
         {
             "name": "debug",
             "inherits": "common",
-            "binaryDir": "${sourceDir}/build/${presetName}",
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Debug"
             }
-        }
+        },
+        { "name": "debug-torch", "inherits": ["debug", "torch"] }
     ]
 }
